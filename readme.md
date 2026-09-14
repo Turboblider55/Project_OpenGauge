@@ -18,7 +18,7 @@
 
 ---
 
-![OpenGauge Hero Banner](docs/images/dashnode_hero_banner.png)
+![OpenGauge Hero Banner](docs/00_images/dashnode_hero_banner.png)
 *<p align="center">OpenGauge — bridging your vehicle's CAN bus to a dashboard-mounted circular telemetry display.</p>*
 
 ---
@@ -38,9 +38,9 @@ The result is a modular, extensible, and automotive-grade telemetry platform sui
 
 | System Architecture | Circular Gauge UI |
 |:---:|:---:|
-| ![System Hardware Architecture Diagram](docs/images/system_architecture_diagram.png) | ![Circular Gauge LVGL UI Mockup](docs/images/circular_gauge_ui.png) |
+| ![System Hardware Architecture Diagram](docs/00_images/system_architecture_diagram.png) | ![Circular Gauge LVGL UI Mockup](docs/00_images/circular_gauge_ui.png) |
 
-![OBD Dongle KiCad 3D PCB Render](docs/images/obd_dongle_pcb_3d.png)
+![OBD Dongle KiCad 3D PCB Render](docs/00_images/obd_dongle_pcb_3d.png)
 *<p align="center">Node 1 — OBD Acquisition Dongle, 2-layer PCB, KiCad 8 3D render.</p>*
 
 ---
