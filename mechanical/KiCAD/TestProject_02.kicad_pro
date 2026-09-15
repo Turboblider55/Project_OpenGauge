@@ -661,7 +661,7 @@
         "uuid": "7255cca5-8951-4933-ab1b-c278e0bd5ab4"
       }
     ],
-    "used_designators": "U1-4,L1,#PWR1-26,#FLG1,R1-13,J1-2,SW1-2,C6B1,EN1,C1-10,RST1,F1,D1-9,C4A1,C4B1,C6A1",
+    "used_designators": "U1-4,L1,#PWR1-31,#FLG1-3,R1-13,J1-2,SW1-2,C6B1,EN1,C1-10,RST1,F1,D1-9,C4A1,C4B1,BTN2,C6A1,BOOT1,PWR_TEST_BTN1",
     "variants": []
   },
   "sheets": [
