@@ -5536,7 +5536,7 @@
 	)
 	(text "Switch to test\n3v3 power rail"
 		(exclude_from_sim no)
-		(at 112.268 164.084 0)
+		(at 117.602 163.83 0)
 		(effects
 			(font
 				(size 1.016 1.016)
