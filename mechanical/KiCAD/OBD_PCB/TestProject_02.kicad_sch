@@ -12498,7 +12498,7 @@
 				)
 			)
 		)
-		(property "Footprint" "C-OBD-II-16M:COMTECH_C-OBD-II-16M"
+		(property "Footprint" "custom_library:COMTECH_C-OBD-II-16M"
 			(at 39.37 132.08 0)
 			(hide yes)
 			(show_name no)
