@@ -1,3 +1,4 @@
 (fp_lib_table
 	(version 7)
+	(lib (name "C-OBD-II-16M") (type "KiCad") (uri "C:/Users/Acrob/Desktop/C-OBD-II-16M") (options "") (descr ""))
 )

@@ -3839,7 +3839,7 @@
 			)
 		)
 	)
-	(footprint "custom_library:COMTECH_C-OBD-II-16M"
+	(footprint "C-OBD-II-16M:COMTECH_C-OBD-II-16M"
 		(layer "F.Cu")
 		(uuid "785dbcf5-9c4b-4db0-b8a7-7a8059bbce4e")
 		(at 52.6 96)
@@ -3892,7 +3892,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "6d17e018-c696-42d0-889e-82494f442c21")
+			(uuid "4e3c909c-4afa-4156-9677-76b374f2b319")
 			(effects
 				(font
 					(size 1 1)
@@ -3905,7 +3905,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "65fc446c-30e9-47c4-a83a-520fee679cbc")
+			(uuid "6d338edf-c19e-4acf-b1fd-51851fe5e1be")
 			(effects
 				(font
 					(size 1 1)
@@ -3918,7 +3918,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "70df8dab-60ff-4c8e-8f87-b9012675c7fb")
+			(uuid "8c90fd0c-b039-4d3a-9c34-409419459529")
 			(effects
 				(font
 					(size 1 1)
@@ -3931,7 +3931,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "8d9f01b1-11fd-4db4-b971-d37cbc76515e")
+			(uuid "e8db5efd-1693-4b43-9131-68651f35a836")
 			(effects
 				(font
 					(size 1 1)
@@ -3944,7 +3944,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "1fa04084-6d8f-4136-9c59-e01f34755802")
+			(uuid "23fd7677-ed5e-43c1-92be-b30affdf02a6")
 			(effects
 				(font
 					(size 1 1)
@@ -3957,7 +3957,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "4a509b28-b246-4726-8c22-ceb5c71584e4")
+			(uuid "49aa0719-5db4-4dd7-95c1-817a2d1f72b0")
 			(effects
 				(font
 					(size 1 1)
@@ -3970,7 +3970,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "85163b92-870e-44d4-bdde-915d664fa965")
+			(uuid "52b87947-68c6-424b-aa09-a60e7f272354")
 			(effects
 				(font
 					(size 1 1)
@@ -3983,7 +3983,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "ffd1185b-0534-44c9-a276-a4eec32ce031")
+			(uuid "4380e849-d79d-433f-b18a-efb2af173e79")
 			(effects
 				(font
 					(size 1 1)
@@ -3996,7 +3996,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "c0568361-c26d-4998-a596-aee493c62585")
+			(uuid "1e8cc4a7-3ac3-4a92-8ee4-b3c141bb2528")
 			(effects
 				(font
 					(size 1 1)
@@ -4009,7 +4009,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "ea3cb355-3524-4440-a85e-85cd935594b6")
+			(uuid "b842dd59-b2ea-4e30-9115-c47c15ca7573")
 			(effects
 				(font
 					(size 1 1)
@@ -4022,7 +4022,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "2208fc87-b914-481d-9a90-73f64c65719c")
+			(uuid "fa81e958-4f54-42ba-898f-59c58991540b")
 			(effects
 				(font
 					(size 1 1)
@@ -4418,7 +4418,7 @@
 			(uuid "112d0e12-e90e-40e6-82ac-7a3a240a35c4")
 		)
 		(embedded_fonts no)
-		(model "C:/Users/User/Documents/KiCad/10.0/custom_library/C-OBD-II-16M.step"
+		(model "C:/Users/Acrob/Desktop/C-OBD-II-16M/C-OBD-II-16M.step"
 			(offset
 				(xyz 0 0 -2.5)
 			)
@@ -11183,7 +11183,7 @@
 			(extension_height 0.58642)
 			(extension_offset 0.5)
 		)
-		(gr_text "47.85mm"
+		(gr_text "47,85mm"
 			(at 39.85 74.075 0)
 			(layer "F.Fab")
 			(uuid "161b5412-e85e-4943-90e0-cb2abf381a56")
@@ -11220,7 +11220,7 @@
 			(extension_height 0.58642)
 			(extension_offset 0.5)
 		)
-		(gr_text "80.1mm"
+		(gr_text "80,1mm"
 			(at 91.35 78.95 0)
 			(layer "F.Fab")
 			(uuid "1b95e5f1-2088-4bda-8c40-2d37d47d6bd0")
@@ -11258,7 +11258,7 @@
 			(extension_offset 0.5)
 			(keep_text_aligned yes)
 		)
-		(gr_text "29.2mm"
+		(gr_text "29,2mm"
 			(at 60.6 33.25 0)
 			(layer "F.Fab")
 			(uuid "47e9a218-2521-4275-a940-5f649796aca6")
@@ -11296,7 +11296,7 @@
 			(extension_offset 0.5)
 			(keep_text_aligned yes)
 		)
-		(gr_text "41.8mm"
+		(gr_text "41,8mm"
 			(at 66.6 122.85 0)
 			(layer "F.Fab")
 			(uuid "92dddc8a-a3ba-4702-82e6-1ff182acaf06")
@@ -11333,7 +11333,7 @@
 			(extension_height 0.58642)
 			(extension_offset 0.5)
 		)
-		(gr_text "11.15mm"
+		(gr_text "11,15mm"
 			(at 39.85 44.575 0)
 			(layer "F.Fab")
 			(uuid "9d746b70-a987-455e-8744-89d76d66d62f")
@@ -11370,7 +11370,7 @@
 			(extension_height 0.58642)
 			(extension_offset 0.5)
 		)
-		(gr_text "59.1mm"
+		(gr_text "59,1mm"
 			(at 96.35 68.45 0)
 			(layer "F.Fab")
 			(uuid "bb91f72b-8b63-4b85-8301-f1889edff673")
@@ -11408,7 +11408,7 @@
 			(extension_offset 0.5)
 			(keep_text_aligned yes)
 		)
-		(gr_text "11.8mm"
+		(gr_text "11,8mm"
 			(at 81.1 33.253553 0)
 			(layer "F.Fab")
 			(uuid "ea0e1e4a-562b-45b8-ab77-9eb9659ff939")

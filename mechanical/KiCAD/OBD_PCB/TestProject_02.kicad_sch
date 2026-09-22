@@ -12498,7 +12498,7 @@
 				)
 			)
 		)
-		(property "Footprint" "custom_library:COMTECH_C-OBD-II-16M"
+		(property "Footprint" "C-OBD-II-16M:COMTECH_C-OBD-II-16M"
 			(at 39.37 132.08 0)
 			(hide yes)
 			(show_name no)
@@ -13959,7 +13959,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100 nF"
+		(property "Value" "10 uF"
 			(at 140.97 33.0199 0)
 			(show_name no)
 			(do_not_autoplace no)
