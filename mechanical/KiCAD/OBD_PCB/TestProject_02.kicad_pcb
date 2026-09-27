@@ -365,7 +365,7 @@
 				)
 			)
 		)
-		(property "Value" "100 nF"
+		(property "Value" "10 uF"
 			(at 0 1.68 0)
 			(layer "F.Fab")
 			(uuid "4ab17f51-4ec3-4a04-82f4-5d2fccd59be1")
@@ -11183,7 +11183,7 @@
 			(extension_height 0.58642)
 			(extension_offset 0.5)
 		)
-		(gr_text "47,85mm"
+		(gr_text "47.85mm"
 			(at 39.85 74.075 0)
 			(layer "F.Fab")
 			(uuid "161b5412-e85e-4943-90e0-cb2abf381a56")
@@ -11220,7 +11220,7 @@
 			(extension_height 0.58642)
 			(extension_offset 0.5)
 		)
-		(gr_text "80,1mm"
+		(gr_text "80.1mm"
 			(at 91.35 78.95 0)
 			(layer "F.Fab")
 			(uuid "1b95e5f1-2088-4bda-8c40-2d37d47d6bd0")
@@ -11258,7 +11258,7 @@
 			(extension_offset 0.5)
 			(keep_text_aligned yes)
 		)
-		(gr_text "29,2mm"
+		(gr_text "29.2mm"
 			(at 60.6 33.25 0)
 			(layer "F.Fab")
 			(uuid "47e9a218-2521-4275-a940-5f649796aca6")
@@ -11296,7 +11296,7 @@
 			(extension_offset 0.5)
 			(keep_text_aligned yes)
 		)
-		(gr_text "41,8mm"
+		(gr_text "41.8mm"
 			(at 66.6 122.85 0)
 			(layer "F.Fab")
 			(uuid "92dddc8a-a3ba-4702-82e6-1ff182acaf06")
@@ -11333,7 +11333,7 @@
 			(extension_height 0.58642)
 			(extension_offset 0.5)
 		)
-		(gr_text "11,15mm"
+		(gr_text "11.15mm"
 			(at 39.85 44.575 0)
 			(layer "F.Fab")
 			(uuid "9d746b70-a987-455e-8744-89d76d66d62f")
@@ -11370,7 +11370,7 @@
 			(extension_height 0.58642)
 			(extension_offset 0.5)
 		)
-		(gr_text "59,1mm"
+		(gr_text "59.1mm"
 			(at 96.35 68.45 0)
 			(layer "F.Fab")
 			(uuid "bb91f72b-8b63-4b85-8301-f1889edff673")
@@ -11408,7 +11408,7 @@
 			(extension_offset 0.5)
 			(keep_text_aligned yes)
 		)
-		(gr_text "11,8mm"
+		(gr_text "11.8mm"
 			(at 81.1 33.253553 0)
 			(layer "F.Fab")
 			(uuid "ea0e1e4a-562b-45b8-ab77-9eb9659ff939")
