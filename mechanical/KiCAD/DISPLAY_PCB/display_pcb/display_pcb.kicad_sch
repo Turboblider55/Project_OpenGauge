@@ -7111,7 +7111,7 @@
 	)
 	(wire
 		(pts
-			(xy 254 92.71) (xy 254 95.25)
+			(xy 254 93.98) (xy 254 95.25)
 		)
 		(stroke
 			(width 0)
@@ -7981,7 +7981,7 @@
 	)
 	(wire
 		(pts
-			(xy 254 78.74) (xy 254 85.09)
+			(xy 254 78.74) (xy 254 86.36)
 		)
 		(stroke
 			(width 0)
@@ -11668,7 +11668,7 @@
 	)
 	(symbol
 		(lib_id "Device:R")
-		(at 254 88.9 0)
+		(at 254 90.17 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -11679,7 +11679,7 @@
 		(fields_autoplaced yes)
 		(uuid "4fb91a49-424c-4a81-866c-4fde4bfaab26")
 		(property "Reference" "R18"
-			(at 251.46 87.6299 0)
+			(at 251.46 88.8999 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11689,8 +11689,8 @@
 				(justify right)
 			)
 		)
-		(property "Value" "3K"
-			(at 251.46 90.1699 0)
+		(property "Value" "2.4K"
+			(at 251.46 91.4399 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11701,7 +11701,7 @@
 			)
 		)
 		(property "Footprint" "Resistor_SMD:R_0805_2012Metric"
-			(at 252.222 88.9 90)
+			(at 252.222 90.17 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11712,7 +11712,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 254 88.9 0)
+			(at 254 90.17 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11723,7 +11723,7 @@
 			)
 		)
 		(property "Description" "Resistor"
-			(at 254 88.9 0)
+			(at 254 90.17 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
