@@ -6153,7 +6153,7 @@
 		)
 		(uuid "7d05c73b-d4cc-4f9a-807b-adfa2b70f0fd")
 	)
-	(text "Changing the R18 resistor value\nwill change the charging amperage\n3K -> 400mA charge"
+	(text "R18 is the charging current resistor\nChanging it will change the chargint current\n2.4K -> 500mA charge"
 		(exclude_from_sim no)
 		(at 216.154 97.282 0)
 		(effects

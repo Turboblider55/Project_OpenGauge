@@ -1,0 +1,57 @@
+** Drc report for TestProject_02.kicad_pcb **
+** Created on 2026-10-05T22:14:01 **
+** Report includes: Errors, Warnings **
+
+** Found 10 DRC violations **
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1944 mm)
+    Rule: board setup constraints hole; error
+    @(84.3500 mm, 45.1800 mm): Pad B12 [GND] of J1 on F.Cu
+    @(84.0400 mm, 44.1050 mm): NPTH pad of J1
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1944 mm)
+    Rule: board setup constraints hole; error
+    @(77.9500 mm, 45.1800 mm): Pad A12 [GND] of J1 on F.Cu
+    @(78.2600 mm, 44.1050 mm): NPTH pad of J1
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1944 mm)
+    Rule: board setup constraints hole; error
+    @(77.9500 mm, 45.1800 mm): Pad B1 [GND] of J1 on F.Cu
+    @(78.2600 mm, 44.1050 mm): NPTH pad of J1
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1944 mm)
+    Rule: board setup constraints hole; error
+    @(84.3500 mm, 45.1800 mm): Pad A1 [GND] of J1 on F.Cu
+    @(84.0400 mm, 44.1050 mm): NPTH pad of J1
+[copper_edge_clearance]: Board edge clearance violation (board setup constraints edge clearance 0.5000 mm; actual 0.4500 mm)
+    Rule: board setup constraints edge; error
+    @(74.7000 mm, 50.1000 mm): Segment on Edge.Cuts
+    @(51.8900 mm, 51.0000 mm): Pad 1 [+3.3V] of U1 on F.Cu
+[copper_edge_clearance]: Board edge clearance violation (board setup constraints edge clearance 0.5000 mm; actual 0.4500 mm)
+    Rule: board setup constraints edge; error
+    @(74.7000 mm, 50.1000 mm): Segment on Edge.Cuts
+    @(69.3900 mm, 51.0000 mm): Pad 18 [unconnected-(U1-IO0-Pad18)] of U1 on F.Cu
+[starved_thermal]: Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)
+    Local override; error
+    @(46.5000 mm, 50.6000 mm): Zone 'GND' [GND] on F.Cu, B.Cu and 2 more, priority 0
+    @(78.5000 mm, 49.3250 mm): Pad 2 [GND] of U3 on F.Cu
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; warning
+    @(74.7000 mm, 50.1000 mm): Segment on Edge.Cuts
+    @(69.7500 mm, 43.7900 mm): Segment of U1 on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; warning
+    @(74.7000 mm, 50.1000 mm): Segment on Edge.Cuts
+    @(51.5400 mm, 50.3000 mm): Polygon of U1 on F.Silkscreen
+[lib_footprint_mismatch]: Footprint 'ESP32-C3-WROOM-02' does not match copy in library 'RF_Module'
+    Local override; warning
+    @(60.6400 mm, 57.0000 mm): Footprint U1
+
+** Found 0 unconnected pads **
+
+** Found 0 Footprint errors **
+
+** Ignored checks **
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **

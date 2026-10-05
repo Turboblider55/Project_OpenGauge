@@ -1,0 +1,56 @@
+** Drc report for display_pcb.kicad_pcb **
+** Created on 2026-10-05T15:17:45 **
+** Report includes: Errors, Warnings **
+
+** Found 10 DRC violations **
+[items_not_allowed]: Items not allowed (keepout area of U1)
+    Rule: keepout area of U1; error
+    @(115.3000 mm, 65.4000 mm): Footprint U1
+[clearance]: Clearance violation ( clearance 0.2000 mm; actual 0.1500 mm)
+    Local override; error
+    @(137.5000 mm, 80.1000 mm): Track [+3.3V] on In2.Cu, length 4.5000 mm
+    @(133.4000 mm, 80.8000 mm): Via [GND] on F.Cu - B.Cu
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1944 mm)
+    Rule: board setup constraints hole; error
+    @(111.6000 mm, 109.0140 mm): Pad B12 [GND] of J1 on F.Cu
+    @(111.9100 mm, 110.0890 mm): NPTH pad of J1
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1944 mm)
+    Rule: board setup constraints hole; error
+    @(118.0000 mm, 109.0140 mm): Pad B1 [GND] of J1 on F.Cu
+    @(117.6900 mm, 110.0890 mm): NPTH pad of J1
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1944 mm)
+    Rule: board setup constraints hole; error
+    @(118.0000 mm, 109.0140 mm): Pad A12 [GND] of J1 on F.Cu
+    @(117.6900 mm, 110.0890 mm): NPTH pad of J1
+[hole_clearance]: Hole clearance violation (board setup constraints hole clearance 0.2500 mm; actual 0.1944 mm)
+    Rule: board setup constraints hole; error
+    @(111.6000 mm, 109.0140 mm): Pad A1 [GND] of J1 on F.Cu
+    @(111.9100 mm, 110.0890 mm): NPTH pad of J1
+[copper_edge_clearance]: Board edge clearance violation (board setup constraints edge clearance 0.5000 mm; actual 0.4378 mm)
+    Rule: board setup constraints edge; error
+    @(114.8000 mm, 106.4040 mm): Arc on Edge.Cuts
+    @(119.1200 mm, 113.7690 mm): PTH pad SH [Net-(J1-SHIELD)] of J1
+[copper_edge_clearance]: Board edge clearance violation (board setup constraints edge clearance 0.5000 mm; actual 0.4378 mm)
+    Rule: board setup constraints edge; error
+    @(114.8000 mm, 106.4040 mm): Arc on Edge.Cuts
+    @(110.4800 mm, 113.7690 mm): PTH pad SH [Net-(J1-SHIELD)] of J1
+[copper_edge_clearance]: Board edge clearance violation (board setup constraints edge clearance 0.5000 mm; actual 0.3455 mm)
+    Rule: board setup constraints edge; error
+    @(114.7500 mm, 82.2040 mm): Arc on Edge.Cuts
+    @(124.0500 mm, 60.1400 mm): Pad 40 [GND] of U1 on F.Cu
+[lib_footprint_mismatch]: Footprint 'ESP32-S3-WROOM-1' does not match copy in library 'RF_Module'
+    Local override; warning
+    @(115.3000 mm, 65.4000 mm): Footprint U1
+
+** Found 0 unconnected pads **
+
+** Found 0 Footprint errors **
+
+** Ignored checks **
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **
