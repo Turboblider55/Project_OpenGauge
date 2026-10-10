@@ -8335,7 +8335,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "0.1 uF"
+		(property "Value" "100nF"
 			(at 157.48 33.0199 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9220,7 +9220,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
 			(at 132.08 84.582 90)
 			(hide yes)
 			(show_name no)
@@ -9772,7 +9772,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
 			(at 132.08 56.642 90)
 			(hide yes)
 			(show_name no)
@@ -10504,7 +10504,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "0.1 uF"
+		(property "Value" "100nF"
 			(at 71.12 157.4799 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13068,7 +13068,6 @@
 	(symbol
 		(lib_id "Device:R")
 		(at 265.43 138.43 270)
-		(mirror x)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -13098,8 +13097,8 @@
 				)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric"
-			(at 265.43 140.208 90)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
+			(at 265.43 136.652 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13739,7 +13738,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric"
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
 			(at 132.08 70.612 90)
 			(hide yes)
 			(show_name no)
@@ -14139,7 +14138,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10 uF"
+		(property "Value" "10uF"
 			(at 140.97 33.0199 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14381,7 +14380,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "0.1 uF"
+		(property "Value" "100nF"
 			(at 275.59 146.0499 0)
 			(show_name no)
 			(do_not_autoplace no)
