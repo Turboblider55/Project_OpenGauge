@@ -9174,6 +9174,10 @@
 				)
 			)
 		)
+		(property "LCSC" "C14860"
+		  (at 210.82 54.61 90)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "10uF"
 			(at 210.82 57.15 90)
 			(show_name no)
@@ -9412,6 +9416,10 @@
 				(justify right)
 			)
 		)
+		(property "LCSC" "C14860"
+		  (at 241.3 144.7799 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "10uF"
 			(at 241.3 147.3199 0)
 			(show_name no)
@@ -9493,6 +9501,10 @@
 				)
 				(justify left)
 			)
+		)
+		(property "LCSC" "C14860"
+		  (at 267.97 73.6599 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "10uF"
 			(at 267.97 76.1999 0)
@@ -9733,6 +9745,10 @@
 				(justify right)
 			)
 		)
+		(property "LCSC" "C1711"
+		  (at 134.62 176.5299 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "100nF"
 			(at 134.62 179.0699 0)
 			(show_name no)
@@ -9955,7 +9971,7 @@
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
@@ -10047,6 +10063,10 @@
 					(size 1.27 1.27)
 				)
 			)
+		)
+		(property "LCSC" "C269104"
+		  (at 62.23 127 90)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "Polyfuse"
 			(at 62.23 129.54 90)
@@ -10207,6 +10227,10 @@
 				)
 				(justify left)
 			)
+		)
+		(property "LCSC" "C17513"
+		  (at 222.25 74.9299 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "1K"
 			(at 222.25 77.4699 0)
@@ -10446,6 +10470,10 @@
 				)
 			)
 		)
+		(property "LCSC" "C23138"
+		  (at 190.5 120.65 90)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "330R"
 			(at 190.5 123.19 90)
 			(show_name no)
@@ -10525,6 +10553,10 @@
 					(size 1.27 1.27)
 				)
 			)
+		)
+		(property "LCSC" "C165948"
+		  (at 38.1 125.73 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "USB_C_Receptacle_USB2.0_16P"
 			(at 38.1 128.27 0)
@@ -10730,6 +10762,10 @@
 				(justify left)
 			)
 		)
+		(property "LCSC" "C17414"
+		  (at 162.56 163.8299 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "10K"
 			(at 162.56 166.3699 0)
 			(show_name no)
@@ -10891,6 +10927,10 @@
 				(justify left)
 			)
 		)
+		(property "LCSC" "C1711"
+		  (at 22.86 58.4199 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "100nF"
 			(at 22.86 60.9599 0)
 			(show_name no)
@@ -11051,6 +11091,10 @@
 				)
 			)
 		)
+		(property "LCSC" "C1710"
+		  (at 173.99 83.82 90)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "10nF"
 			(at 173.99 86.36 90)
 			(show_name no)
@@ -11115,7 +11159,7 @@
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
@@ -11208,6 +11252,10 @@
 				)
 			)
 		)
+		(property "LCSC" "C22775"
+		  (at 124.46 165.1 90)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "100R"
 			(at 124.46 167.64 90)
 			(show_name no)
@@ -11287,6 +11335,10 @@
 				)
 				(justify left)
 			)
+		)
+		(property "LCSC" "C16581"
+		  (at 243.4433 60.96 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "TP4056-42-ESOP8"
 			(at 244.7133 63.5 0)
@@ -11389,6 +11441,10 @@
 					(size 1.27 1.27)
 				)
 			)
+		)
+		(property "LCSC" "C2293"
+		  (at 180.0225 133.35 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "LED_B"
 			(at 180.0225 135.89 0)
@@ -11560,6 +11616,10 @@
 				)
 			)
 		)
+		(property "LCSC" "C25611"
+		  (at 166.37 83.82 90)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "100K"
 			(at 166.37 81.28 90)
 			(show_name no)
@@ -11640,6 +11700,10 @@
 				)
 				(justify right)
 			)
+		)
+		(property "LCSC" "C17526"
+		  (at 251.46 88.8999 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "2.4K"
 			(at 251.46 91.4399 0)
@@ -11959,6 +12023,10 @@
 				(justify left)
 			)
 		)
+		(property "LCSC" "C506792"
+		  (at 143.51 121.9199 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "Conn_01x18_Socket"
 			(at 143.51 124.4599 0)
 			(show_name no)
@@ -12089,6 +12157,10 @@
 				(justify left)
 			)
 		)
+		(property "LCSC" "C50131"
+		  (at 22.86 179.0699 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "4.7nF"
 			(at 22.86 181.6099 0)
 			(show_name no)
@@ -12170,6 +12242,10 @@
 				)
 				(justify right)
 			)
+		)
+		(property "LCSC" "C17513"
+		  (at 213.36 74.9299 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "1K"
 			(at 213.36 77.4699 0)
@@ -12253,6 +12329,10 @@
 				)
 				(justify right)
 			)
+		)
+		(property "LCSC" "C27834"
+		  (at 50.8 177.7999 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "5.1K"
 			(at 50.8 180.3399 0)
@@ -12414,6 +12494,10 @@
 				(justify left)
 			)
 		)
+		(property "LCSC" "C87996"
+		  (at 35.56 58.4199 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "22uF"
 			(at 35.56 60.9599 0)
 			(show_name no)
@@ -12495,6 +12579,10 @@
 				)
 				(justify left)
 			)
+		)
+		(property "LCSC" "C14860"
+		  (at 270.51 144.7799 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "10uF"
 			(at 270.51 147.3199 0)
@@ -12813,6 +12901,10 @@
 				(justify left)
 			)
 		)
+		(property "LCSC" "C2913201"
+		  (at 64.3733 54.61 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "ESP32-S3-WROOM-1"
 			(at 64.3733 57.15 0)
 			(show_name no)
@@ -13011,6 +13103,10 @@
 				)
 			)
 		)
+		(property "LCSC" "C23138"
+		  (at 190.5 107.95 90)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "330R"
 			(at 190.5 110.49 90)
 			(show_name no)
@@ -13090,6 +13186,10 @@
 					(size 1.27 1.27)
 				)
 			)
+		)
+		(property "LCSC" "C2480"
+		  (at 85.4075 123.19 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "SS14"
 			(at 85.4075 125.73 0)
@@ -13171,6 +13271,10 @@
 				)
 			)
 		)
+		(property "LCSC" "C14860"
+		  (at 85.09 143.51 90)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "10uF"
 			(at 85.09 146.05 90)
 			(show_name no)
@@ -13250,6 +13354,10 @@
 					(size 1.27 1.27)
 				)
 			)
+		)
+		(property "LCSC" "C25611"
+		  (at 151.13 83.82 90)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "100K"
 			(at 151.13 81.28 90)
@@ -13332,6 +13440,10 @@
 				)
 				(justify right)
 			)
+		)
+		(property "LCSC" "C2297"
+		  (at 212.09 68.8974 90)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "LED_G"
 			(at 212.09 71.4374 90)
@@ -13582,6 +13694,10 @@
 				)
 			)
 		)
+		(property "LCSC" "C2297"
+		  (at 180.0225 120.65 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "LED_G"
 			(at 180.0225 123.19 0)
 			(show_name no)
@@ -13753,6 +13869,10 @@
 				(justify left)
 			)
 		)
+		(property "LCSC" "C15127"
+		  (at 241.3 127.0001 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "AO3401A"
 			(at 241.3 124.4601 0)
 			(show_name no)
@@ -13839,6 +13959,10 @@
 					(size 1.27 1.27)
 				)
 			)
+		)
+		(property "LCSC" "C23138"
+		  (at 190.5 133.35 90)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "330R"
 			(at 190.5 135.89 90)
@@ -13998,6 +14122,10 @@
 					(size 1.27 1.27)
 				)
 			)
+		)
+		(property "LCSC" "C78401"
+		  (at 85.09 133.35 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "SMAJ5.0A"
 			(at 85.09 135.89 0)
@@ -14313,6 +14441,10 @@
 					(size 1.27 1.27)
 				)
 			)
+		)
+		(property "LCSC" "C485517"
+		  (at 255.27 133.35 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "TLV75733PDBV"
 			(at 255.27 135.89 0)
@@ -14873,6 +15005,10 @@
 				)
 			)
 		)
+		(property "LCSC" "C1711"
+		  (at 85.09 154.94 90)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "100nF"
 			(at 85.09 157.48 90)
 			(show_name no)
@@ -15066,6 +15202,10 @@
 				)
 			)
 		)
+		(property "LCSC" "C2480"
+		  (at 230.1875 133.35 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "SS14"
 			(at 230.1875 135.89 0)
 			(show_name no)
@@ -15225,6 +15365,10 @@
 				)
 			)
 		)
+		(property "LCSC" "C713480"
+		  (at 113.03 163.83 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "SW_MEC_5E"
 			(at 113.03 166.37 0)
 			(show_name no)
@@ -15311,6 +15455,10 @@
 				)
 				(justify left)
 			)
+		)
+		(property "LCSC" "C2827693"
+		  (at 75.3111 168.91 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "USBLC6-2P6"
 			(at 75.3111 171.45 0)
@@ -15409,6 +15557,10 @@
 				(justify left)
 			)
 		)
+		(property "LCSC" "C17927"
+		  (at 33.02 179.0699 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "1M"
 			(at 33.02 181.6099 0)
 			(show_name no)
@@ -15489,6 +15641,10 @@
 					(size 1.27 1.27)
 				)
 			)
+		)
+		(property "LCSC" "C84256"
+		  (at 180.0225 107.95 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "LED_R"
 			(at 180.0225 110.49 0)
@@ -15660,6 +15816,10 @@
 				(justify left)
 			)
 		)
+		(property "LCSC" "C17414"
+		  (at 121.92 158.7499 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "10K"
 			(at 121.92 161.2899 0)
 			(show_name no)
@@ -15741,6 +15901,10 @@
 					(size 1.27 1.27)
 				)
 			)
+		)
+		(property "LCSC" "C713480"
+		  (at 152.4 166.37 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "SW_MEC_5E"
 			(at 152.4 168.91 0)
@@ -15987,6 +16151,10 @@
 				(justify right)
 			)
 		)
+		(property "LCSC" "C84256"
+		  (at 223.52 68.8974 90)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "LED_R"
 			(at 223.52 71.4374 90)
 			(show_name no)
@@ -16159,6 +16327,10 @@
 				(justify right)
 			)
 		)
+		(property "LCSC" "C27834"
+		  (at 60.96 177.7999 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
+		)
 		(property "Value" "5.1K"
 			(at 60.96 180.3399 0)
 			(show_name no)
@@ -16317,6 +16489,10 @@
 					(size 1.27 1.27)
 				)
 			)
+		)
+		(property "LCSC" "C177225"
+		  (at 112.014 55.88 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "Conn_01x02_Pin"
 			(at 114.554 55.88 0)
@@ -16556,6 +16732,10 @@
 				)
 				(justify right)
 			)
+		)
+		(property "LCSC" "C25611"
+		  (at 226.06 147.3199 0)
+		  (effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Value" "100K"
 			(at 226.06 149.8599 0)

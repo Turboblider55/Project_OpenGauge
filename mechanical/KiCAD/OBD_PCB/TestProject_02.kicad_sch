@@ -8215,6 +8215,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C269104"
+			(at 64.77 25.4 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "f45fac0d-426c-4e40-a343-7f2f4a023d1e")
 		)
@@ -8297,6 +8308,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C17701"
+			(at 87.63 166.3699 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "0d8c9255-bffb-45db-bf62-e65e8e9ea37d")
 		)
@@ -8370,6 +8392,17 @@
 		)
 		(property "Description" "Unpolarized capacitor"
 			(at 153.67 31.75 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C1711"
+			(at 157.48 30.4799 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8773,6 +8806,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C17514"
+			(at 34.29 88.8999 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "aeea4758-adf2-45bc-a85f-d13ca79c6df1")
 		)
@@ -8847,6 +8891,17 @@
 		)
 		(property "Description" "Dual Line CAN Bus Protector, 24Vrwm"
 			(at 167.64 132.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C14486"
+			(at 173.99 130.8099 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9008,6 +9063,17 @@
 		)
 		(property "Description" "400W unidirectional Transient Voltage Suppressor, 24.0Vr, SMA(DO-214AC)"
 			(at 71.12 142.24 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C10769"
+			(at 71.12 135.89 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9244,6 +9310,17 @@
 		)
 		(property "Description" "Resistor"
 			(at 132.08 86.36 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C23138"
+			(at 132.08 80.01 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9668,7 +9745,7 @@
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
@@ -9805,6 +9882,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C23138"
+			(at 132.08 52.07 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "fe1ef288-a489-4e94-9e48-2ed4f4d3fc04")
 		)
@@ -9878,6 +9966,17 @@
 		)
 		(property "Description" "Resistor"
 			(at 259.08 133.35 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C17414"
+			(at 261.62 132.0799 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10037,6 +10136,17 @@
 		)
 		(property "Description" "Light emitting diode"
 			(at 121.92 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C2297"
+			(at 120.3325 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10298,6 +10408,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C2297"
+			(at 128.27 187.0074 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Sim.Pins" "1=K 2=A"
 			(at 124.46 186.69 0)
 			(hide yes)
@@ -10330,7 +10451,7 @@
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
@@ -10548,6 +10669,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C1590"
+			(at 71.12 154.9399 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "2"
 			(uuid "64c628f8-78b1-4c04-a6e9-1e2065dde11a")
 		)
@@ -10621,6 +10753,17 @@
 		)
 		(property "Description" "Unpolarized capacitor"
 			(at 97.79 173.99 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C29277"
+			(at 101.6 172.7199 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10868,6 +11011,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C1590"
+			(at 36.83 162.5599 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "2"
 			(uuid "99a759f1-3b68-48f0-8753-db8c1d359da6")
 		)
@@ -11020,6 +11174,17 @@
 		)
 		(property "Description" "CAN Bus Transceivers, 3.3V, 1Mbps,Ultra Low-Power capabilities, SOIC-8"
 			(at 139.7 119.38 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C129257"
+			(at 141.8433 109.22 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11199,6 +11364,17 @@
 		)
 		(property "Description" "802.11 b/g/n Wi­Fi and Bluetooth 5 module, ESP32­C3 SoC, RISC­V microprocessor, On-board antenna"
 			(at 168.91 66.675 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C2934560"
+			(at 171.0533 41.91 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11736,6 +11912,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C4310"
+			(at 121.92 177.7999 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "62fd15e8-b3aa-4822-937c-74a843c69d5d")
 		)
@@ -11818,6 +12005,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C1621"
+			(at 22.86 88.8999 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "07e0b838-f258-4477-9ef2-3c7681afe795")
 		)
@@ -11889,6 +12087,17 @@
 		)
 		(property "Description" "400W unidirectional Transient Voltage Suppressor, 5.0Vr, SMA(DO-214AC)"
 			(at 81.28 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C78401"
+			(at 81.28 27.94 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12059,6 +12268,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C17414"
+			(at 87.63 180.3399 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "9d22fd31-c1d6-45cf-bc93-e86902085a8b")
 		)
@@ -12131,6 +12351,17 @@
 		)
 		(property "Description" "3A, 4.5 to 28V Input, EMI Friendly integrated switch synchronous step-down regulator, pulse-skipping, SOT-23-6"
 			(at 53.34 160.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C311983"
+			(at 53.34 149.86 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12234,6 +12465,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C29277"
+			(at 113.03 172.7199 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "2"
 			(uuid "188a3b25-16e6-4b5c-90cc-93286d0bc61b")
 		)
@@ -12305,6 +12547,17 @@
 		)
 		(property "Description" "USB 2.0-only 16P Type-C Receptacle connector"
 			(at 39.37 58.42 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C165948"
+			(at 39.37 35.56 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12444,6 +12697,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C2827693"
+			(at 79.1211 50.8 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "6"
 			(uuid "3af8d276-c6b4-4b77-8bc2-495fefbae782")
 		)
@@ -12538,6 +12802,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C27834"
+			(at 59.69 86.3599 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "bdf054c5-b390-4b8d-b7a2-7435561642d8")
 		)
@@ -12619,6 +12894,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C2295"
+			(at 120.3325 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Sim.Pins" "1=K 2=A"
 			(at 121.92 86.36 0)
 			(hide yes)
@@ -12651,7 +12937,7 @@
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
-		(in_bom yes)
+		(in_bom no)
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
@@ -12968,6 +13254,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C3039694"
+			(at 22.86 162.5599 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "2"
 			(uuid "cd1a9fb4-58b2-4257-b607-f5f13c48da1c")
 		)
@@ -13050,6 +13347,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C17414"
+			(at 228.6 135.8899 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "c449218b-c8a4-4b2c-ae3b-5338460b515f")
 		)
@@ -13121,6 +13429,17 @@
 		)
 		(property "Description" "Resistor"
 			(at 265.43 138.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C22775"
+			(at 265.43 144.78 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13369,6 +13688,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C713480"
+			(at 217.17 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "2"
 			(uuid "6a7d21a2-bc44-40dc-9ab3-e495ab8948c4")
 		)
@@ -13455,6 +13785,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C8678"
+			(at 71.4375 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "2"
 			(uuid "8ce8399c-2e2a-4546-b032-9d1a8b06f830")
 		)
@@ -13526,6 +13867,17 @@
 		)
 		(property "Description" "Unpolarized capacitor"
 			(at 81.28 45.72 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C32635"
+			(at 81.28 38.1 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13771,6 +14123,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C23138"
+			(at 132.08 66.04 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "1"
 			(uuid "d3324941-c4a8-46e4-b574-56f60fabd15c")
 		)
@@ -13842,6 +14205,17 @@
 		)
 		(property "Description" "40V 1A Schottky Diode, SMA"
 			(at 81.28 24.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C2480"
+			(at 81.5975 17.78 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14088,6 +14462,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C2293"
+			(at 120.3325 78.74 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(property "Sim.Pins" "1=K 2=A"
 			(at 121.92 72.39 0)
 			(hide yes)
@@ -14182,6 +14567,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C32635"
+			(at 140.97 30.4799 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "2"
 			(uuid "0db72521-a123-4071-807f-2dff6b3ef1e3")
 		)
@@ -14255,6 +14651,17 @@
 		)
 		(property "Description" "Resistor"
 			(at 66.04 87.63 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C27834"
+			(at 68.58 86.3599 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14424,6 +14831,17 @@
 				)
 			)
 		)
+		(property "LCSC" "C1711"
+			(at 275.59 143.5099 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
 		(pin "2"
 			(uuid "a4d046b3-560a-479c-9732-b39e3a10eebe")
 		)
@@ -14496,6 +14914,17 @@
 		)
 		(property "Description" "MEC 5E single pole normally-open tactile switch"
 			(at 251.46 140.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C713480"
+			(at 251.46 130.81 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14582,6 +15011,17 @@
 		)
 		(property "Description" "Inductor"
 			(at 81.28 160.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C84608"
+			(at 81.28 154.94 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
