@@ -1,0 +1,89 @@
+================================================================================
+MŰSZAKI RÉSZLETEK ÉS TERVEZÉSI DOKUMENTÁCIÓ: ESP32-S3 INTELLIGENS KIJELZŐ CSOMÓPONT (DISPLAY NODE)
+================================================================================
+
+1. A RENDSZER CÉLJA ÉS ÁLTALÁNOS FUNKCIÓI
+- Feladat: Egy kör alakú, járműipari műszerfalba vagy szellőzőrácsba építhető digitális kiegészítő kijelző és beviteli modul.
+- Funkciók:
+  * Telemetriai adatok (fordulatszám, sebesség, vízhőfok, töltőnyomás) valós idejű megjelenítése analóg/digitális műszerórákon (LVGL grafikus motor).
+  * 2.4 GHz ESP-NOW vezeték nélküli vevő csomópont az OBD-II dongle felől érkező bináris adatcsomagok fogadására (<4 ms késleltetéssel).
+  * Bluetooth Low Energy (BLE) kapcsolat okostelefon felé (médiavezérlés, Spotify metaadatok, zene címe/előadója, lejátszás/szünet).
+  * Kapacitív érintésvezérlés (lapozás a képernyők között, menürendszer, médiavezérlő gombok).
+  * Hibrid tápellátás: Beépített 1S LiPo akkumulátor, USB-C töltés és automatikus veszteségmentes tápútválasztó (Power-Path).
+
+2. FŐBB ALKATRÉSZEK ÉS HARDVERARCHITEKTÚRA
+- Fővezérlő (U1): ESP32-S3-WROOM-1-N8R8
+  * Kétmagos Xtensa LX7 processzor @ 240 MHz.
+  * Memória: 8 MB Quad SPI Flash és 8 MB Octal SPI PSRAM.
+  * A PSRAM elengedhetetlen a kör kijelzőhöz: lehetővé teszi a 240x240 pixeles (vagy 360x360 / 480x480) 16 bites RGB565 kettős képkockapuffer (double buffering) RAM-ban tartását, megelőzve a képtörést (tearing) és a mikrovezérlő belső 512 kB SRAM-jának kimerülését.
+- Kijelző interfész (J2): 18-tűs, 0.5 mm osztású alsó érintkezős FPC csatlakozó (Hirose FH12-18S-0.5SH(55) / LCSC C506792).
+  * Támogatott panel: Waveshare 1.28" / 1.85" kerek érintőkijelző (GC9A01 vagy ST7789V meghajtó IC + CST816D kapacitív érintővezérlő).
+  * Busz típusok: 4-vezetékes SPI vagy nagysebességű QSPI + dedikált I2C sín az érintőpanelhez.
+- Tápfeszültség szabályozó (U5): Texas Instruments TLV75733PDBV (SOT-23-5, LCSC C485517).
+  * 3.3V rögzített kimenet, alacsony kiesési feszültség (Ultra-low Dropout: ~200 mV @ 1A).
+  * 1.0 A kimeneti áramkapacitás (stabilan kiszolgálja az ESP32-S3 RF áramtüskéit és a kijelző háttérvilágítását).
+- Akkumulátortöltő IC (U4): TP4056-42-ESOP8 (LCSC C16581) hűtőpados tokozásban.
+  * Töltőáram beállítása R_PROG ellenállással: R18 = 2.4 kOhm -> I_CHG ≈ 500 mA (biztonságos a kisméretű 500-1000 mAh LiPo cellákhoz).
+  * Töltési és készenléti állapot LED visszajelzés (D6 - Piros töltés alatt, D7 - Zöld feltöltve).
+- Veszteségmentes Tápút-kapcsoló (Power-Path Switching, Q1):
+  * AO3401A P-csatornás MOSFET (SOT-23, LCSC C15127).
+  * Schottky dióda (D8 - SS14) és 100 kOhm Gate lehúzó ellenállás.
+  * Működési elve:
+    - Ha az USB 5V csatlakoztatva van: Az 5V feszültség azonnal megjelenik a Gate lábon (V_GS = 0V vagy pozitív), a P-FET kikapcsol. A terhelést (U5 LDO) a Schottky diódán keresztül közvetlenül az USB látja el, miközben a TP4056 tölti az akkumulátort (nem meríti a cellát töltés közben).
+    - Ha az USB lecsatlakozik: A Gate lehúzódik a földre (100k-n keresztül), a P-FET bekapcsol, és a telepet veszteségmentesen (alacsony R_DS(on) ellenállással, <30 mOhm) rákapcsolja az LDO bemenetére.
+    - Átkapcsolási dinamika: A P-FET belső parazita testdiódája (body diode) azonnal (<10 ns) vezetni kezd a feszültség beesésekor, így a bemeneti kondenzátorok (10 uF + 22 uF) holdup idejével együtt (<100 us) a tápfeszültség nem esik a barna-kioldási küszöb (2.8V) alá, az ESP32-S3 nem indul újra.
+
+3. CSATLAKOZÓK ÉS LÁBKIOSZTÁS (PINOUT)
+- FPC Kijelző csatlakozó (J2):
+  * Pin 1, 16, 17, 18: GND (Földelés)
+  * Pin 2: VDD (+3.3V tápfeszültség a logikának és kijelzőnek)
+  * Pin 6: LCD_DC (Parancs / Adat kiválasztó láb)
+  * Pin 7: LCD_CS (Kijelző SPI chip select, aktív alacsony)
+  * Pin 8: LCD_CLK / SCLK (SPI órajel)
+  * Pin 9: LCD_DIN / MOSI (SPI adatvonal)
+  * Pin 10: LCD_RST (Kijelző hardveres reset)
+  * Pin 11: LCD_BL (Kijelző háttérvilágítás PWM fényerőszabályzás)
+  * Pin 12, 13: TP_SDA, TP_SCL (CST816D érintővezérlő I2C adat- és órajelvonal)
+  * Pin 14: TP_INT (Érintési megszakítás, ESP32 külső ébresztéshez)
+  * Pin 15: TP_RST (Érintővezérlő reset)
+  * MP (Mechanical Pads): Forrasztható mechanikai rögzítőfülek (lebegő, tehermentesítő funkció).
+- Akkumulátor csatlakozó (J5): Molex PicoBlade 2-pólusú SMD aljzat (1.25 mm osztás).
+  * Pin 1 (BTR+): Akkumulátor pozitív sarok (+3.7V - 4.2V).
+  * Pin 2 (BTR-): Közvetlenül a rendszer teliföldjére kötve (System GND), mivel a külső LiPo akkumulátor gyárilag tartalmaz beépített DW01A + kettős N-MOSFET védőáramkört a sárga kapton fólia alatt.
+- USB csatlakozó (J1): 16-tűs Type-C csatlakozó közvetlen USB-D+/D- bekötéssel az ESP32-S3 natív USB-JTAG/Serial interfészéhez, USBLC6-2P6 (U3) ESD túlfeszültség-védelemmel.
+
+4. MÉRETEZÉSI SZÁMÍTÁSOK ÉS ENERGIA-HÁZTARTÁS
+- Töltési áram számítása (TP4056):
+  * I_CHG = 1200 / R_PROG = 1200 / 2400 Ohm = 0.50 A = 500 mA.
+  * Töltési idő egy 1000 mAh akkumulátornál: t ≈ 1000 mAh / 500 mA * 1.2 (veszteség) ≈ 2.4 óra.
+- LDO disszipáció és hőtermelés (TLV75733):
+  * Bemenet akkumulátorról: V_IN = 3.7V, V_OUT = 3.3V, Delta_V = 0.4V.
+  * Terhelés: ESP32-S3 + Kijelző + Háttérvilágítás ≈ 250 mA átlagáram.
+  * Disszipált teljesítmény: P_loss = Delta_V * I_load = 0.4V * 0.25A = 0.10 W (100 mW).
+  * Hőmérséklet-emelkedés: SOT-23-5 tok Theta_JA ≈ 200 °C/W -> Delta_T = 0.1W * 200 = 20 °C (megbízhatóan a megengedett határokon belül).
+  * USB 5V üzemnél: Delta_V = 5.0V - 0.4V (diódán esés) - 3.3V = 1.3V -> P_loss = 1.3V * 0.25A = 0.325 W -> Delta_T ≈ 65 °C (az LDO hűtőpárnájának kialakítása kritikus!).
+- Tápfeszültség pufferelés áthidalási idő (Holdup Time) USB lecsatlakozáskor:
+  * Delta_t = (C_total * Delta_V_max) / I_load
+  * C_total = 10 uF (bemeneti MLCC) + 22 uF (kimeneti MLCC) = 32 uF.
+  * Megengedett feszültség-esés brownout előtt: Delta_V = 0.5V.
+  * Delta_t = (32 * 10^-6 F * 0.5V) / 0.15A = 106.6 mikroszekundum.
+  * Ez az időbővítés bőségesen lefedi az AO3401A MOSFET 50-80 mikroszekundumos bekapcsolási idejét.
+
+5. NYÁK KIALAKÍTÁS, RÉTEGSZERKEZET ÉS GYÁRTÁSI KIHÍVÁSOK
+- Kör alakú panelkontúr: Átmérőhöz igazított, lekerekített peremek, három darab M2-es rögzítőfurat (MH01, MH02, MH03) az elfordulásmentes házba illesztéshez.
+- Rétegszerkezet: JLCPCB 4-rétegű JLC04161H-7628 stackup (1.6 mm):
+  * L1 (Top): ESP32-S3, FPC csatlakozó, USB-C, LDO, TP4056, felületszerelt passzív elemek.
+  * L2 (In1): 100%-ban folytonos, vágatlan FÖLDSÍK (Solid GND). Biztosítja az impedancia-kontrollált nagyfrekvenciás jelek (QSPI órajel, USB D+/D-) visszatérő áramútját és árnyékolást.
+  * L3 (In2): Belső tápelosztó réteg (+5V USB, +V_BAT, +3.3V sín).
+  * L4 (Bottom): Nyomógombok (BOOT1, EN1) a teszteléshez, akkumulátor elhelyezési zóna (Keepout vonal: 40.5 x 30 mm felületen sík, alkatrészmentes felület a lapos cella felragasztására).
+- Gyártástechnológiai és tervezési kihívások:
+  * Via-in-Pad elkerülése: Minden via kivezetve a forrasztási párnák mellé a forrasztóón elszívódásának és a hidegforrasz / alkatrész-felbillenés (tombstoning) megelőzésére.
+  * Nagy integrációs sűrűség: A kis kör felület miatt a tápútválasztó MOSFET és a töltésvezérlő szorosan az FPC csatlakozó alá került.
+  * BTR- közvetlen földelése: A tervezés korai szakaszában felmerült külső védelem hiánya miatt a negatív sarok közvetlenül az In1 réteg teliföldjére kapcsolódik.
+  * EVQP2 gombok 5. mechanikai árnyékoló füle: A JLCPCB gyártás-ellenőrzés (DFM) során felmerült lebegő mechanikai láb jóváhagyása (elektromosan inaktív, forraszmaszkra fekszik fel).
+
+6. FELHASZNÁLÓI ÉS BEÜZEMELÉSI FIGYELMEZTETÉSEK
+- Akkumulátor polaritás ellenőrzése: A kereskedelmi LiPo akkumulátorok Molex csatlakozójának vezetéksorrendje gyártónként eltérhet! Az első csatlakoztatás előtt multiméterrel kötelező kimérni, hogy a piros vezeték csatlakozik-e a BTR+ padhoz. Szükség esetén a tűk a műanyag házból a biztosítófül felpattintásával megcserélendők.
+- Akkumulátor beépített védelme: Csak olyan 1S LiPo cella használható, amely gyárilag rendelkezik belső védőáramkörrel (túltöltés, mélykisülés, zárlatvédelem), mivel a PCB helyhiány miatt nem tartalmaz dedikált DW01A IC-t.
+- USB-C csatlakoztatás nagy terhelésnél: Ha a háttérvilágítás maximális fényerőn üzemel, az LDO disszipációja megnő; megfelelő szellőzés javasolt a burkolatban.
+================================================================================
