@@ -1,0 +1,90 @@
+================================================================================
+PROJEKT SZOFTVERES FUNKCIÓLISTA ÉS ARCHITEKTÚRA SPECIFIKÁCIÓ
+(OBD-II Wireless Telemetry Node + ESP32-S3 Display Node)
+================================================================================
+
+1. RENDSZER SZINTŰ ARCHITEKTÚRA ÉS KOMMUNIKÁCIÓS MODELL
+- Kétcsomópontos megosztott rendszer:
+  * 1. Csomópont (OBD-II Dongle / ESP32-C3): Adatgyűjtő és adó egység.
+  * 2. Csomópont (Display Node / ESP32-S3): Fogadó, feldolgozó és megjelenítő egység.
+- Vezeték nélküli gerinchálózat:
+  * ESP-NOW protokoll (2.4 GHz IEEE 802.11 vendor action frame-ek).
+  * Közvetlen pont-pont kapcsolat handshake és router nélkül (<4 ms késleltetés).
+  * 13 bájtos kompakt bináris adatcsomag (timestamp, RPM, sebesség, vízhőfok, fojtószelep, akkufeszültség, hibajelző flagek, CRC16).
+
+--------------------------------------------------------------------------------
+2. OBD-II DONGLE CSOMÓPONT (ESP32-C3) SZOFTVERFUNKCIÓI
+--------------------------------------------------------------------------------
+
+[F-OBD-01] TWAI (CAN 2.0B) Hardveres Meghajtó
+  - Belső TWAI periféria inicializálása 500 kbps buszsebességre (ISO 15765-4).
+  - 11 bites szabványos és 29 bites kiterjesztett azonosítók kezelése.
+  - Hardveres azonosítószűrés (csak a releváns ECU válaszok fogadása).
+
+[F-OBD-02] ISO-TP / OBD-II PID Lekérdező Állapotgép
+  - 0x7DF funkcionális broadcast lekérdezések periodikus küldése.
+  - Szerviz 01 PID táblázat ciklikus lekérése:
+    * 01 0C: Motor fordulatszám (RPM) -> ((256*A)+B)/4
+    * 01 0D: Járműsebesség (km/h) -> A
+    * 01 05: Hűtőfolyadék hőmérséklet (°C) -> A - 40
+    * 01 11: Fojtószelep állás (%) -> (100*A)/255
+  - Válasz timeoutok kezelése, csomagvesztés detektálása.
+
+[F-OBD-03] Transceiver Készenlét és Energiagazdálkodás
+  - SN65HVD231 módvezérlés (RS láb GPIO-ról):
+    * LOW: Normál nagysebességű kommunikáció üzemelő motornál.
+    * HIGH: Ultra-alacsony fogyasztású (<5 uA) készenlét álló motornál.
+  - Jármű key-off (leállított gyújtás) detektálása: ha a CAN forgalom megszűnik vagy az RPM tartósan 0, az ESP32-C3 deep sleep módba lép az autóakkumulátor védelmében.
+
+[F-OBD-04] Telemetria Csomagolás és ESP-NOW Adás
+  - Lekérdezett adatok validálása és bináris struktúrába rendezése.
+  - CRC16 ellenőrzőösszeg kiszámítása.
+  - Csomagküldés 40-50 Hz gyakorisággal a kijelző MAC címe felé.
+
+--------------------------------------------------------------------------------
+3. DISPLAY NODE CSOMÓPONT (ESP32-S3) SZOFTVERFUNKCIÓI
+--------------------------------------------------------------------------------
+
+[F-DISP-01] Kijelző Alacsony Szintű Meghajtás (GC9A01 / ST7789)
+  - Kerek kijelző panel regiszter-inicializálása SPI/QSPI buszon.
+  - DMA (Direct Memory Access) támogatású adatátvitel a CPU tehermentesítésére.
+  - Kijelző háttérvilágítás vezérlése (PWM alapú fényerőszabályzás).
+
+[F-DISP-02] LVGL Grafikus Keretrendszer Integráció
+  - LVGL 8 / 9 portolása az ESP-IDF / FreeRTOS környezetbe.
+  - Dupla képkockapuffer (Double Buffering) lefoglalása a külső 8 MB Octal PSRAM-ban.
+  - Flush callback megvalósítása a képtörésmentes (tearing-free) 40+ FPS frissítéshez.
+
+[F-DISP-03] CST816D Kapacitív Érintőképernyő Meghajtó
+  - I2C kommunikáció az érintésvezérlővel (TP_SDA, TP_SCL).
+  - Megszakítás alapú adatkiolvasás (TP_INT láb lefutó élre).
+  - Érintési koordináták és alapvető gesztusok (Swipe balra/jobbra/fel/le, Click) átadása az LVGL beviteli alrendszerének.
+
+[F-DISP-04] Felhasználói Felület (UI) és Műszerlapok
+  - Műszerfal nézet (Főképernyő):
+    * Körkörös analóg mutató és skála a fordulatszámhoz (RPM).
+    * Digitális számkijelzés a sebességhez (km/h).
+    * Állapotjelző ikonok: Hűtővíz figyelmeztetés, Check Engine (MIL flag).
+  - Másodlagos nézet (Érintéssel vagy swipe-pal váltható):
+    * Részletes telemetria: Akkumulátorfeszültség, fojtószelep állás, pontos vízhőfok.
+  - Média nézet (Harmadik képernyő):
+    * Zenelejátszó felület (Play/Pause, Előző/Következő szám, hangerő).
+
+[F-DISP-05] ESP-NOW Telemetria Vevő és Szűrő
+  - Bejövő adatcsomagok fogadása megszakításból (Wi-Fi Promiscuous / Action frame cb).
+  - CRC16 ellenőrzés; sérült csomagok eldobása.
+  - Adatok átadása szálbiztos módon (FreeRTOS Queue) a grafikus felület felé.
+  - Értékek szoftveres simítása (pl. mozgóátlag vagy aluláteresztő szűrő) a mutató egyenletes mozgásához.
+
+[F-DISP-06] Bluetooth Low Energy (BLE) Médiavezérlés
+  - BLE kapcsolat létesítése okostelefonnal.
+  - Standard médiavezérlő profil vagy Spotify API integráció:
+    * Zeneszám címe, előadója metaadatok kiolvasása és átadása az LVGL-nek.
+    * Lejátszásvezérlő parancsok visszaküldése érintés hatására.
+
+[F-DISP-07] Energiagazdálkodás és Telepfelügyelet
+  - Akkumulátorfeszültség periodikus mérése ADC-n keresztül.
+  - Töltöttségi szint (%-os) és töltési állapot megjelenítése a képernyő tetején.
+  - Automatikus fényerőcsökkentés inaktivitás esetén (timeout után).
+  - Alvó mód (Light Sleep / Deep Sleep) érintésre vagy OBD forgalomra történő ébresztéssel.
+================================================================================

@@ -5,8 +5,8 @@
 | Mező | Érték |
 |---|---|
 | Dokumentum azonosító | ES-OBD-TLM-001 |
-| Verzió / állapot | Rev. A – tervezői vázlat, felülvizsgálatra |
-| Dátum | 2026. október 7. |
+| Verzió / állapot | Dokumentum Rev. A.1 – a gyártásba adott NYÁK (TestProject_02) szerint frissítve |
+| Dátum | 2026. október 15. |
 | Termék | OBD-II interfész modul („OBD Node") ESP-NOW adatkapcsolattal |
 | Kapcsolódó egység | Körműszeres műszerfali kijelző („Display Node") |
 | Hatály | Hardver (kapcsolás, NYÁK, ház) és beágyazott firmware-architektúra |
@@ -23,7 +23,7 @@
 
 A projekt egy járműipari minőségű OBD-II interfészmodul tervezése, amely közvetlenül a jármű SAE J1962 diagnosztikai portjába csatlakozik. A modul az ISO 15765-4 szerinti nagysebességű CAN buszon (500 kbit/s) valós idejű motortelemetriai adatokat kérdez le (fordulatszám, sebesség, hűtővíz-hőmérséklet, fojtószelep-állás), majd ezeket alacsony késleltetésű, pont-pont 2,4 GHz-es vezeték nélküli kapcsolaton, ESP-NOW protokollal továbbítja egy körméretű műszerfali kijelzőhöz.
 
-A modul önálló egység: a tápellátását a diagnosztikai port 16-os kivezetéséről (VBAT) kapja, külön vezeték vagy akkumulátor nem szükséges. Firmware-frissítés és diagnosztikai naplózás a natív USB-Serial/JTAG interfészen keresztül lehetséges külső USB–soros illesztő IC nélkül.
+A modul önálló egység: a tápellátását a diagnosztikai port 16-os kivezetéséről (VBAT) kapja, külön vezeték vagy akkumulátor nem szükséges. Programozáshoz és hibakereséshez az USB-C csatlakozó (J1) is használható tápforrásként; a két forrás diódás VAGY kapcsolással (D8, D2) csatlakozik a konverter bemenetére (2.2). Firmware-frissítés és diagnosztikai naplózás a natív USB-Serial/JTAG interfészen keresztül lehetséges külső USB–soros illesztő IC nélkül.
 
 ## 1.2 Mérnöki indoklás: miért nem megfelelő az ELM327 és miért szükséges az ESP-NOW
 
@@ -58,10 +58,10 @@ Az ESP-NOW (Espressif) kapcsolatmentes, kis overhead-ű protokoll, amely IP-vere
                       +---------+-------------------+--------+
                                 |                   |
                         [TRANZIENS VÉDELEM]         |
-                       F1(PPTC) -> D1(SS14) -> D4(TVS) || C7                 
+              D4 (SMAJ24A) -> D8 (SS34) --+          |
+              USB-C: F1 -> D2 (SS14) -----+          |
                                 |                   |
-                         +12V védett                |
-                                |                   |
+                              VIN (4,5 ... 28 V)    |
                   +-------------v----+      +-------v--------+
                   |  TPS54302 BUCK   |      | SN65HVD231     |
                   |  400 kHz, L1=10uH|      | CAN transceiver|
@@ -87,13 +87,13 @@ Az ESP-NOW (Espressif) kapcsolatmentes, kis overhead-ű protokoll, amely IP-vere
 
 | Paraméter | Érték | Megjegyzés |
 |---|---|---|
-| Bemeneti tápfeszültség, folyamatos üzem | 6,5 V … 18 V | 12 V-os fedélzeti hálózat, töltés közben 14,4 V *[K]* |
+| Bemeneti tápfeszültség, folyamatos üzem | 6,5 V … 18 V (jármű); 5 V (USB-C) | 12 V-os fedélzeti hálózat, töltés közben 14,4 V; USB-ről csak mérsékelt terhelésig *[K]* |
 | Bemeneti tartomány, kiterjesztett | legfeljebb 24 V, rövid ideig (jump start, ≤ 60 s) | A D4 TVS állandó záróirányú feszültsége (VRWM = 24 V) határolja *[B]* |
-| Védelem | Fordított polaritás, PPTC, TVS | 2. fejezet *[T]* |
+| Védelem | Fordított polaritás (D8), TVS (D4), PPTC csak az USB-ágon (F1) | 2. fejezet *[T]*; a jármű oldali ágban nincs soros biztosíték |
 | Rendszerfeszültség | +3,3 V (3,296 V névleges) | TPS54302, R2/R3 osztó *[T]* |
 | Tervezési terhelhetőség (3,3 V sín) | 0,6 A | Az induktorméretezés alapja; az IC névleges 3 A-ével szemben bő tartalék *[T]* |
 | Átlagos áramfelvétel, aktív (ESP-NOW folyamatos küldés) | ≈ 30–40 mA @ 12 V | ≈ 100 mA @ 3,3 V átlag, η ≈ 85 % feltételezéssel *[B]* |
-| Csúcs áramfelvétel, aktív | ≤ 0,2 A @ 12 V (≤ 0,36 A @ 6,5 V) | Az F1 500 mA tartóáramán belül *[B]* |
+| Csúcs áramfelvétel, aktív | ≤ 0,2 A @ 12 V (≤ 0,36 A @ 6,5 V) | *[B]* |
 | Áramfelvétel alvó módban | cél: ≤ 1 mA @ 12 V | ESP32-C3 deep sleep + CAN standby (< 5 µA) + buck nyugalmi áram + visszacsatoló osztó *[B]* |
 | CAN adatsebesség | 500 kbit/s, 11 bites azonosítók | ISO 15765-4 *[K]* |
 | OBD válaszidő-limit | P2 ≤ 50 ms (szoftveres timeout) | ISO 15765-4 / 15031-5 *[K]* |
@@ -125,67 +125,85 @@ A járműfedélzeti hálózat a laboratóriumi 12 V-tól lényegesen zajosabb k�
 
 A CAN-busz oldalon a transzceiver és a vezérlő védelmét a transzceiver szabványos busz-túlfeszültség-tűrése adja (3. fejezet); a tápoldali védelem az alábbi lánc feladata.
 
-## 2.2 A védelmi lánc felépítése és működése
+## 2.2 A tápbemenet és a védelmi lánc felépítése és működése
 
-A tápág sorrendje a diagnosztikai port felől a konverter felé *[T]*:
+A modul két forrásból táplálható; a két Schottky-dióda (D8, D2) diódás VAGY kapcsolással fogja össze őket a TPS54302 VIN bemenetén *[T]*:
 
 ```
-J1962 Pin16 (VBAT) --> F1 (PPTC) --> D1 (SS14) --+--> +12V_PROT --> C7 --> TPS54302 VIN
-                                                 |
-                                                 +--> D4 (SMAJ24A) --> GND
+J1962 Pin16 (VBAT) --+--> D8 (SS34) -----------+
+                     |                         +--> VIN --> C4A1, C4B1 --> TPS54302
+                     +--> D4 (SMAJ24A) --> GND |
+                                               |
+USB-C VBUS --> F1 (PPTC) --+--> D2 (SS14) -----+
+                           +--> D1 (SMAJ5.0A) --> GND     (C7 = 10 uF a VBUS-on)
 ```
 
-A testelés a 4-es (Chassis GND) és 5-ös (Signal GND) lábakon történik.
+A testelés a 4-es (Chassis GND) és 5-ös (Signal GND) lábakon történik. **A jármű oldali (VBAT) ágban nincs soros biztosíték;** a PPTC (F1) kizárólag az USB-ágat védi.
 
-### 2.2.1 F1 – öngyógyuló polifuse (PPTC)
+### 2.2.1 D8 – SS34 Schottky-dióda (diódás VAGY és fordított polaritás elleni védelem)
+
+Az SS34 (3 A, 40 V-os Schottky) egyirányú kapuként működik: nyitó irányban kis (≈ 0,3–0,5 V) feszültségesést ad, ezért a buck számára elérhető bemeneti tartomány alig csökken, záró irányban a védett áramkör feszültsége 0 V közelében marad. A fedélzeti hálózat 24 V-os jump start szintje (ISO 16750-2) alatta marad az SS34 40 V-os záróirányú határának. A legnagyobb normál üzemi bemeneti áram (0,6 A kimeneti terhelés, η ≈ 85 %) a legkisebb bemeneti feszültségnél:
+
+```
+I_in,max = (Vout * Iout) / (eta * Vin_min) = (3.3 * 0.6) / (0.85 * 6.5) = 0.358 A  (SS34: 3 A)
+
+Vin,buck ≈ 6.5 V - Vf(D8) ≈ 6.5 - 0.4 ≈ 6.1 V   >   UVLO / 4.5 V min.
+```
+
+Ha az USB és a jármű egyszerre csatlakozik, a magasabb feszültségű forrás (a 12 V-os) táplál, a D2 pedig záróirányban marad (az SS14 40 V-os határán belül).
+
+### 2.2.2 F1 és D2 – az USB-ág
 
 | Paraméter | Érték |
 |---|---|
-| Tartóáram (IHOLD) | 500 mA |
-| Leoldási küszöb (ITRIP) | 1,0 A |
+| F1 tartóáram (IHOLD) | 500 mA |
+| F1 leoldási küszöb (ITRIP) | 1,0 A |
 
-Az F1 feladata a lánc végső hibaáram-korlátozása: ha a TVS tartósan vezet (túlfeszültség), a buck zárlatos, vagy a fordított polaritású bekötés áramot kényszerít a körre, a PPTC felmelegedés hatására nagy ellenállású állapotba kerül, és a hiba megszűnése után regenerálódik. Méretezési ellenőrzés: a legnagyobb normál üzemi bemeneti áram (0,6 A kimeneti terhelés, η ≈ 85 %) a legkisebb bemeneti feszültségnél
-
-```
-I_in,max = (Vout * Iout) / (eta * Vin_min) = (3.3 * 0.6) / (0.85 * 6.5) = 0.358 A  <  I_HOLD = 0.5 A
-```
-
-Az áramfelvétel tehát a tartóáram alatt marad, 28 %-os tartalékkal. Az F1 sorosan ≈ 0,5 Ω-os ellenállást ad *[B, az adatlap szerint ellenőrizendő]*, ezért a buck bemenetén a legrosszabb esetben (VBAT = 6,5 V):
+Az F1 az USB-forrást védi (a modul hibája esetén a PPTC felmelegedés hatására nagy ellenállású állapotba kerül, és a hiba megszűnése után regenerálódik). A D2 (SS14) leválasztja az USB-ágat a jármű oldali tápról. Az USB-ről táplált üzemben a bemeneti feszültség:
 
 ```
-Vin,buck ≈ 6.5 V - Vf(D1) - I*R(F1) ≈ 6.5 - 0.4 - 0.36*0.5 ≈ 5.9 V   >   UVLO / 4.5 V min.
+I_USB,átlag ≈ 3.3 * 0.10 / (0.85 * 4.5) ≈ 0.09 A
+I_USB,csúcs ≈ 3.3 * 0.35 / (0.85 * 4.5) ≈ 0.30 A      <   I_HOLD = 0.5 A
+
+VIN,USB ≈ 5.0 V - I * R(F1) - Vf(D2)        (R(F1) ≈ 0.5 Ohm *[B]*)
+  átlag: 5.0 - 0.09 * 0.5 - 0.35 ≈ 4.6 V
+  csúcs: 5.0 - 0.30 * 0.5 - 0.40 ≈ 4.45 V
 ```
 
-### 2.2.2 D1 – SS14 Schottky-dióda (fordított polaritás elleni védelem)
+A csúcsáramnál a VIN a TPS54302 4,5 V-os minimális bemeneti feszültsége alá eshet, ezért az USB-ről való táplálás csak programozásra, hibakeresésre és mérsékelt terhelésre megbízható; teljes ESP-NOW adás és CAN-forgalom mellett a modult a jármű 12 V-os tápjáról kell üzemeltetni *[B, mérendő]*.
 
-Az SS14 (1 A, 40 V-os Schottky) a fordított polaritású akkumulátorcsatlakozás ellen zár. Egyirányú kapuként működik: nyitó irányban kis (≈ 0,3–0,5 V) feszültségesést ad, ezért a buck számára elérhető bemeneti tartomány alig csökken, záró irányban a védett áramkör feszültsége 0 V közelében marad. A fedélzeti hálózat 24 V-os jump start szintje (ISO 16750-2) alatta marad az SS14 40 V-os záróirányú határának.
+### 2.2.3 D4 – SMAJ24A egyirányú TVS-dióda (VBAT) és D1 – SMAJ5.0A (VBUS)
 
-### 2.2.3 D4 – SMAJ24A egyirányú TVS-dióda
+| Paraméter | D4 (SMAJ24A) | D1 (SMAJ5.0A) |
+|---|---|---|
+| Záró (standoff) feszültség VRWM | 24 V | 5 V |
+| Letörési feszültség VBR | 26,7 V (min.) | 6,4 V (min.) |
+| Maximális kapocsfeszültség VC | 38,9 V @ IPP = 10,3 A | – |
+| Impulzusteljesítmény | 400 W (10/1000 µs) | 400 W (10/1000 µs) |
 
-| Paraméter | Érték |
-|---|---|
-| Záró (standoff) feszültség VRWM | 24 V |
-| Letörési feszültség VBR | 26,7 V (min.) |
-| Maximális kapocsfeszültség VC | 38,9 V @ IPP = 10,3 A |
-| Impulzusteljesítmény | 400 W (10/1000 µs) |
-
-A TVS-dióda egy határolt feszültségű söntként működik: a névleges üzemi feszültségen záró irányban elhanyagolható szivárgású, a letörési feszültség fölött avalanche-üzemben vezet, és a tüske energiáját elnyeli. Az impulzusteljesítmény ellenőrzése:
+A TVS-dióda egy határolt feszültségű söntként működik: a névleges üzemi feszültségen záró irányban elhanyagolható szivárgású, a letörési feszültség fölött avalanche-üzemben vezet, és a tüske energiáját elnyeli. Az impulzusteljesítmény ellenőrzése (D4):
 
 ```
 P_pp = V_C * I_PP = 38.9 V * 10.3 A = 400.7 W   (a megadott 400 W-os kategória)
 ```
 
-A C7 (100 nF / 50 V, X7R) a gyors, nagyfrekvenciás komponensek szűrését végzi a TVS reakcióideje alatt.
+A VIN lábnál a C4A1 (10 µF / 25 V, X7R) és a C4B1 (100 nF) szűr; az USB-ágon a C7 (10 µF) és a D1 védi a VBUS-t.
 
 ### 2.2.4 Méretezési értékelés és nyitott kérdések
 
 | Tétel | Értékelés |
 |---|---|
 | Üzemi feszültség ↔ VRWM | 12 V-os rendszer (≤ 18 V) mellett nagy tartalék; jump start (24 V) a VRWM határán *[megfelel]* |
-| Kapocsfeszültség ↔ konverter bemeneti határ | VC = 38,9 V csak 10,3 A-nél jelentkezik; az F1/D1 soros impedanciája és az áramkorlátozás miatt a buck bemenetén a tényleges csúcsérték alacsonyabb. A TPS54302 abszolút maximális bemeneti feszültségét (≈ 30 V, adatlap szerint) a **mért kapocsfeszültséggel** ellenőrizni kell *[nyitott: mérés]* |
+| Kapocsfeszültség ↔ konverter bemeneti határ | VC = 38,9 V csak 10,3 A-nél jelentkezik. A TPS54302 abszolút maximális bemeneti feszültségét (≈ 30 V, adatlap szerint) és a C4A1 25 V-os feszültségkategóriáját a VC meghaladja; a TVS és a konverter között nincs soros ellenállás vagy biztosíték (csak a D8), ezért a tranziens a buck bemenetére is eljuthat. Normál 12 V-os járműhálózatban (nem elnyomatlan load dump) elfogadható; a **mért kapocsfeszültséggel** ellenőrizni kell *[nyitott: mérés]* |
 | IPP ↔ rövid impulzusok | A 10,3 A a 10/1000 µs-os hullámalakra vonatkozik; a 2a impulzus (≈ 50 µs) esetén a TVS impulzusáram-tűrése lényegesen nagyobb, így a névleges érték itt nem korlátozó *[megfelel]* |
 | Load dump (5a, elnyomatlan, 65–87 V, 0,5–4 Ω) | A TVS energiatűrése ezt önmagában nem fedi; részben elnyomott (5b, ≈ 35 V) hálózatra készült. Elnyomatlan terheléshez nagyobb teljesítményű TVS (SMDJ család) javasolt *[korlát]* |
-| Negatív impulzusok (1, 3a) ↔ SS14 (40 V) | A −75 … −150 V-os, 10 Ω-os impulzus meghaladhatja az SS14 záróirányú határát; a TVS elhelyezése (D1 előtt vagy után) és a negatív oldal védelme (pl. kétirányú TVS) a tényleges vizsgálati szinthez igazítandó *[nyitott: vizsgálat]* |
+| Negatív impulzusok (1, 3a) ↔ D8 (SS34, 40 V) | A D4 a D8 előtt van: negatív impulzusnál nyitóirányban vezet, a csomópontot ≈ −1 V körül tartja, így a D8 és a konverter nem látja a −75 … −150 V-ot. A D4 nyitóirányú árama (150 V / 10 Ω = 15 A) rövid ideig a TVS impulzusáram-tűrésén belül lehet *[nyitott: vizsgálat]* |
+| Soros biztosíték hiánya a jármű ágban | A kártyán a VBAT ágban nincs PPTC; a jármű OBD-áramkörét a jármű saját biztosítéka (jellemzően 10–20 A) védi. Zárlat vagy tartós TVS-vezetés esetén a jármű biztosítéka old ki. Ha szükséges, a következő verzióban soros PPTC javasolt *[korlát]* |
+| Fordított polaritás | A D8 blokkol, de a D4 TVS nyitóirányba kerül (≈ 0,7 V), így fordított bekötésnél a TVS-en át nagy áram folyhatna. A J1962 csatlakozó mechanikailag nem engedi a fordított csatlakozást, a J2 kézi bekötésénél viszont ez a hiba lehetséges *[korlát]* |
+
+### 2.2.5 USB-C bemenet
+
+A J1 (USB Type-C, LCSC C165948) az USB 2.0 jeleket (D+/D−) az USBLC6-2P6 ESD-védőn (U3) át közvetlenül az ESP32-C3 natív USB-jához vezeti (IO19: D+, IO18: D−); a CC1/CC2 lábakon 5,1 kΩ-os lehúzás (R4, R5) van, így az USB-forrás 5 V-ot ad. A csatlakozó árnyékolása 1 MΩ-os ellenálláson (R6) és 4,7 nF-os kondenzátoron (C8) át kapcsolódik a földhöz. Az USB-ág teljesítményére lásd 2.2.2.
 
 ---
 
@@ -205,7 +223,7 @@ Vin = 18 V   -> D = 0.183, t_on = 0.458 us
 Vin = 28 V   -> D = 0.118, t_on = 0.295 us
 ```
 
-Könnyű terhelésnél az IC adatlap szerinti energiatakarékos (Eco-mode) működése átmenetileg csökkentheti a kapcsolási frekvenciát; a lenti számítások a rögzített 400 kHz-es, közepes–nagy terhelésű üzemre vonatkoznak.
+Könnyű terhelésnél az IC adatlap szerinti energiatakarékos (Eco-mode) működése átmenetileg csökkentheti a kapcsolási frekvenciát; a lenti számítások a rögzített 400 kHz-es, közepes–nagy terhelésű üzemre vonatkoznak. A TPS54302 EN lába a kártyán nincs bekötve (lebegő): az adatlap szerint a belső felhúzóáram miatt a lebegő EN engedélyezett állapotot jelent.
 
 ### 2.3.2 Az L1 induktor méretezése (levezetés)
 
@@ -236,7 +254,7 @@ L = [ 3.3 * (18 - 3.3) ] / [ 18 * 400e3 * 0.686 ]
   = 9.82 uH   ->  szabványos érték: 10 uH
 ```
 
-A legnagyobb ripple a legnagyobb bemeneti feszültségnél jelentkezik, ezért a méretezést Vin,max pontra végezzük. A kiválasztott alkatrész: **CENKER CKST0503-10uH/M** (JLCPCB: C3002622), árnyékolt SMD kivitel (5,7 × 5,1 mm), ISAT = 3,5 A, IDC = 2,5 A, DCR = 126 mΩ.
+A legnagyobb ripple a legnagyobb bemeneti feszültségnél jelentkezik, ezért a méretezést Vin,max pontra végezzük. A beépített alkatrész: **Sunlord SWPA5040S100MT** (JLCPCB: C84608), 10 µH ±20 %, árnyékolt SMD kivitel (5,0 × 5,0 × 4,0 mm), névleges áram 2,1 A, DCR = 83 mΩ (forgalmazói adat; a telítési és a hőáram a gyártói adatlapból külön ellenőrizendő).
 
 **Az induktorra gyakorolt hatások ellenőrzése 10 µH-val (Iout = 0,6 A):**
 
@@ -251,10 +269,10 @@ A legnagyobb ripple a legnagyobb bemeneti feszültségnél jelentkezik, ezért a
 Delta_IL(Vin) = Vout * (Vin - Vout) / (Vin * L * f_sw)    pl. 18 V-on: 48.51 / (18 * 10e-6 * 400e3) = 0.674 A
 
 I_L,rms = sqrt( Iout^2 + Delta_IL^2 / 12 ) = sqrt( 0.36 + 0.0379 ) = 0.631 A     (Vin = 18 V)
-P_DCR   = I_L,rms^2 * DCR = 0.398 * 0.126 = 0.050 W
+P_DCR   = I_L,rms^2 * DCR = 0.398 * 0.083 = 0.033 W
 ```
 
-Az ellenőrzés eredménye: az induktor csúcsárama (< 1 A) a 3,5 A-es telítési áram (ISAT) kevesebb mint 30 %-a, az effektív áram (0,63 A) a 2,5 A-es IDC negyede, a DCR-veszteség 50 mW. Az induktor termikusan és mágnesesen is bő tartalékkal dolgozik.
+Az ellenőrzés eredménye: az induktor csúcsárama (< 1 A) a 2,1 A-es névleges áramnak kevesebb mint fele, az effektív áram (0,63 A) annak ≈ 30 %-a, a DCR-veszteség ≈ 33 mW. Az induktor bő tartalékkal dolgozik (a telítési áram a gyártói adatlapból ellenőrizendő).
 
 ### 2.3.3 Miért 10 µH és nem 33 µH? (dinamikus terhelési ugrás)
 
@@ -313,9 +331,9 @@ Az SRF alatt az alkatrész induktív (|Z| ≈ 2πfL, a frekvenciával nő). Az S
 
 Az SRF így a 400 kHz-es kapcsolási frekvenciához képest legalább 40-szeres (≥ 15 MHz), vagyis az alapharmonikus és az első harmonikusok bőven az induktív tartományban vannak. A kapcsolóél (tr ≈ 5 ns) spektruma azonban 0,35/tr ≈ 70 MHz-ig terjed, ami az SRF fölött van. Ebben a tartományban az induktor már nem szűr, a nagyfrekvenciás komponenseket a Cp átvezeti. Következmények a tervezésre:
 
-1. **Az induktor nem helyettesíti a nagyfrekvenciás szűrést.** A HF komponenseket a bemeneti oldali C7 (100 nF), a kimeneti kerámia kondenzátorok és a szoros hurkú elrendezés kezeli.
+1. **Az induktor nem helyettesíti a nagyfrekvenciás szűrést.** A HF komponenseket a bemeneti oldali C4B1 (100 nF), a kimeneti kerámia kondenzátorok és a szoros hurkú elrendezés kezeli.
 2. **A kapcsolási csomópont (SW) és az induktor környezete csak kis, erősen lokalizált réz** legyen, mert a nagy dv/dt a Cp-n át közvetlenül a kimenetre csatolódhat.
-3. **Árnyékolt kivitel** (CKST0503) csökkenti a külső mágneses és az elektromos tér csatolását.
+3. **Árnyékolt kivitel** (SWPA5040S) csökkenti a külső mágneses és az elektromos tér csatolását.
 4. **Ellenőrzés.** Az adatlapi SRF-et (a gyártói impedanciagörbét) a beszerzésnél rögzíteni, a prototípuson pedig LCR-mérővel vagy vektoros hálózatelemzővel (VNA) ellenőrizni kell (impedanciacsúcs, az SRF a negatív fázisszögű tartomány kezdete).
 
 ### 2.3.5 Visszacsatoló osztó (R2, R3)
@@ -356,7 +374,7 @@ Vin = 28 V:  0.728 / 80 + 0.728 * 0.002                  = 9.1 mV + 1.5 mV ≈ 1
 
 Mindkét szám a 15 mVpp-s követelmény alatt van. A kerámia kondenzátor kapacitása az egyenfeszültség-előfeszítéssel jelentősen csökken (X7R, 3,3 V-os működésnél tipikusan 30–50 %), ezért a méretezés a csökkentett értékkel történt. A 10 V-os feszültségkategória (a 3,3 V-os üzemi feszültség háromszorosa) az előfeszítés miatti kapacitáscsökkenést mérsékli.
 
-**Bemeneti oldal.** A kapcsoló bemeneti árama impulzusszerű; az effektív értéke a 18 V-os bemenetnél I_in,rms = Iout · √(D(1−D)) = 0,6 · √(0,183 · 0,817) ≈ 0,23 A. Ezt a C7 (100 nF) nem tudja elnyelni, ezért a TPS54302 adatlapi referenciakapcsolása szerinti kerámia (legalább 10 µF) bemeneti kondenzátor szükséges a VIN lábhoz közvetlenül, a C7 ezt a nagyfrekvenciás oldalon egészíti ki. *[Ellenőrzendő a kapcsolási rajzon.]*
+**Bemeneti oldal.** A kapcsoló bemeneti árama impulzusszerű; az effektív értéke a 18 V-os bemenetnél I_in,rms = Iout · √(D(1−D)) = 0,6 · √(0,183 · 0,817) ≈ 0,23 A. Ezt a C4B1 (100 nF) nem tudja elnyelni, ezért a VIN lábnál a C4A1 (10 µF / 25 V, X7R) a fő bemeneti kondenzátor, a C4B1 ezt a nagyfrekvenciás oldalon egészíti ki *[a kapcsolási rajz szerint megvalósítva]*. A 25 V-os kategória és a TVS kapocsfeszültsége (38,9 V) közötti eltérésről lásd 2.2.4.
 
 ---
 
@@ -393,9 +411,9 @@ Az SN65HVD231 8-as kivezetése (RS) az üzemmódot vezérli, és az ESP32-C3 egy
 2. Az ESP32-C3-at deep sleep módba helyezi; ébresztő forrás a transceiver RXD kimenete (domináns bit → RXD LOW).
 3. Busz-aktivitás (gyújtásbekapcsolás, CAN ébresztő keret) megjelenésekor az ESP32-C3 felébred, az RS lábat LOW-ra állítja, és elindítja a lekérdezési állapotgépet (4.2).
 
-> **Megvalósítási megjegyzés.** Az ESP32-C3-nál csak a GPIO0–GPIO5 (RTC tartományú) lábak képesek deep sleep ébresztésre. Az RXD jelet ezért az ilyen lábra célszerű kötni, vagy ellenőrizni kell, hogy az adott pinkiosztás megengedi. Az áramfelvétel értéke a standby üzemben, az ESP32-C3 deep sleep és a buck nyugalmi árama együtt határozza meg *[B: ≤ 1 mA @ 12 V, mérendő]*. A napi fogyasztás 1 mA mellett 24 mAh, ami egy 60 Ah-s akkumulátor kapacitásának ≈ 0,04 %-a.
+> **Megvalósítási megjegyzés.** Az ESP32-C3-nál csak a GPIO0–GPIO5 (RTC tartományú) lábak képesek deep sleep ébresztésre. A kártyán a CAN_RX (a transceiver RXD kimenete) az IO5-re van kötve, ami RTC-képes, tehát alkalmas ébresztésre. Az RS vezérlése (OPMODE) az IO10-en van, amely nem RTC-láb; a standby állapot megtartásához deep sleep alatt a láb állapotát rögzíteni kell *[ellenőrizendő az ESP-IDF dokumentációban]*, és az RS láb külső lehúzás hiányában induláskor lebeg, ezért a firmware-nek korán LOW-ra kell állítania. Az áramfelvétel értéke a standby üzemben az ESP32-C3 deep sleep és a buck nyugalmi árama együtt határozza meg *[B: ≤ 1 mA @ 12 V, mérendő]*. A napi fogyasztás 1 mA mellett 24 mAh, ami egy 60 Ah-s akkumulátor kapacitásának ≈ 0,04 %-a.
 
-## 3.3 Busz-terminálás (JP2)
+## 3.3 Busz-terminálás (JP1) és a tápjelző (JP2)
 
 A J1962 portra csatlakozó CAN-hálózat gerincének mindkét végén 120 Ω-os lezárás található (a járműben beépített vezérlőkben). Az eredő terhelés ezért:
 
@@ -404,16 +422,17 @@ R_eredő = 120 || 120 = 60 Ohm        (két lezárás)
 R_eredő = 120 || 120 || 120 = 40 Ohm (három lezárás – helytelen)
 ```
 
-A modul a busz **végpontján kívül** csatlakozik (stub), ezért járműben a lezárást **nem szabad** hozzáadni:
+A modul a busz **végpontján kívül** csatlakozik (stub), ezért járműben a lezárást **nem szabad** hozzáadni. **A kártyán nincs 120 Ω-os lezáró ellenállás:** a JP1 forrasztóhíd (hátoldal, L4) a CANL és a CANH vezetéket közvetlenül köti össze, ellenállás nélkül. A JP1 összeforrasztása ezért a buszt rövidre zárná, és **nem szabad összeforrasztani**. Lezárásra a J2 6-os és 14-es lába közé külső 120 Ω-os ellenállást kell kötni.
 
-| Környezet | JP2 állapota | Indoklás |
+| Környezet | JP1 állapota | Lezárás |
 |---|---|---|
-| Jármű | **Nyitva** | A hálózat már lezárt (60 Ω eredő); egy harmadik lezárás 40 Ω-ra csökkenti a terhelést, ami nagyobb adóáramot (domináns: ≈ 50 mA a ≈ 33 mA helyett 2 V differenciális szinten), kisebb jelamplitúdót és a többi csomópont adóterhelésének növekedését okozza |
-| Tesztpad, szimulátor (egy lezárással) | **Összeforrasztva** | Ha a szimulátor csak egyik végen tartalmaz lezárást, a hálózat másik végét a modul 120 Ω-ja zárja le; így az eredő 60 Ω, és a reflexiók minimálisak |
-| Tesztpad, szimulátor (két lezárással) | Nyitva | Mint járműben |
-| Önálló kétcsomópontos próbapad | Mindkét végén 120 Ω | Mindkét végpont lezárása szükséges |
+| Jármű | **Nyitva (mindig)** | A hálózat már lezárt (60 Ω eredő); egy harmadik lezárás 40 Ω-ra csökkentené a terhelést, ami nagyobb adóáramot (domináns: ≈ 50 mA a ≈ 33 mA helyett 2 V differenciális szinten), kisebb jelamplitúdót és a többi csomópont adóterhelésének növekedését okozza |
+| Tesztpad, szimulátor (egy lezárással) | Nyitva | Külső 120 Ω a CANH–CANL közé (J2 6–14), így az eredő 60 Ω |
+| Tesztpad, szimulátor (két lezárással) | Nyitva | Nincs külső lezárás |
 
-A forrasztóhíd (solder jumper) mérete és elérhetősége a hátoldalon (L4) szándékos: nincs szükség külön csatlakozóra vagy kapcsolóra, a beállítás egy forrasztással végrehajtható és visszabontható. Ellenőrzés: a CANH–CANL ellenállás mérése feszültségmentesen (6.1): nyitott JP2-vel nagy ellenállás (tízezer Ω nagyságrend, a transzceiver bemeneti impedanciája), zárt JP2-vel ≈ 120 Ω.
+A JP1 jelenlegi, lezáratlan kialakítása hibalehetőség: a következő verzióban a jumper mellé 120 Ω-os soros ellenállás beültetése (vagy a JP1 elhagyása) javasolt. Ellenőrzés: a CANH–CANL ellenállás mérése feszültségmentesen (6.1): nyitott JP1-gyel nagy ellenállás (tízezer Ω nagyságrend, a transceiver bemeneti impedanciája).
+
+**JP2 (Power Line Tester).** A JP2 egy kis forrasztóhíd, amely a D3 zöld LED-et és az R8 (1,5 kΩ) előtét-ellenállást engedélyezi a +3,3 V sínről (≈ 0,9 mA): zárt állapotban a LED a 3,3 V jelenlétét jelzi, nyitva nem világít. Alvó üzemben a LED áramfelvétele számít, ezért a végleges, járműbeli használathoz a JP2 nyitva hagyandó.
 
 > **Megjegyzés (sebesség).** 500 kbit/s mellett a bitidő 2 µs; a modul belső vezetékhosszai (néhány cm) a jelterjedési idő (≈ 0,15 ns/mm) alapján elhanyagolhatóak, ezért a CAN-vezetékek impedancia-illesztése nem kritikus, a szimmetria és a rövidség a lényeges.
 
@@ -433,6 +452,20 @@ A modul **ESP32-C3-WROOM-02** (4 MB Flash, antennaintegrált).
 | CAN vezérlő | **TWAI** (Two-Wire Automotive Interface): CAN 2.0B, 11 bites szabványos és 29 bites kiterjesztett azonosítók, hardveres szűrés |
 | USB | Natív USB-Serial/JTAG vezérlő (D+/D−): firmware-feltöltés és naplózás külső illesztő IC nélkül |
 | Üzemmódok | Normál, Listen-Only (csak figyelő), No-Ack/Self-test |
+
+**GPIO-kiosztás a kártyán** *[T]*:
+
+| ESP32-C3 GPIO | Jel | Funkció |
+|---|---|---|
+| IO4 | CAN_TX | A transceiver TXD bemenete (TWAI TX) |
+| IO5 | CAN_RX | A transceiver RXD kimenete (TWAI RX, RTC-képes: ébresztés) |
+| IO10 | OPMODE | Transceiver RS láb (LOW: high-speed, HIGH: standby) |
+| IO6 / IO7 / IO8 | LED | D5 (zöld) / D6 (kék) / D7 (piros), 330 Ω-on át; az IO8 strapping láb (a LED nem zavarja az indulást) |
+| IO9 | BOOT | BOOT2 gomb, 10 kΩ felhúzás |
+| EN | EN | EN1 gomb, R1 = 10 kΩ felhúzás, R10 = 100 Ω soros, C2 = 100 nF |
+| IO18 / IO19 | USB D− / D+ | Natív USB-Serial/JTAG (USB-C, U3 ESD-védőn át) |
+| IO20 / IO21 | RXD0 / TXD0 | UART tesztpadok (J3, J4) |
+| IO0–IO3 | – | Nincs bekötve |
 
 **TWAI konfiguráció.** 500 kbit/s-hoz a TWAI az ESP32-C3-nál 80 MHz-es APB órajelből indul: BRP = 8 (10 MHz, Tq = 100 ns), 20 Tq/bit (SYNC 1 + TSEG1 15 + TSEG2 4), SJW = 3. A mintavételi pont ≈ 80 %, ami a CAN ajánlott tartományában van. A válaszok hardveres szűrésére az ECU-válaszazonosítók (0x7E8…0x7EF) kiválasztása szolgál:
 
@@ -590,11 +623,11 @@ Gyártó szabványos, 4 rétegű, 1,6 mm vastag stackupot használunk, kizáról
 | Prepreg 7628 | – | Dielektrikum L1–L2 | ≈ 0,21 mm |
 | L2 (Belső 1) | In1.Cu | **Teljes, megszakítás nélküli FÖLDSÍK** | 15,2 µm (0,5 oz) |
 | Core | – | Magdielektrikum L2–L3 | ≈ 1,065 mm |
-| L3 (Belső 2) | In2.Cu | Tápelosztás: +12 V védett táp, +3,3 V rendszertáp | 15,2 µm (0,5 oz) |
+| L3 (Belső 2) | In2.Cu | Tápelosztás (VIN, +3,3 V) és néhány lassú jel (LED, EN, BOOT) | 15,2 µm (0,5 oz) |
 | Prepreg 7628 | – | Dielektrikum L3–L4 | ≈ 0,21 mm |
-| L4 (Bottom) | B.Cu | Szimmetrikus CAN differenciális érpár (CANH, CANL), forrasztóhidak (JP2), hátoldali földkitöltés | 35 µm (1 oz) |
+| L4 (Bottom) | B.Cu | Szimmetrikus CAN differenciális érpár (CANH, CANL), forrasztóhidak (JP1), hátoldali földkitöltés | 35 µm (1 oz) |
 
-*A vastagságok névleges értékek, a gyártási tűrések és a végső összvastagság (≈ 1,6 mm) miatt a JLCPCB aktuális stackup-táblázata az irányadó.*
+*A vastagságok névleges értékek, a gyártási tűrések és a végső összvastagság (≈ 1,6 mm) miatt a JLCPCB aktuális stackup-táblázata az irányadó. A KiCad projekt rétegszerkezete általános (0,1 / 1,24 / 0,1 mm), a gyártott kártya viszont JLC04161H-7628 rétegfelépítésű.*
 
 | Via | Fúró | Gyűrű (pad) | Megjegyzés |
 |---|---|---|---|
@@ -624,7 +657,7 @@ Tüske: V = L * dI/dt ≈ 0.66 nH * (0.9 A / 5 ns) ≈ 0.12 V
 
 | Terület | Szabály / cél |
 |---|---|
-| **Buck kapcsoló hurok** | A VIN láb – C_in (C7 és a kerámia bemeneti kondenzátor) – GND láb hurok a lehető legrövidebb, cél: hurokterület ≲ 25 mm². Az SW csomópont → L1 összeköttetés rövid, a rézterület minimális (≲ 20 mm²), alatta csak teli földsík |
+| **Buck kapcsoló hurok** | A VIN láb – C_in (C4A1 és C4B1) – GND láb hurok a lehető legrövidebb, cél: hurokterület ≲ 25 mm². Az SW csomópont → L1 összeköttetés rövid, a rézterület minimális (≲ 20 mm²), alatta csak teli földsík |
 | **Földelés** | A C_in és C_out GND-padjeihez legalább 2–2 via az L2-re, közvetlenül a padnél |
 | **Visszacsatoló ág (FB)** | Az R2/R3 osztó közvetlenül az FB láb mellett, az SW csomóponttól és az L1-től távol vezetve, rövid, nem árnyékolt, de a zajos zónákkal párhuzamosan nem futó nyomvonal |
 | **L1 alatt** | Nincs jelvezeték az induktor alatt és közvetlen közelében |
@@ -648,6 +681,16 @@ A modul háza vízszintesen kettéosztott, 3D nyomtatott kialakítású (PETG va
 
 > **Anyagválasztás.** Az utastér (különösen a műszerfal környéke, napsütésben) elérheti a 80–85 °C-ot. A PETG üvegesedési hőmérséklete ≈ 80 °C körüli, az ABS/ASA ≈ 100 °C feletti, ezért tartós járműbeli használatra az **ABS vagy ASA** javasolt; a PETG prototípusokhoz és mérsékelt hőmérsékletű felhasználáshoz megfelelő. A modul hődisszipációja kicsi (átlag ≈ 0,4–0,5 W), külön szellőzés nem szükséges.
 
+## 5.5 Gyártási megjegyzések és DRC-maradékok
+
+| Tétel | Megjegyzés |
+|---|---|
+| J2 (OBD-II csatlakozó, C-OBD-II-16M) | Átmenő furatos, kézzel forrasztandó; nincs a BOM-ban és a CPL-ben. A 16-os láb a VBAT, a 4/5-ös a föld, a 6-os CANH, a 14-es CANL. Az illeszkedést a gyártás előtt 1:1-es kinyomtatással ellenőrizni kell |
+| J3, J4 | UART tesztpadok (IO21/IO20); a J3 az ESP RXD0 lábán van, ide a programozó TX-e kötendő |
+| Alsó oldali beültetés | A U4 (SN65HVD231), R4, R5, R6 és C8 a hátoldalon van; az U4 1-es lábának irányát a gyártói előnézetben külön ellenőrizni kell |
+| DRC-maradékok (2026-10-05) | J1 NPTH furat és GND pad távolsága 0,194 mm; az U1 1-es és 18-as lába 0,45 mm-re a kártyaéltől; az U3 GND-padja egyetlen hőlehúzó küllővel kapcsolódik; a szilkscreen a kártyaélen levágódik; az U1 footprint módosított a könyvtárihoz képest |
+| Antenna | A modul antennás része túllóg a kártyaélen, a keepout a kontúron kívül van; az USB-C csatlakozó kb. 5,6 mm-re van az antennától, ami befolyásolhatja a hatótávot *[B, mérendő]* |
+
 ---
 
 # 6. ÉPÍTÉSI, ÉLESÍTÉSI ÉS MÉRÉSI ÚTMUTATÓ
@@ -659,14 +702,14 @@ A beültetés után, **tápfeszültség nélkül**, multiméterrel az alábbi po
 | Mérési pont | Várt eredmény |
 |---|---|
 | +3V3 ↔ GND | > 1 kΩ (a kondenzátorok töltődése miatt emelkedő érték); < 100 Ω zárlatgyanús |
-| +12V_PROT ↔ GND | > 1 kΩ, emelkedő; < 100 Ω zárlatgyanús |
-| F1 folytonossága | < 2 Ω |
-| D1, D4 (diódaüzem) | D1: nyitóirányban ≈ 0,3–0,5 V; D4: záróirányban nincs vezetés, nyitóirányban ≈ 0,5–0,7 V |
-| CANH ↔ CANL | JP2 nyitva: > 10 kΩ; JP2 zárva: ≈ 120 Ω |
+| VIN ↔ GND | > 1 kΩ, emelkedő; < 100 Ω zárlatgyanús |
+| F1 (USB-ág) folytonossága | < 2 Ω |
+| D8, D2, D4 (diódaüzem) | D8 és D2: nyitóirányban ≈ 0,3–0,5 V; D4: záróirányban nincs vezetés, nyitóirányban ≈ 0,5–0,7 V |
+| CANH ↔ CANL | JP1 nyitva: > 10 kΩ (zárva: rövidzár, nem szabad összeforrasztani) |
 
 ## 6.2 Első bekapcsolás áramkorlátozott labortápról
 
-A labortáp 12 V-ra, **50 mA-es áramkorláttal** állítva, JP2 nyitva, USB nélkül kapcsolandó a kártyára. Az áramfelvétel programozatlan modulnál ≈ 10–40 mA; ha a táp az áramkorlátba fut, azonnal le kell kapcsolni. Ezután ellenőrizendő:
+A labortáp 12 V-ra, **50 mA-es áramkorláttal** állítva, JP1 nyitva, USB nélkül kapcsolandó a kártyára. Az áramfelvétel programozatlan modulnál ≈ 10–40 mA; ha a táp az áramkorlátba fut, azonnal le kell kapcsolni. Ezután ellenőrizendő:
 
 | Mérés | Elvárt érték |
 |---|---|
@@ -680,7 +723,7 @@ Ezt követően az USB-n keresztül a firmware feltölthető, és az ESP32-C3 a b
 
 ### 6.3.1 Gyors teszt tesztpadon
 
-A modul egy ECU-szimulátorra vagy 500 kbit/s-ra állított USB–CAN adapterre csatlakozik, amely a 0x7DF kérésekre 0x7E8 azonosítóval válaszol. A JP2 a szimulátor lezárásától függ (3.3): egyetlen lezárás esetén összeforrasztandó, kettőnél nyitva marad. A teszt menete:
+A modul egy ECU-szimulátorra vagy 500 kbit/s-ra állított USB–CAN adapterre csatlakozik, amely a 0x7DF kérésekre 0x7E8 azonosítóval válaszol. A JP1 mindig nyitva marad; ha a szimulátor csak egyik végén tartalmaz lezárást, külső 120 Ω-os ellenállás kell a CANH–CANL közé (3.3). A teszt menete:
 
 1. A modul Listen-Only módban fogadja a szimulátor kereteit hibamentesen.
 2. Aktív módban a kérésekre (01 0C, 0D, 05, 11) a válaszok helyesen dekódolódnak. Ismert bemenettel ellenőrizhető: A = 0x1A, B = 0xF8 esetén RPM = (256·26 + 248) / 4 = 1726 min⁻¹.
@@ -688,14 +731,23 @@ A modul egy ECU-szimulátorra vagy 500 kbit/s-ra állított USB–CAN adapterre 
 
 ### 6.3.2 Egyszerű teszt járműben
 
-A tesztet **álló járműben**, kéziféket behúzva kell végezni, JP2 **nyitva**. A modul a J1962 portra csatlakoztatandó, majd gyújtás ráadása után először Listen-Only módban 1 percig figyelni kell a buszt (a hibaszámlálók nem növekedhetnek). Ezután bekapcsolható az aktív lekérdezés: motorindítás után a fordulatszámnak és a hűtővíz-hőmérsékletnek egyeznie kell a műszerfal értékeivel, gázadásra pedig a kijelzőn a fordulatszám és a fojtószelep-állás késedelem nélkül követi a változást. Gyújtáskikapcsolás után a modulnak standby üzemmódba kell lépnie.
+A tesztet **álló járműben**, kéziféket behúzva kell végezni, JP1 **nyitva**. A modul a J1962 portra csatlakoztatandó, majd gyújtás ráadása után először Listen-Only módban 1 percig figyelni kell a buszt (a hibaszámlálók nem növekedhetnek). Ezután bekapcsolható az aktív lekérdezés: motorindítás után a fordulatszámnak és a hűtővíz-hőmérsékletnek egyeznie kell a műszerfal értékeivel, gázadásra pedig a kijelzőn a fordulatszám és a fojtószelep-állás késedelem nélkül követi a változást. Gyújtáskikapcsolás után a modulnak standby üzemmódba kell lépnie.
 
 ---
 
 ## Függelék: Átdolgozási előzmények
 
+**Hardver-revíziók**
+
+| HW rev. | Dátum | Leírás |
+|---|---|---|
+| A (Y8, TestProject_02) | 2026-10-11 | A gyártásba adott NYÁK; az összeszerelési rendelés: SMT026101161530. A felülvizsgálat alapján nem szükséges módosítás |
+
+**Dokumentum-revíziók**
+
 | Rev. | Dátum | Leírás |
 |---|---|---|
 | A | 2026-10-07 | Első kiadás: teljes hardver- és firmware-architektúra, mérési útmutató |
+| A.1 | 2026-10-15 | A gyártásba adott NYÁK szerint: tápág (D8/D2 diódás VAGY, F1 csak az USB-ágon, D4 a VBAT-on), USB-C bemenet, induktor (SWPA5040S100MT), VIN kondenzátorok (C4A1/C4B1), JP1 (CAN-híd, lezáró ellenállás nélkül) és JP2 (tápjelző), GPIO-kiosztás, új 5.5 (gyártási megjegyzések), mérési útmutató a JP1-hez igazítva |
 
 *A dokumentum a megadott tervezési háttéranyagból (kapcsolási és NYÁK-paraméterek) és mérnöki számításokból készült. A [B] jelölésű értékek becslések, amelyeket a 6. fejezet szerinti méréssel kell igazolni; a 2.2.4 pontban felsorolt nyitott kérdéseket a prototípus-vizsgálat során le kell zárni.*
