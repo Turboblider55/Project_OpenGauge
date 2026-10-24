@@ -1,0 +1,6 @@
+menu "OpenGauge"
+    config OG_ESPNOW_CHANNEL
+        int "ESP-NOW Wi-Fi csatorna (mindkét egységen azonos)"
+        range 1 13
+        default 1
+endmenu

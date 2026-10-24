@@ -41,3 +41,10 @@ fp-info-cache
 
 # Local project settings
 *.kicad_prl
+
+# Project settings and builds
+build/
+build_host/
+sdkconfig
+sdkconfig.old
+managed_components/

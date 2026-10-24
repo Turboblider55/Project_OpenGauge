@@ -1,0 +1,2 @@
+# ESP32-C3 (célhardver: idf.py set-target esp32c3)
+CONFIG_FREERTOS_HZ=1000
