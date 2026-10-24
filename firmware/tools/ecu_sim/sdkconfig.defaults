@@ -1,2 +1,5 @@
 # ESP32-S2 mini (célhardver: idf.py set-target esp32s2)
 CONFIG_FREERTOS_HZ=1000
+# Az S2 mini-n nincs USB-soros átalakító: a konzol a natív USB-n (USB CDC) fut.
+CONFIG_ESP_CONSOLE_USB_CDC=y
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=6144

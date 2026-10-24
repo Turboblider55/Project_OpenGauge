@@ -1,7 +1,10 @@
 # ESP32-S3 (célhardver: idf.py set-target esp32s3)
 CONFIG_FREERTOS_HZ=1000
-# M2-nél bekapcsolandó, a devkit modulja (N8R8 / N16R8) ellenőrzése után:
-# CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
-# CONFIG_SPIRAM=y
-# CONFIG_SPIRAM_MODE_OCT=y
-# CONFIG_SPIRAM_SPEED_80M=y
+
+# Fejlesztőpanel: ESP32-S3-WROOM-1-N16R8 (16 MB flash, 8 MB Octal PSRAM).
+# A saját NYÁK modulja N8R8: ott CONFIG_ESPTOOLPY_FLASHSIZE_8MB kell (a PSRAM ugyanaz).
+# Az Octal PSRAM meglétét az első indításkor a rendszerindítási napló igazolja (Q-15).
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y

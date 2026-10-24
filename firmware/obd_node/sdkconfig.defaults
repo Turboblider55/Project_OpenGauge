@@ -1,2 +1,5 @@
 # ESP32-C3 (célhardver: idf.py set-target esp32c3)
 CONFIG_FREERTOS_HZ=1000
+# A SuperMini és a saját NYÁK is a natív USB-Serial/JTAG-on át programozható és naplóz.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=6144

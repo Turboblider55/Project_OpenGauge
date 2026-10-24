@@ -1,0 +1,12 @@
+menu "OpenGauge: OBD-egység"
+
+    choice OG_OBD_BOARD
+        prompt "Hardverváltozat (lábkiosztás: board_pins.h)"
+        default OG_BOARD_DEVKIT_C3
+        config OG_BOARD_DEVKIT_C3
+            bool "Asztali teszt: ESP32-C3 SuperMini + SN65HVD230 CAN-TTL modul"
+        config OG_BOARD_OBD_REV_A
+            bool "Saját NYÁK, Rev. A (ESP32-C3-WROOM-02 + SN65HVD231)"
+    endchoice
+
+endmenu

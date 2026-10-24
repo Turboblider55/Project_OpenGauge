@@ -1,1 +1,2 @@
-idf_component_register(SRCS "app_main.cpp" INCLUDE_DIRS "." REQUIRES og_protocol og_obd og_common)
+idf_component_register(SRCS "app_main.cpp" INCLUDE_DIRS "." REQUIRES og_protocol og_obd og_common og_twai
+                       PRIV_REQUIRES esp_driver_gpio)
