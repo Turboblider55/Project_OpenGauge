@@ -8,3 +8,16 @@ CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_OCT=y
 CONFIG_SPIRAM_SPEED_80M=y
+
+# Teljesítmény: 240 MHz-es CPU, sebességre optimalizált fordítás (az LVGL rajzolása CPU-igényes).
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
+# LVGL: betűméretek a műszerképhez, frissítési periódus (10 ms = legfeljebb 100 FPS, hogy a mérés
+# a valódi határt mutassa), beépített teljesítménymérő a képernyő alján.
+CONFIG_LV_FONT_MONTSERRAT_20=y
+CONFIG_LV_FONT_MONTSERRAT_48=y
+CONFIG_LV_DEF_REFR_PERIOD=10
+CONFIG_LV_USE_SYSMON=y
+CONFIG_LV_USE_PERF_MONITOR=y
+CONFIG_LV_PERF_MONITOR_ALIGN_BOTTOM_MID=y

@@ -9,6 +9,15 @@ menu "OpenGauge: kijelzőegység"
             bool "Saját NYÁK, Rev. A (ESP32-S3-WROOM-1-N8R8, J2 FPC)"
     endchoice
 
+    choice OG_DISP_TEST
+        prompt "Futtatott teszt"
+        default OG_DISP_TEST_LVGL
+        config OG_DISP_TEST_LVGL
+            bool "LVGL-teszt (M3): ív, felirat, animáció, FPS-mérés"
+        config OG_DISP_TEST_COLORS
+            bool "Színteszt (M2): egyszínű képek, színsávok, tájolás, átmenetek"
+    endchoice
+
     choice OG_LCD_INIT
         prompt "ST77916 init-sorozat"
         default OG_LCD_INIT_WAVESHARE_1_85
@@ -23,9 +32,10 @@ menu "OpenGauge: kijelzőegység"
     config OG_LCD_PCLK_MHZ
         int "QSPI órajel (MHz)"
         range 5 80
-        default 20
+        default 40
         help
-            20 MHz-ről indulunk; ha a kép hibátlan, 40 MHz-ig emelhető (Q-05).
+            40 MHz-en a Waveshare-modul a devkiten hibátlan (Q-05). Új hardveren (pl. a saját
+            NYÁK-on) a színteszttel érdemes 20 MHz-ről indulni.
 
     config OG_LCD_SWAP_BYTES
         bool "RGB565 bájtcsere (a panel nagy-endián sorrendet vár)"
