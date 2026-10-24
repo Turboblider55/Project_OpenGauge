@@ -2,7 +2,12 @@ cmake_minimum_required(VERSION 3.16)
 project(og_host_test CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-add_compile_options(-Wall -Wextra -Wpedantic)
+# MSVC nem ismeri a GCC/Clang figyelmeztetés-kapcsolóit; ott /W4, és UTF-8 forrás (magyar kommentek).
+if(MSVC)
+  add_compile_options(/W4 /utf-8)
+else()
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 enable_testing()
 set(ROOT ${CMAKE_CURRENT_LIST_DIR}/../..)
 include_directories(${ROOT}/components/og_protocol/include ${ROOT}/components/og_obd/include

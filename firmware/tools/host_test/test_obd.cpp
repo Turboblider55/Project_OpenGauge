@@ -1,5 +1,6 @@
 // OBD-kliens, ütemező és protokoll-felismerés tesztjei virtuális buszon.
 #include <cstring>
+#include <initializer_list>
 
 #include "ecu_model.h"
 #include "isotp.h"
@@ -59,7 +60,7 @@ static void test_services() {
 static void test_ecu_bitmap() {
     // A 00 blokk: 01, 05, 0C, 0D, 11 + a 20-as blokk jelzése; a 20-as blokk a 40-esét jelzi.
     const uint32_t b0 = EcuModel::supported_bitmap(0x00);
-    for (uint8_t p : {0x01, 0x05, 0x0C, 0x0D, 0x11, 0x20}) CHECK(pid_in_bitmap(b0, 0x00, p));
+    for (uint8_t p : std::initializer_list<uint8_t>{0x01, 0x05, 0x0C, 0x0D, 0x11, 0x20}) CHECK(pid_in_bitmap(b0, 0x00, p));
     CHECK(!pid_in_bitmap(b0, 0x00, 0x02));
     CHECK(pid_in_bitmap(EcuModel::supported_bitmap(0x20), 0x20, 0x40));
     CHECK(pid_in_bitmap(EcuModel::supported_bitmap(0x40), 0x40, 0x42));
@@ -212,7 +213,7 @@ static void test_scheduler_nominal_load() {
     CHECK(s.requests(0x11) >= 29 && s.requests(0x11) <= 32);
     CHECK(s.requests(0x05) >= 9 && s.requests(0x05) <= 11);
     uint32_t total = 0;
-    for (uint8_t p : {0x0C, 0x0D, 0x11, 0x05, 0x42, 0x01}) {
+    for (uint8_t p : std::initializer_list<uint8_t>{0x0C, 0x0D, 0x11, 0x05, 0x42, 0x01}) {
         total += s.requests(p);
         CHECK(s.failures(p) == 0);
     }
@@ -243,11 +244,11 @@ static void test_scheduler_overload() {
     PidScheduler s;
     add_plan(s, bus.now_ms());
     run_for(s, bus, cl, 10000);
-    for (uint8_t p : {0x0C, 0x0D, 0x11, 0x05, 0x42, 0x01}) CHECK(s.requests(p) >= 1);
+    for (uint8_t p : std::initializer_list<uint8_t>{0x0C, 0x0D, 0x11, 0x05, 0x42, 0x01}) CHECK(s.requests(p) >= 1);
     CHECK(s.requests(0x0C) > s.requests(0x05));
     CHECK(s.requests(0x0C) > s.requests(0x0D));
     uint32_t total = 0;
-    for (uint8_t p : {0x0C, 0x0D, 0x11, 0x05, 0x42, 0x01}) total += s.requests(p);
+    for (uint8_t p : std::initializer_list<uint8_t>{0x0C, 0x0D, 0x11, 0x05, 0x42, 0x01}) total += s.requests(p);
     CHECK(total <= 10000 / 150 + 1);  // az ECU nem tud gyorsabban válaszolni
 }
 
