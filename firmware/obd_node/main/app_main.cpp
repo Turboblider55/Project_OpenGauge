@@ -80,7 +80,8 @@ void log_protocol(const og::ProtocolInfo& info) {
 }
 
 // Mit csinál: egy sorban kiírja a PID-ek utolsó értékét és az életkorát.
-// Hogyan:     500 ms-nál régebbi értéket "(elavult)" jelöléssel ír ki; ami még nem jött meg, "--".
+// Hogyan:     a PID periódusának kétszeresénél régebbi értéket "(elavult)" jelöléssel ír ki
+//             (egy kimaradt válasz még nem az); ami még nem jött meg, "--".
 void log_values(const og::PidScheduler& s, uint32_t now) {
     char line[200];
     size_t p = 0;
@@ -89,7 +90,7 @@ void log_values(const og::PidScheduler& s, uint32_t now) {
         float v = 0.f;
         uint32_t age = 0;
         if (s.value(it.pid, v, now, age))
-            p += snprintf(line + p, sizeof line - p, "%s %.1f%s | ", it.label, v, age > 500 ? " (elavult)" : "");
+            p += snprintf(line + p, sizeof line - p, "%s %.1f%s | ", it.label, v, age > 2 * it.period_ms ? " (elavult)" : "");
         else
             p += snprintf(line + p, sizeof line - p, "%s -- | ", it.label);
         if (p >= sizeof line) break;
