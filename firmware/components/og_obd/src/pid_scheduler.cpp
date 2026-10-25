@@ -109,6 +109,11 @@ bool PidScheduler::mil(MilStatus& m) const {
     return true;
 }
 
+uint32_t PidScheduler::period(uint8_t pid) const {
+    const Entry* e = find(pid);
+    return e ? e->period_ms : 0;
+}
+
 uint32_t PidScheduler::requests(uint8_t pid) const {
     const Entry* e = find(pid);
     return e ? e->total : 0;

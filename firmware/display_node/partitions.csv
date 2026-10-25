@@ -1,0 +1,7 @@
+# Kijelzőegység partíciótáblája. Az alkalmazás (Wi-Fi + ESP-NOW + LVGL + betűkészletek) nagyobb az
+# alapértelmezett 1 MB-os partíciónál; a 3 MB a fejlesztőpanel 16 MB-os és a saját NYÁK 8 MB-os
+# flashén is elfér.
+# Név,     Típus, Altípus, Eltolás,  Méret
+nvs,       data,  nvs,     0x9000,   0x6000
+phy_init,  data,  phy,     0xf000,   0x1000
+factory,   app,   factory, 0x10000,  3M

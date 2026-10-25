@@ -10,6 +10,7 @@
 #include "obd_services.h"
 #include "pid_scheduler.h"
 #include "pid_table.h"
+#include "telemetry_builder.h"
 #include "virtual_bus.h"
 
 using namespace og;
@@ -293,6 +294,45 @@ static void test_scheduler_misc() {
     CHECK(w.next_due(0x10, pid));
 }
 
+// ---------------------------------------------------------------- telemetria-üzenet
+static void test_telemetry_builder() {
+    VirtualBus bus;
+    EcuModel ecu(ecu_cfg());
+    ecu.state.rpm = 2500.25f;
+    ecu.state.speed_kmh = 88.f;
+    ecu.state.coolant_c = -12.f;
+    ecu.state.throttle_pct = 50.f;
+    ecu.state.vbat_v = 13.8f;
+    ecu.state.mil_on = true;
+    ecu.state.dtc_count = 3;
+    bus.attach(&ecu);
+    IsoTp tp(bus);
+    ObdClient cl(tp);
+    PidScheduler s;
+
+    // Még semmi nincs kiolvasva: egyetlen mező sem érvényes.
+    TelemetryMsg m = build_telemetry(s, bus.now_ms(), 7);
+    CHECK(m.flags == 0 && m.h.seq == 7 && m.h.type == static_cast<uint8_t>(MsgType::Telemetry));
+
+    add_plan(s, bus.now_ms());
+    run_for(s, bus, cl, 6000);  // a leglassabb PID (01 01, 5 s) is sorra kerül
+    m = build_telemetry(s, bus.now_ms(), 8);
+    CHECK(m.flags == (kFlagRpm | kFlagSpeed | kFlagCoolant | kFlagThrottle | kFlagVbat | kFlagMil));
+    CHECK(m.rpm_q4 == 10001);          // 2500,25 1/perc * 4
+    CHECK(m.speed_kmh == 88);
+    CHECK(m.coolant_c == -12);
+    CHECK(m.throttle_raw == 128);      // 50 % -> 127,5 -> 128 (az ECU és a builder is kerekít)
+    CHECK_NEAR(m.vbat_mv, 13800, 1);
+    CHECK(m.mil_dtc == (0x80 | 3));
+
+    // A busz eltűnik: a gyors PID-ek a periódusuk kétszerese után érvénytelenek, a lassúak még nem.
+    bus.set_bus_bitrate(250000);
+    run_for(s, bus, cl, 400);
+    m = build_telemetry(s, bus.now_ms(), 9);
+    CHECK(!(m.flags & kFlagRpm));      // 100 ms periódus, > 200 ms óta nincs érték
+    CHECK(m.flags & kFlagMil);         // 5 s periódus, még friss
+}
+
 // ---------------------------------------------------------------- protokoll-felismerés
 static void detect_classic(uint32_t bitrate, bool ext) {
     VirtualBus bus(bitrate);
@@ -370,6 +410,7 @@ int main() {
     RUN(test_scheduler_overload);
     RUN(test_scheduler_failure_recovery);
     RUN(test_scheduler_misc);
+    RUN(test_telemetry_builder);
     RUN(test_detect_classic_all_variants);
     RUN(test_detect_multiple_ecus);
     RUN(test_detect_obd_on_uds);

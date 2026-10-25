@@ -1,6 +1,7 @@
 #include <string>
 #include "mini_test.h"
 #include "og_codec.h"
+#include "og_link_stats.h"
 #include "og_seq.h"
 
 using namespace og;
@@ -76,11 +77,34 @@ static void sequence() {
     CHECK(!seq_is_newer(11, 10));       // késve érkezett
 }
 
+static void link_stats() {
+    LinkStats st;
+    CHECK(st.on_seq(100) && st.received() == 1 && st.lost() == 0);
+    CHECK(st.on_seq(101) && st.lost() == 0);
+    CHECK(st.on_seq(105) && st.lost() == 3);        // 102..104 elveszett
+    CHECK(!st.on_seq(105) && st.stale() == 1);      // duplikátum
+    CHECK(!st.on_seq(103) && st.stale() == 2);      // késve érkezett
+    CHECK(st.on_seq(106) && st.last_seq() == 106);  // a sorozat folytatódik
+    CHECK_NEAR(st.loss_ratio(), 3.0 / 7.0, 1e-6);   // 4 vett (100, 101, 105, 106) + 3 elveszett
+    // Átfordulás veszteség nélkül.
+    LinkStats w;
+    w.on_seq(65535);
+    CHECK(w.on_seq(0) && w.lost() == 0);
+    // Az adó újraindul (sorszám 0-tól): kResyncAfter régebbi csomag után átáll.
+    LinkStats r;
+    r.on_seq(5000);
+    CHECK(!r.on_seq(0));
+    CHECK(!r.on_seq(1));
+    CHECK(r.on_seq(2) && r.resyncs() == 1 && r.last_seq() == 2);
+    CHECK(r.on_seq(3) && r.lost() == 0);
+}
+
 int main() {
     RUN(roundtrip_telemetry);
     RUN(little_endian_layout);
     RUN(rejects_bad_input);
     RUN(other_messages);
     RUN(sequence);
+    RUN(link_stats);
     TEST_MAIN_END();
 }

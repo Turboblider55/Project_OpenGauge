@@ -3,15 +3,17 @@
 // Mit csinál: megkeresi a busz beállításait (sebesség, azonosítóhossz) és a protokollt,
 //             kiolvassa a VIN-t és a hibakódok számát, majd a PID-terv szerint ciklikusan
 //             lekérdezi a fordulatszámot, sebességet stb., és másodpercenként összesítést ír.
+//             Az értékekből 100 ms-onként TelemetryMsg-t küld ESP-NOW-n a kijelzőnek.
 //             Minden CAN-keretet naplóz (TwaiBus).
 // Hogyan:     ugyanazok az osztályok (obd_detect, IsoTp, ObdClient, PidScheduler), mint a
 //             PC-s teszteken, csak a VirtualBus helyett TwaiBus-szal. Ha a fordulatszám
 //             egymás után sokszor nem jön, a felismerés újraindul (pl. kihúzott kábel).
-// Miért:      ez az első hardveres teszt (S2 ECU-szimulátor <-> C3): azt igazolja, hogy a PC-n
-//             tesztelt logika a valódi buszon is működik. Az ESP-NOW-adás később kerül ide.
+// Miért:      az asztali teszt (S2 ECU-szimulátor <-> C3 -> S3 kijelző) azt igazolja, hogy a PC-n
+//             tesztelt logika a valódi buszon és rádión is működik.
 #include "board_pins.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "espnow_link.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "isotp.h"
@@ -20,6 +22,8 @@
 #include "og_codec.h"
 #include "pid_scheduler.h"
 #include "pid_table.h"
+#include "sdkconfig.h"
+#include "telemetry_builder.h"
 #include "twai_bus.h"
 
 namespace {
@@ -44,6 +48,13 @@ constexpr PlanItem kPlan[] = {
 
 // Ennyi egymást követő sikertelen fordulatszám-lekérdezés után újraindul a felismerés.
 constexpr uint32_t kLostAfterFailures = 10;
+
+// A telemetria küldési periódusa (10 Hz, a fordulatszám lekérdezéséhez igazítva; S-04).
+constexpr uint32_t kTelemetryPeriodMs = 100;
+
+og::EspNowLink g_link;
+bool g_link_ok = false;
+uint16_t g_seq = 0;
 
 // Mit csinál: a CAN-adó-vevőt nagy sebességű (normál) üzemmódba kapcsolja, ha van RS lába.
 // Miért:      az SN65HVD231 RS lába HIGH szinten készenlétbe teszi az adó-vevőt; a saját
@@ -107,7 +118,8 @@ void log_values(const og::PidScheduler& s, uint32_t now) {
 
 // Mit csinál: a felismert ECU-val lekérdezési ciklust futtat, amíg a kapcsolat él.
 // Hogyan:     egyszeri lekérdezések (VIN, hibakódszám), majd PidScheduler; ha nincs esedékes
-//             PID, alszik a következőig. Visszatér, ha a fordulatszám tartósan nem jön.
+//             PID, alszik a következőig, de legfeljebb a következő telemetria-küldésig.
+//             Visszatér, ha a fordulatszám tartósan nem jön.
 void run_session(og::TwaiBus& bus, const og::ProtocolInfo& info) {
     og::IsoTpConfig tc;
     tc.ext_ids = info.ext_ids;
@@ -146,19 +158,35 @@ void run_session(og::TwaiBus& bus, const og::ProtocolInfo& info) {
     }
 
     uint32_t next_log = start + 1000;
+    uint32_t next_tx = start + kTelemetryPeriodMs;
     for (;;) {
         og::Err err;
         if (!s.step(cl, err)) {
-            const uint32_t w = s.ms_until_next(cl.now_ms());
+            uint32_t w = s.ms_until_next(cl.now_ms());
+            const int32_t to_tx = static_cast<int32_t>(next_tx - cl.now_ms());
+            if (to_tx >= 0 && static_cast<uint32_t>(to_tx) < w) w = static_cast<uint32_t>(to_tx);
             vTaskDelay(pdMS_TO_TICKS(w ? w : 1));
         }
         const uint32_t now = cl.now_ms();
+        if (static_cast<int32_t>(now - next_tx) >= 0) {
+            if (g_link_ok) {
+                const og::TelemetryMsg m = og::build_telemetry(s, now, g_seq++);
+                g_link.send(&m, sizeof m);
+            }
+            next_tx += kTelemetryPeriodMs;
+            if (static_cast<int32_t>(now - next_tx) >= 0) next_tx = now + kTelemetryPeriodMs;  // ne pótolja a kimaradtakat
+        }
         if (static_cast<int32_t>(now - next_log) >= 0) {
             log_values(s, now);
             const og::TwaiBus::Stats& st = bus.stats();
             ESP_LOGI(TAG, "Kérések: RPM %lu (hiba %lu), összes TX %lu, RX %lu, újraindítás %lu",
                      (unsigned long)s.requests(0x0C), (unsigned long)s.failures(0x0C), (unsigned long)st.tx_ok,
                      (unsigned long)st.rx, (unsigned long)st.restarts);
+            if (g_link_ok) {
+                const og::EspNowLink::Stats ls = g_link.stats();
+                ESP_LOGI(TAG, "ESP-NOW: seq %u, elküldve %lu, sikertelen %lu", g_seq, (unsigned long)ls.tx_ok,
+                         (unsigned long)ls.tx_fail);
+            }
             next_log = now + 1000;
         }
         if (pid_supported(info, 0x0C) && s.consecutive_failures(0x0C) >= kLostAfterFailures) {
@@ -175,6 +203,8 @@ extern "C" void app_main(void) {
     ESP_LOGI(TAG, "OpenGauge OBD-egység indul; protokoll v%d, Telemetry = %u B", og::kProtoVersion,
              (unsigned)sizeof(og::TelemetryMsg));
     transceiver_enable();
+    g_link_ok = g_link.init(CONFIG_OG_ESPNOW_CHANNEL);
+    if (!g_link_ok) ESP_LOGE(TAG, "Az ESP-NOW nem indult el; a CAN-oldal rádió nélkül fut tovább");
 
     og::TwaiBus bus(og::board::kPinCanTx, og::board::kPinCanRx, "can");
     for (;;) {

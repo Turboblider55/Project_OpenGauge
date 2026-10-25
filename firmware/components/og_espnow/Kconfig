@@ -1,0 +1,8 @@
+menu "OpenGauge: ESP-NOW"
+    config OG_ESPNOW_PEER_MAC
+        string "A társegység MAC-címe (AA:BB:CC:DD:EE:FF)"
+        default "FF:FF:FF:FF:FF:FF"
+        help
+            Alapértéke a szórási cím: így párosítás nélkül működik, de nincs MAC-szintű
+            nyugta és ismétlés. A társ saját címét az indulási napló írja ki.
+endmenu

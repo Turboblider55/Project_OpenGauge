@@ -50,6 +50,9 @@ public:
     // A PID 01 01 alapján: MIL és hibakódok száma (érvényes, ha a PID sikeresen olvasva volt).
     bool mil(MilStatus& m) const;
 
+    // A PID frissítési periódusa (ms); 0, ha nincs felvéve. A frissesség megítéléséhez kell.
+    uint32_t period(uint8_t pid) const;
+
     // Statisztika (diagnosztika és tesztek).
     uint32_t requests(uint8_t pid) const;
     uint32_t failures(uint8_t pid) const;

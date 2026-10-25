@@ -15,7 +15,7 @@ Szakdolgozati projekt (GAMF, Neumann János Egyetem): két egyedi NYÁK.
 | `firmware/display_node` | ESP-IDF projekt (esp32s3) |
 | `firmware/tools/ecu_sim` | ESP-IDF projekt (esp32s2, ECU-szimulátor) |
 | `firmware/tools/host_test` | PC-s CMake tesztek (nem ESP-projekt) |
-| `firmware/components` | közös komponensek; hardverfüggetlenek (PC-n is fordulnak), kivéve az `og_twai` ESP-IDF-illesztőt |
+| `firmware/components` | közös komponensek; hardverfüggetlenek (PC-n is fordulnak), kivéve az `og_twai` és az `og_espnow` ESP-IDF-illesztőt |
 | `docs/` | dokumentáció; a fejlesztési napló: `fejlesztesi_naplo.xlsx` |
 
 A három ESP-projektet külön-külön kell megnyitni és fordítani (`idf.py set-target <chip>`, `idf.py build`). ESP-IDF: 5.5.x.

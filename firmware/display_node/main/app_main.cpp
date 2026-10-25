@@ -1,13 +1,16 @@
 // Kijelzőegység – belépési pont.
 //
 // Mit csinál: inicializálja a kerek kijelzőt (ST77916, QSPI), bekapcsolja a háttérvilágítást, és a
-//             menuconfigban választott tesztet futtatja: színteszt (M2) vagy LVGL-teszt (M3).
+//             menuconfigban választott módot futtatja: műszerfal (valós telemetria), színteszt
+//             (M2), LVGL-teszt (M3) vagy ESP-NOW vételi teszt (M4, kijelző nélkül).
 // Hogyan:     a lábkiosztás a board_pins.h-ból, a kijelzőbeállítások a menuconfigból jönnek.
-// Miért:      a két teszt ugyanazt a panelinicializálást használja; a színteszt új hardveren
+// Miért:      a kijelzős tesztek ugyanazt a panelinicializálást használják; a színteszt új hardveren
 //             (pl. a saját NYÁK-on) az első lépés marad, az LVGL-teszt a felület alapja.
 #include "board_pins.h"
 #include "color_test.h"
+#include "dash_app.h"
 #include "esp_log.h"
+#include "espnow_rx_test.h"
 #include "lcd_panel.h"
 #include "lvgl_test.h"
 #include "og_codec.h"
@@ -19,6 +22,11 @@ const char* TAG = "og_disp";
 
 extern "C" void app_main(void) {
     ESP_LOGI(TAG, "OpenGauge kijelzőegység indul; protokoll v%d", og::kProtoVersion);
+#if defined(CONFIG_OG_DISP_TEST_ESPNOW)
+    // A kijelzőt nem inicializáljuk: a panel nem kap képet, a vételi teszt csak naplóz.
+    og::run_espnow_rx_test();
+    return;
+#endif
 
     og::LcdConfig cfg;
     cfg.pins = og::board::kLcd;
@@ -44,7 +52,9 @@ extern "C" void app_main(void) {
     lcd.set_backlight(CONFIG_OG_LCD_BACKLIGHT_PERCENT);
     ESP_LOGI(TAG, "Háttérvilágítás: %d %%", CONFIG_OG_LCD_BACKLIGHT_PERCENT);
 
-#if defined(CONFIG_OG_DISP_TEST_COLORS)
+#if defined(CONFIG_OG_DISP_TEST_DASH)
+    og::run_dash_app(lcd, cfg.swap_bytes);
+#elif defined(CONFIG_OG_DISP_TEST_COLORS)
     og::run_color_test(lcd);
 #else
     og::run_lvgl_test(lcd, cfg.swap_bytes);

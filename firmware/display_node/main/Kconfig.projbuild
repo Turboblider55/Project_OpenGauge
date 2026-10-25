@@ -11,11 +11,15 @@ menu "OpenGauge: kijelzőegység"
 
     choice OG_DISP_TEST
         prompt "Futtatott teszt"
-        default OG_DISP_TEST_LVGL
+        default OG_DISP_TEST_DASH
+        config OG_DISP_TEST_DASH
+            bool "Műszerfal: valós telemetria ESP-NOW-n, 3 automatikusan váltó képernyő"
         config OG_DISP_TEST_LVGL
             bool "LVGL-teszt (M3): ív, felirat, animáció, FPS-mérés"
         config OG_DISP_TEST_COLORS
             bool "Színteszt (M2): egyszínű képek, színsávok, tájolás, átmenetek"
+        config OG_DISP_TEST_ESPNOW
+            bool "ESP-NOW vétel (M4): telemetria és csomagvesztés naplózása, kijelző nélkül"
     endchoice
 
     choice OG_LCD_INIT
