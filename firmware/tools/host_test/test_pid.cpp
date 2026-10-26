@@ -33,7 +33,7 @@ static void encode_decode_roundtrip() {
     for (auto& t : c) {
         uint8_t b[2];
         size_t n = pid_encode(t.pid, t.val, b, sizeof b);
-        float back;
+        float back = 0.f;
         CHECK(n > 0 && pid_decode(t.pid, b, n, back));
         CHECK_NEAR(back, t.val, t.tol);
     }

@@ -1,5 +1,6 @@
 // OBD-kliens, ütemező és protokoll-felismerés tesztjei virtuális buszon.
 #include <cstring>
+#include <initializer_list>
 
 #include "ecu_model.h"
 #include "isotp.h"
@@ -9,6 +10,7 @@
 #include "obd_services.h"
 #include "pid_scheduler.h"
 #include "pid_table.h"
+#include "telemetry_builder.h"
 #include "virtual_bus.h"
 
 using namespace og;
@@ -59,7 +61,7 @@ static void test_services() {
 static void test_ecu_bitmap() {
     // A 00 blokk: 01, 05, 0C, 0D, 11 + a 20-as blokk jelzése; a 20-as blokk a 40-esét jelzi.
     const uint32_t b0 = EcuModel::supported_bitmap(0x00);
-    for (uint8_t p : {0x01, 0x05, 0x0C, 0x0D, 0x11, 0x20}) CHECK(pid_in_bitmap(b0, 0x00, p));
+    for (uint8_t p : std::initializer_list<uint8_t>{0x01, 0x05, 0x0C, 0x0D, 0x11, 0x20}) CHECK(pid_in_bitmap(b0, 0x00, p));
     CHECK(!pid_in_bitmap(b0, 0x00, 0x02));
     CHECK(pid_in_bitmap(EcuModel::supported_bitmap(0x20), 0x20, 0x40));
     CHECK(pid_in_bitmap(EcuModel::supported_bitmap(0x40), 0x40, 0x42));
@@ -212,7 +214,7 @@ static void test_scheduler_nominal_load() {
     CHECK(s.requests(0x11) >= 29 && s.requests(0x11) <= 32);
     CHECK(s.requests(0x05) >= 9 && s.requests(0x05) <= 11);
     uint32_t total = 0;
-    for (uint8_t p : {0x0C, 0x0D, 0x11, 0x05, 0x42, 0x01}) {
+    for (uint8_t p : std::initializer_list<uint8_t>{0x0C, 0x0D, 0x11, 0x05, 0x42, 0x01}) {
         total += s.requests(p);
         CHECK(s.failures(p) == 0);
     }
@@ -243,11 +245,11 @@ static void test_scheduler_overload() {
     PidScheduler s;
     add_plan(s, bus.now_ms());
     run_for(s, bus, cl, 10000);
-    for (uint8_t p : {0x0C, 0x0D, 0x11, 0x05, 0x42, 0x01}) CHECK(s.requests(p) >= 1);
+    for (uint8_t p : std::initializer_list<uint8_t>{0x0C, 0x0D, 0x11, 0x05, 0x42, 0x01}) CHECK(s.requests(p) >= 1);
     CHECK(s.requests(0x0C) > s.requests(0x05));
     CHECK(s.requests(0x0C) > s.requests(0x0D));
     uint32_t total = 0;
-    for (uint8_t p : {0x0C, 0x0D, 0x11, 0x05, 0x42, 0x01}) total += s.requests(p);
+    for (uint8_t p : std::initializer_list<uint8_t>{0x0C, 0x0D, 0x11, 0x05, 0x42, 0x01}) total += s.requests(p);
     CHECK(total <= 10000 / 150 + 1);  // az ECU nem tud gyorsabban válaszolni
 }
 
@@ -290,6 +292,45 @@ static void test_scheduler_misc() {
     PidScheduler w;
     w.add(0x0C, 100, 0xFFFFFFF0u);
     CHECK(w.next_due(0x10, pid));
+}
+
+// ---------------------------------------------------------------- telemetria-üzenet
+static void test_telemetry_builder() {
+    VirtualBus bus;
+    EcuModel ecu(ecu_cfg());
+    ecu.state.rpm = 2500.25f;
+    ecu.state.speed_kmh = 88.f;
+    ecu.state.coolant_c = -12.f;
+    ecu.state.throttle_pct = 50.f;
+    ecu.state.vbat_v = 13.8f;
+    ecu.state.mil_on = true;
+    ecu.state.dtc_count = 3;
+    bus.attach(&ecu);
+    IsoTp tp(bus);
+    ObdClient cl(tp);
+    PidScheduler s;
+
+    // Még semmi nincs kiolvasva: egyetlen mező sem érvényes.
+    TelemetryMsg m = build_telemetry(s, bus.now_ms(), 7);
+    CHECK(m.flags == 0 && m.h.seq == 7 && m.h.type == static_cast<uint8_t>(MsgType::Telemetry));
+
+    add_plan(s, bus.now_ms());
+    run_for(s, bus, cl, 6000);  // a leglassabb PID (01 01, 5 s) is sorra kerül
+    m = build_telemetry(s, bus.now_ms(), 8);
+    CHECK(m.flags == (kFlagRpm | kFlagSpeed | kFlagCoolant | kFlagThrottle | kFlagVbat | kFlagMil));
+    CHECK(m.rpm_q4 == 10001);          // 2500,25 1/perc * 4
+    CHECK(m.speed_kmh == 88);
+    CHECK(m.coolant_c == -12);
+    CHECK(m.throttle_raw == 128);      // 50 % -> 127,5 -> 128 (az ECU és a builder is kerekít)
+    CHECK_NEAR(m.vbat_mv, 13800, 1);
+    CHECK(m.mil_dtc == (0x80 | 3));
+
+    // A busz eltűnik: a gyors PID-ek a periódusuk kétszerese után érvénytelenek, a lassúak még nem.
+    bus.set_bus_bitrate(250000);
+    run_for(s, bus, cl, 400);
+    m = build_telemetry(s, bus.now_ms(), 9);
+    CHECK(!(m.flags & kFlagRpm));      // 100 ms periódus, > 200 ms óta nincs érték
+    CHECK(m.flags & kFlagMil);         // 5 s periódus, még friss
 }
 
 // ---------------------------------------------------------------- protokoll-felismerés
@@ -369,6 +410,7 @@ int main() {
     RUN(test_scheduler_overload);
     RUN(test_scheduler_failure_recovery);
     RUN(test_scheduler_misc);
+    RUN(test_telemetry_builder);
     RUN(test_detect_classic_all_variants);
     RUN(test_detect_multiple_ecus);
     RUN(test_detect_obd_on_uds);

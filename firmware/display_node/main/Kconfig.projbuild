@@ -1,0 +1,82 @@
+menu "OpenGauge: kijelzőegység"
+
+    choice OG_DISP_BOARD
+        prompt "Hardverváltozat (lábkiosztás: board_pins.h)"
+        default OG_BOARD_DEVKIT_S3
+        config OG_BOARD_DEVKIT_S3
+            bool "Asztali teszt: Waveshare ESP32-S3-DEV-KIT (N16R8) + 1,85\" modul a 15 pólusú csatlakozón"
+        config OG_BOARD_DISP_REV_A
+            bool "Saját NYÁK, Rev. A (ESP32-S3-WROOM-1-N8R8, J2 FPC)"
+    endchoice
+
+    choice OG_DISP_TEST
+        prompt "Futtatott teszt"
+        default OG_DISP_TEST_DASH
+        config OG_DISP_TEST_DASH
+            bool "Műszerfal: valós telemetria ESP-NOW-n, 3 automatikusan váltó képernyő"
+        config OG_DISP_TEST_TOUCH
+            bool "Érintésteszt: pont az érintés helyén, koordináták, négy célpont, gesztusok"
+        config OG_DISP_TEST_LVGL
+            bool "LVGL-teszt (M3): ív, felirat, animáció, FPS-mérés"
+        config OG_DISP_TEST_COLORS
+            bool "Színteszt (M2): egyszínű képek, színsávok, tájolás, átmenetek"
+        config OG_DISP_TEST_ESPNOW
+            bool "ESP-NOW vétel (M4): telemetria és csomagvesztés naplózása, kijelző nélkül"
+    endchoice
+
+    choice OG_LCD_INIT
+        prompt "ST77916 init-sorozat"
+        default OG_LCD_INIT_WAVESHARE_1_85
+        help
+            A panel gyári regiszterbeállításai (feszültség, gamma, időzítés) paneltípusonként eltérnek.
+        config OG_LCD_INIT_WAVESHARE_1_85
+            bool "Waveshare 1,85\" (ESP32_Display_Panel tábla)"
+        config OG_LCD_INIT_COMPONENT_DEFAULT
+            bool "Az esp_lcd_st77916 komponens alapértelmezett táblája"
+    endchoice
+
+    config OG_LCD_PCLK_MHZ
+        int "QSPI órajel (MHz)"
+        range 5 80
+        default 40
+        help
+            40 MHz-en a Waveshare-modul a devkiten hibátlan (Q-05). Új hardveren (pl. a saját
+            NYÁK-on) a színteszttel érdemes 20 MHz-ről indulni.
+
+    config OG_TOUCH_SWAP_XY
+        bool "Érintő: X és Y tengely cseréje"
+        default n
+        help
+            Ha az érintés a kijelzőhöz képest 90°-kal elforgatva jelenik meg (az érintésteszt
+            célpontjai mutatják), ezzel és a tükrözésekkel igazítható.
+
+    config OG_TOUCH_USE_INT
+        bool "Érintő: megszakításvezérelt olvasás (TP_INT)"
+        default n
+        help
+            Kikapcsolva az LVGL időzítve (a frissítési periódussal) kérdezi le az érintőt.
+            Bekapcsolva csak a chip megszakítására olvas; a CST816 ritka megszakításai miatt
+            így a húzásokból kevés minta jön, és a gesztusok egy része elveszhet.
+
+    config OG_TOUCH_MIRROR_X
+        bool "Érintő: X tengely tükrözése"
+        default n
+
+    config OG_TOUCH_MIRROR_Y
+        bool "Érintő: Y tengely tükrözése"
+        default n
+
+    config OG_LCD_SWAP_BYTES
+        bool "RGB565 bájtcsere (a panel nagy-endián sorrendet vár)"
+        default y
+
+    config OG_LCD_BGR
+        bool "BGR színsorrend (ha a piros és a kék fel van cserélve)"
+        default n
+
+    config OG_LCD_BACKLIGHT_PERCENT
+        int "Háttérvilágítás (%)"
+        range 0 100
+        default 80
+
+endmenu

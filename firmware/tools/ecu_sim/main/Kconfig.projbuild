@@ -1,0 +1,39 @@
+menu "OpenGauge: ECU-szimulátor"
+
+    choice OG_SIM_BITRATE
+        prompt "CAN-sebesség"
+        default OG_SIM_BITRATE_500K
+        help
+            A protokoll-felismerés teszteléséhez a 250 kbit/s is választható.
+        config OG_SIM_BITRATE_500K
+            bool "500 kbit/s"
+        config OG_SIM_BITRATE_250K
+            bool "250 kbit/s"
+    endchoice
+
+    config OG_SIM_BITRATE_BPS
+        int
+        default 500000 if OG_SIM_BITRATE_500K
+        default 250000 if OG_SIM_BITRATE_250K
+
+    config OG_SIM_EXT_IDS
+        bool "29 bites azonosítók (0x18DAF1xx)"
+        default n
+
+    config OG_SIM_UDS_ONLY
+        bool "OBDonUDS-ECU (J1979-2): csak a 22 F8 10 kérésre válaszol"
+        default n
+        help
+            Azt teszteli, hogy az OBD-egység felismeri és jelzi-e a nem támogatott protokollt.
+
+    config OG_SIM_LATENCY_MS
+        int "Az ECU válaszideje (ms)"
+        range 1 200
+        default 40
+
+    config OG_SIM_DTC_COUNT
+        int "Tárolt hibakódok száma (0 = MIL ki)"
+        range 0 8
+        default 2
+
+endmenu

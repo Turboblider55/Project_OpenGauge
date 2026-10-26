@@ -1,7 +1,28 @@
 # ESP32-S3 (célhardver: idf.py set-target esp32s3)
 CONFIG_FREERTOS_HZ=1000
-# M2-nél bekapcsolandó, a devkit modulja (N8R8 / N16R8) ellenőrzése után:
-# CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
-# CONFIG_SPIRAM=y
-# CONFIG_SPIRAM_MODE_OCT=y
-# CONFIG_SPIRAM_SPEED_80M=y
+
+# Fejlesztőpanel: ESP32-S3-WROOM-1-N16R8 (16 MB flash, 8 MB Octal PSRAM).
+# A saját NYÁK modulja N8R8: ott CONFIG_ESPTOOLPY_FLASHSIZE_8MB kell (a PSRAM ugyanaz).
+# Az Octal PSRAM meglétét az első indításkor a rendszerindítási napló igazolja (Q-15).
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+
+# Teljesítmény: 240 MHz-es CPU, sebességre optimalizált fordítás (az LVGL rajzolása CPU-igényes).
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
+# LVGL: betűméretek a műszerképhez, frissítési periódus (16 ms = legfeljebb ~60 FPS; az első
+# LVGL-teszt 10 ms-mal mérte a határt: 66-72 FPS), beépített teljesítménymérő a képernyő alján.
+CONFIG_LV_FONT_MONTSERRAT_20=y
+CONFIG_LV_FONT_MONTSERRAT_28=y
+CONFIG_LV_FONT_MONTSERRAT_48=y
+CONFIG_LV_DEF_REFR_PERIOD=16
+CONFIG_LV_USE_SYSMON=y
+CONFIG_LV_USE_PERF_MONITOR=y
+CONFIG_LV_PERF_MONITOR_ALIGN_BOTTOM_MID=y
+
+# Saját partíciótábla: 3 MB-os alkalmazáspartíció (partitions.csv).
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"

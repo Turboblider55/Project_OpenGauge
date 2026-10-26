@@ -1,0 +1,8 @@
+menu "OpenGauge: CAN (TWAI)"
+    config OG_TWAI_LOG_FRAMES
+        bool "Minden CAN-keret naplózása a konzolra (azonosító, DLC, adat)"
+        default y
+        help
+            Teszteléshez hasznos; járműben a sűrű forgalom miatt kikapcsolandó,
+            mert a naplózás lassítja a lekérdezési ciklust.
+endmenu
