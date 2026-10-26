@@ -16,7 +16,8 @@ namespace {
 
 const char* TAG = "touch";
 
-constexpr uint8_t kRegDisAutoSleep = 0xFE;  // CST816S: nem nulla érték tiltja az automatikus alvást
+constexpr uint8_t kRegDisAutoSleep = 0xFE;  // nem nulla érték tiltja az automatikus alvást
+constexpr uint8_t kRegChipId = 0xA7;
 
 #define OG_CHECK(expr)                                                  \
     do {                                                                \
@@ -48,6 +49,34 @@ void TouchPanel::scan_bus() {
         ESP_LOGW(TAG, "I2C-keresés: egyetlen eszköz sem válaszolt (bekötés, felhúzó-ellenállás?)");
 }
 
+// Mit csinál: közvetlen I2C-vel kiolvassa a chip-azonosítót (0xA7), és tiltja az automatikus
+//             alvást (0xFE = 1).
+// Hogyan:     ideiglenes I2C-eszközleíró a buszon, írás (regisztercím + érték) és írás-olvasás.
+// Miért:      ez a reset utáni rövid ébrenléti ablakban kell, a meghajtó létrehozása előtt. Az
+//             azonosító megmutatja a pontos típust: a CST816 család kódjai szerint 0xB4 = CST816S,
+//             0xB5 = CST816T, 0xB6 = CST816D (a regiszterkészletük azonos).
+void TouchPanel::disable_auto_sleep() {
+    i2c_device_config_t dc = {};
+    dc.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    dc.device_address = ESP_LCD_TOUCH_IO_I2C_CST816S_ADDRESS;
+    dc.scl_speed_hz = 100000;
+    i2c_master_dev_handle_t dev = nullptr;
+    if (i2c_master_bus_add_device(static_cast<i2c_master_bus_handle_t>(bus_), &dc, &dev) != ESP_OK) return;
+    const uint8_t id_reg = kRegChipId;
+    uint8_t id = 0;
+    const esp_err_t e_id = i2c_master_transmit_receive(dev, &id_reg, 1, &id, 1, 50);
+    const uint8_t cmd[2] = {kRegDisAutoSleep, 0x01};
+    const esp_err_t e_sleep = i2c_master_transmit(dev, cmd, sizeof cmd, 50);
+    ESP_LOGI(TAG, "Chip-azonosító: %s (0x%02X); automatikus alvás tiltása: %s", esp_err_to_name(e_id), id,
+             esp_err_to_name(e_sleep));
+    i2c_master_bus_rm_device(dev);
+}
+
+bool TouchPanel::responds() const {
+    return bus_ && i2c_master_probe(static_cast<i2c_master_bus_handle_t>(bus_), ESP_LCD_TOUCH_IO_I2C_CST816S_ADDRESS,
+                                    20) == ESP_OK;
+}
+
 bool TouchPanel::init(const TouchConfig& cfg) {
     // I2C-busz a belső felhúzókkal. A belső ellenállás (~45 kOhm) 100 kHz-hez rövid
     // vezetékkel elegendő; ha a modulon nincs külső felhúzó (Q-02), ez tartja a buszt.
@@ -62,7 +91,10 @@ bool TouchPanel::init(const TouchConfig& cfg) {
     OG_CHECK(i2c_new_master_bus(&bc, &bus));
     bus_ = bus;
 
-    // Reset-impulzus a keresés előtt: így a chip biztosan ébren van.
+    // Reset, majd még az ébrenléti ablakon belül az automatikus alvás tiltása. Mérés szerint a
+    // chip a reset után csak kb. 100-200 ms-ig válaszol, utána elalszik, és már a címére sem
+    // nyugtáz; a meghajtó saját resetje után 200 ms-ot vár, ezért a resetet itt végezzük, a
+    // meghajtó pedig reset nélkül indul (rst_gpio_num = NC).
     if (cfg.pins.rst >= 0) {
         const gpio_num_t rst = static_cast<gpio_num_t>(cfg.pins.rst);
         gpio_reset_pin(rst);
@@ -70,10 +102,10 @@ bool TouchPanel::init(const TouchConfig& cfg) {
         gpio_set_level(rst, 0);
         vTaskDelay(pdMS_TO_TICKS(10));
         gpio_set_level(rst, 1);
-        vTaskDelay(pdMS_TO_TICKS(60));
+        vTaskDelay(pdMS_TO_TICKS(80));  // bekapcsolás után 50 ms még kevés volt (mérés)
     }
+    disable_auto_sleep();
     scan_bus();
-
     // A panel-IO a meghajtó makrójával azonos értékekkel (a makró mezősorrendje C++-ban nem fordul).
     esp_lcd_panel_io_i2c_config_t ioc = {};
     ioc.dev_addr = ESP_LCD_TOUCH_IO_I2C_CST816S_ADDRESS;
@@ -87,8 +119,8 @@ bool TouchPanel::init(const TouchConfig& cfg) {
     esp_lcd_touch_config_t tc = {};
     tc.x_max = cfg.x_max;
     tc.y_max = cfg.y_max;
-    tc.rst_gpio_num = static_cast<gpio_num_t>(cfg.pins.rst);
-    tc.int_gpio_num = static_cast<gpio_num_t>(cfg.pins.intr);
+    tc.rst_gpio_num = GPIO_NUM_NC;  // a resetet fent már elvégeztük (lásd ott)
+    tc.int_gpio_num = cfg.use_interrupt ? static_cast<gpio_num_t>(cfg.pins.intr) : GPIO_NUM_NC;
     tc.levels.reset = 0;
     tc.levels.interrupt = 0;
     tc.flags.swap_xy = cfg.swap_xy;
@@ -96,10 +128,12 @@ bool TouchPanel::init(const TouchConfig& cfg) {
     tc.flags.mirror_y = cfg.mirror_y;
     OG_CHECK(esp_lcd_touch_new_i2c_cst816s(io_, &tc, &tp_));
 
-    const uint8_t on = 0x01;
-    const esp_err_t e = esp_lcd_panel_io_tx_param(io_, kRegDisAutoSleep, &on, 1);
-    ESP_LOGI(TAG, "CST816S kész (0x%02X), automatikus alvás tiltása: %s; tengelycsere %d, tükrözés x %d, y %d",
-             ESP_LCD_TOUCH_IO_I2C_CST816S_ADDRESS, esp_err_to_name(e), cfg.swap_xy, cfg.mirror_x, cfg.mirror_y);
+    // Ellenőrzés: alvás nélkül a chip fél másodperc múlva is válaszol.
+    vTaskDelay(pdMS_TO_TICKS(500));
+    const esp_err_t awake = i2c_master_probe(bus, ESP_LCD_TOUCH_IO_I2C_CST816S_ADDRESS, 20);
+    ESP_LOGI(TAG, "Érintővezérlő kész (0x%02X); 500 ms múlva is válaszol: %s; %s; tengelycsere %d, tükrözés x %d, y %d",
+             ESP_LCD_TOUCH_IO_I2C_CST816S_ADDRESS, awake == ESP_OK ? "igen" : "NEM (elaludt?)",
+             cfg.use_interrupt ? "megszakításvezérelt" : "időzített lekérdezés", cfg.swap_xy, cfg.mirror_x, cfg.mirror_y);
     return true;
 }
 

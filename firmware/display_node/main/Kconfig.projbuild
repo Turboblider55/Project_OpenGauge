@@ -50,6 +50,14 @@ menu "OpenGauge: kijelzőegység"
             Ha az érintés a kijelzőhöz képest 90°-kal elforgatva jelenik meg (az érintésteszt
             célpontjai mutatják), ezzel és a tükrözésekkel igazítható.
 
+    config OG_TOUCH_USE_INT
+        bool "Érintő: megszakításvezérelt olvasás (TP_INT)"
+        default n
+        help
+            Kikapcsolva az LVGL időzítve (a frissítési periódussal) kérdezi le az érintőt.
+            Bekapcsolva csak a chip megszakítására olvas; a CST816 ritka megszakításai miatt
+            így a húzásokból kevés minta jön, és a gesztusok egy része elveszhet.
+
     config OG_TOUCH_MIRROR_X
         bool "Érintő: X tengely tükrözése"
         default n

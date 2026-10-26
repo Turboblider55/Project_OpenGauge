@@ -30,6 +30,29 @@ extern "C" void app_main(void) {
     return;
 #endif
 
+#if defined(CONFIG_OG_DISP_TEST_DASH) || defined(CONFIG_OG_DISP_TEST_TOUCH)
+    // Érintő: reset, majd azonnal az automatikus alvás tiltása (a chip a reset után néhány száz
+    // ms-mal elalszik). A tájolás a menuconfigból igazítható a kijelzőhöz.
+    og::TouchConfig tc;
+    tc.pins = og::board::kTouch;
+#ifdef CONFIG_OG_TOUCH_SWAP_XY
+    tc.swap_xy = true;
+#endif
+#ifdef CONFIG_OG_TOUCH_MIRROR_X
+    tc.mirror_x = true;
+#endif
+#ifdef CONFIG_OG_TOUCH_MIRROR_Y
+    tc.mirror_y = true;
+#endif
+#ifdef CONFIG_OG_TOUCH_USE_INT
+    tc.use_interrupt = true;
+#endif
+    static og::TouchPanel touch;
+    const bool touch_ok = touch.init(tc);
+    if (!touch_ok) ESP_LOGW(TAG, "Az érintővezérlő nem érhető el");
+#endif
+
+
     og::LcdConfig cfg;
     cfg.pins = og::board::kLcd;
     cfg.pclk_hz = CONFIG_OG_LCD_PCLK_MHZ * 1000 * 1000;
@@ -53,23 +76,10 @@ extern "C" void app_main(void) {
     lcd.fill_rect(0, 0, og::LcdPanel::kWidth, og::LcdPanel::kHeight, 0);  // induláskor véletlenszerű a panel memóriája
     lcd.set_backlight(CONFIG_OG_LCD_BACKLIGHT_PERCENT);
     ESP_LOGI(TAG, "Háttérvilágítás: %d %%", CONFIG_OG_LCD_BACKLIGHT_PERCENT);
-
 #if defined(CONFIG_OG_DISP_TEST_DASH) || defined(CONFIG_OG_DISP_TEST_TOUCH)
-    // Érintő: a tájolás a menuconfigból igazítható a kijelzőhöz.
-    og::TouchConfig tc;
-    tc.pins = og::board::kTouch;
-#ifdef CONFIG_OG_TOUCH_SWAP_XY
-    tc.swap_xy = true;
-#endif
-#ifdef CONFIG_OG_TOUCH_MIRROR_X
-    tc.mirror_x = true;
-#endif
-#ifdef CONFIG_OG_TOUCH_MIRROR_Y
-    tc.mirror_y = true;
-#endif
-    static og::TouchPanel touch;
-    const bool touch_ok = touch.init(tc);
-    if (!touch_ok) ESP_LOGW(TAG, "Az érintővezérlő nem érhető el");
+    // Ellenőrzés: a kijelző indítása után is ébren van-e az érintő (a reset-lábak felcserélése
+    // éppen így derült ki: rossz lábkiosztásnál a kijelző resetje az érintőt indította újra).
+    ESP_LOGI(TAG, "Érintő a kijelző indítása után: %s", touch.responds() ? "válaszol" : "NEM válaszol");
 #endif
 
 #if defined(CONFIG_OG_DISP_TEST_DASH)
