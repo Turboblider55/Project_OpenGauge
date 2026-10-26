@@ -61,6 +61,18 @@ lv_display_t* lvgl_start(LcdPanel& lcd, bool swap_bytes) {
     return disp;
 }
 
+lv_indev_t* lvgl_add_touch(lv_display_t* disp, TouchPanel& touch) {
+    if (!touch.handle()) return nullptr;
+    lvgl_port_touch_cfg_t tc = {};
+    tc.disp = disp;
+    tc.handle = touch.handle();
+    tc.scale.x = 1.f;
+    tc.scale.y = 1.f;
+    lv_indev_t* in = lvgl_port_add_touch(&tc);
+    if (!in) ESP_LOGE(TAG, "lvgl_port_add_touch sikertelen");
+    return in;
+}
+
 uint32_t lvgl_take_frames() { return g_frames.exchange(0, std::memory_order_relaxed); }
 
 }  // namespace og

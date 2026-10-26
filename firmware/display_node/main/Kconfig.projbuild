@@ -14,6 +14,8 @@ menu "OpenGauge: kijelzőegység"
         default OG_DISP_TEST_DASH
         config OG_DISP_TEST_DASH
             bool "Műszerfal: valós telemetria ESP-NOW-n, 3 automatikusan váltó képernyő"
+        config OG_DISP_TEST_TOUCH
+            bool "Érintésteszt: pont az érintés helyén, koordináták, négy célpont, gesztusok"
         config OG_DISP_TEST_LVGL
             bool "LVGL-teszt (M3): ív, felirat, animáció, FPS-mérés"
         config OG_DISP_TEST_COLORS
@@ -40,6 +42,21 @@ menu "OpenGauge: kijelzőegység"
         help
             40 MHz-en a Waveshare-modul a devkiten hibátlan (Q-05). Új hardveren (pl. a saját
             NYÁK-on) a színteszttel érdemes 20 MHz-ről indulni.
+
+    config OG_TOUCH_SWAP_XY
+        bool "Érintő: X és Y tengely cseréje"
+        default n
+        help
+            Ha az érintés a kijelzőhöz képest 90°-kal elforgatva jelenik meg (az érintésteszt
+            célpontjai mutatják), ezzel és a tükrözésekkel igazítható.
+
+    config OG_TOUCH_MIRROR_X
+        bool "Érintő: X tengely tükrözése"
+        default n
+
+    config OG_TOUCH_MIRROR_Y
+        bool "Érintő: Y tengely tükrözése"
+        default n
 
     config OG_LCD_SWAP_BYTES
         bool "RGB565 bájtcsere (a panel nagy-endián sorrendet vár)"

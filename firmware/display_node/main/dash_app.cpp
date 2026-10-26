@@ -1,7 +1,7 @@
 // Kijelzőegység – műszerfal a valós telemetriával (S-07, S-08, S-10 első változata).
 //
 // Mit csinál: az ESP-NOW-n érkező adatokat három LVGL-képernyőn mutatja, amelyek 5 s-onként
-//             animálva váltanak: (1) fő műszer: fordulatszám-ív, fordulatszám és sebesség;
+//             animálva váltanak (érintővel balra/jobbra húzva is): (1) fő műszer: fordulatszám-ív, fordulatszám és sebesség;
 //             (2) részletek: hűtővíz, fojtószelep, feszültség, MIL és hibakódok; (3) kapcsolat:
 //             csomag/s, veszteség, térerő, sorszám, az adat kora. 500 ms-nál régebbi adatnál
 //             "NINCS ADAT" jelzés. Másodpercenként egy naplósor: kapcsolatstatisztika és FPS.
@@ -40,6 +40,7 @@ const char* TAG = "og_dash";
 constexpr uint32_t kUiPeriodMs = 16;       // a nézetek frissítése (~60 Hz)
 constexpr uint32_t kSwitchPeriodMs = 5000; // automatikus képernyőváltás
 constexpr uint32_t kSwitchAnimMs = 400;
+constexpr uint32_t kTouchPauseMs = 15000;  // érintés után ennyi ideig nincs automatikus váltás
 constexpr int32_t kRpmMax = 8000;
 constexpr int32_t kRpmRed = 6000;
 
@@ -66,6 +67,7 @@ lv_obj_t* make_screen() {
     lv_obj_t* scr = lv_obj_create(nullptr);
     lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+    lv_obj_set_scrollable(scr, false);  // a húzás gesztusként érkezzen, ne görgetésként
     return scr;
 }
 
@@ -230,6 +232,8 @@ DetailView g_detail;
 LinkView g_linkv;
 lv_obj_t* g_screens[3];
 int g_current = 0;
+lv_timer_t* g_switch_timer = nullptr;
+uint32_t g_pause_until = 0;
 
 // Mit csinál: kiolvassa a modellt (rövid zár alatt), és frissíti mindhárom nézetet.
 // Hogyan:     LVGL-időzítő, az LVGL-feladatban fut (az LVGL zárja már nála van).
@@ -248,10 +252,29 @@ void ui_tick(lv_timer_t*) {
     g_linkv.update(v, l);
 }
 
-// Mit csinál: a következő képernyőre vált, balra csúszó animációval.
+// Mit csinál: a szomszédos képernyőre vált (step = +1: következő, -1: előző), csúszó animációval.
+void show_next(int step) {
+    g_current = (g_current + step + 3) % 3;
+    lv_screen_load_anim(g_screens[g_current], step > 0 ? LV_SCREEN_LOAD_ANIM_MOVE_LEFT : LV_SCREEN_LOAD_ANIM_MOVE_RIGHT,
+                        kSwitchAnimMs, 0, false);
+}
+
+// Mit csinál: automatikus váltás, ha az utolsó érintés óta eltelt kTouchPauseMs.
 void switch_tick(lv_timer_t*) {
-    g_current = (g_current + 1) % 3;
-    lv_screen_load_anim(g_screens[g_current], LV_SCREEN_LOAD_ANIM_MOVE_LEFT, kSwitchAnimMs, 0, false);
+    if (static_cast<int32_t>(now_ms() - g_pause_until) < 0) return;
+    show_next(+1);
+}
+
+// Mit csinál: balra húzás: következő képernyő, jobbra húzás: előző; utána szünetel az
+//             automatikus váltás, hogy a kézzel választott képernyő ne tűnjön el azonnal.
+void on_gesture(lv_event_t*) {
+    lv_indev_t* in = lv_indev_active();
+    if (!in) return;
+    const lv_dir_t d = lv_indev_get_gesture_dir(in);
+    if (d != LV_DIR_LEFT && d != LV_DIR_RIGHT) return;
+    show_next(d == LV_DIR_LEFT ? +1 : -1);
+    g_pause_until = now_ms() + kTouchPauseMs;
+    lv_timer_reset(g_switch_timer);
 }
 
 // ---------------------------------------------------------------------- kapcsolatfeladat
@@ -290,12 +313,14 @@ void link_task(void*) {
 
 }  // namespace
 
-void run_dash_app(LcdPanel& lcd, bool swap_bytes) {
+void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch) {
     if (!g_link.init(CONFIG_OG_ESPNOW_CHANNEL)) {
         ESP_LOGE(TAG, "Az ESP-NOW nem indult el");
         return;
     }
-    if (!lvgl_start(lcd, swap_bytes)) return;
+    lv_display_t* disp = lvgl_start(lcd, swap_bytes);
+    if (!disp) return;
+    if (touch && !lvgl_add_touch(disp, *touch)) ESP_LOGW(TAG, "Érintő nélkül fut: csak automatikus váltás");
 
     if (lvgl_port_lock(0)) {
         g_main.build();
@@ -304,9 +329,10 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes) {
         g_screens[0] = g_main.scr;
         g_screens[1] = g_detail.scr;
         g_screens[2] = g_linkv.scr;
+        for (lv_obj_t* scr : g_screens) lv_obj_add_event_cb(scr, on_gesture, LV_EVENT_GESTURE, nullptr);
         lv_screen_load(g_main.scr);
         lv_timer_create(ui_tick, kUiPeriodMs, nullptr);
-        lv_timer_create(switch_tick, kSwitchPeriodMs, nullptr);
+        g_switch_timer = lv_timer_create(switch_tick, kSwitchPeriodMs, nullptr);
         lvgl_port_unlock();
     }
 

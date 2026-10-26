@@ -1,8 +1,9 @@
 // Kijelzőegység – belépési pont.
 //
 // Mit csinál: inicializálja a kerek kijelzőt (ST77916, QSPI), bekapcsolja a háttérvilágítást, és a
-//             menuconfigban választott módot futtatja: műszerfal (valós telemetria), színteszt
-//             (M2), LVGL-teszt (M3) vagy ESP-NOW vételi teszt (M4, kijelző nélkül).
+//             menuconfigban választott módot futtatja: műszerfal (valós telemetria, érintéssel),
+//             érintésteszt, színteszt (M2), LVGL-teszt (M3) vagy ESP-NOW vételi teszt (M4,
+//             kijelző nélkül).
 // Hogyan:     a lábkiosztás a board_pins.h-ból, a kijelzőbeállítások a menuconfigból jönnek.
 // Miért:      a kijelzős tesztek ugyanazt a panelinicializálást használják; a színteszt új hardveren
 //             (pl. a saját NYÁK-on) az első lépés marad, az LVGL-teszt a felület alapja.
@@ -13,6 +14,7 @@
 #include "espnow_rx_test.h"
 #include "lcd_panel.h"
 #include "lvgl_test.h"
+#include "touch_test.h"
 #include "og_codec.h"
 #include "sdkconfig.h"
 
@@ -52,8 +54,28 @@ extern "C" void app_main(void) {
     lcd.set_backlight(CONFIG_OG_LCD_BACKLIGHT_PERCENT);
     ESP_LOGI(TAG, "Háttérvilágítás: %d %%", CONFIG_OG_LCD_BACKLIGHT_PERCENT);
 
+#if defined(CONFIG_OG_DISP_TEST_DASH) || defined(CONFIG_OG_DISP_TEST_TOUCH)
+    // Érintő: a tájolás a menuconfigból igazítható a kijelzőhöz.
+    og::TouchConfig tc;
+    tc.pins = og::board::kTouch;
+#ifdef CONFIG_OG_TOUCH_SWAP_XY
+    tc.swap_xy = true;
+#endif
+#ifdef CONFIG_OG_TOUCH_MIRROR_X
+    tc.mirror_x = true;
+#endif
+#ifdef CONFIG_OG_TOUCH_MIRROR_Y
+    tc.mirror_y = true;
+#endif
+    static og::TouchPanel touch;
+    const bool touch_ok = touch.init(tc);
+    if (!touch_ok) ESP_LOGW(TAG, "Az érintővezérlő nem érhető el");
+#endif
+
 #if defined(CONFIG_OG_DISP_TEST_DASH)
-    og::run_dash_app(lcd, cfg.swap_bytes);
+    og::run_dash_app(lcd, cfg.swap_bytes, touch_ok ? &touch : nullptr);
+#elif defined(CONFIG_OG_DISP_TEST_TOUCH)
+    og::run_touch_test(lcd, cfg.swap_bytes, touch);
 #elif defined(CONFIG_OG_DISP_TEST_COLORS)
     og::run_color_test(lcd);
 #else
