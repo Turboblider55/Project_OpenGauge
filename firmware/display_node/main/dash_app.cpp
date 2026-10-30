@@ -5,6 +5,9 @@
 //             (2) részletek: hűtővíz, fojtószelep, feszültség, MIL és hibakódok; (3) kapcsolat:
 //             csomag/s, veszteség, térerő, sorszám, az adat kora. 500 ms-nál régebbi adatnál
 //             "NINCS ADAT" jelzés. Másodpercenként egy naplósor: kapcsolatstatisztika és FPS.
+//             Másodpercenként életjelet küld az OBD-egységnek, megméri az akkumulátort (a
+//             százalék a fő képernyőn, a feszültség a részletek között látszik), és frissíti a
+//             LED-ek állapotát.
 // Hogyan:     két feladat két magon. A 0. magon a kapcsolatfeladat fogadja a csomagokat és
 //             frissíti a DashModel-t (ugyanitt fut a Wi-Fi-feladat is); az 1. magon az LVGL egy
 //             16 ms-os időzítővel kiolvassa a modellt és frissíti a képernyőket. A modellt mutex
@@ -16,10 +19,14 @@
 // ékezet nélküli nagybetűsek; a magyar karakterkészletű betűtípus külön lépés.
 #include "dash_app.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <mutex>
 
+#include "battery_adc.h"
+#include "battery_gauge.h"
+#include "board_pins.h"
 #include "dash_model.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
@@ -28,7 +35,9 @@
 #include "espnow_link.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "led_pattern.h"
 #include "lvgl_setup.h"
+#include "og_codec.h"
 #include "sdkconfig.h"
 
 namespace og {
@@ -43,10 +52,21 @@ constexpr uint32_t kSwitchAnimMs = 400;
 constexpr uint32_t kTouchPauseMs = 15000;  // érintés után ennyi ideig nincs automatikus váltás
 constexpr int32_t kRpmMax = 8000;
 constexpr int32_t kRpmRed = 6000;
+constexpr uint32_t kRadioFaultMs = 3000;      // ennyi csend után rádióhiba (LED-táblázat)
+constexpr uint32_t kPowerFaultMs = 5000;      // alacsony feszültség ennyi ideig folyamatosan
+constexpr uint32_t kFaultClearMs = 1000;
+constexpr int kLowBatteryBacklight = 40;      // alacsony akkumulátornál a háttérvilágítás felső korlátja (%)
+constexpr uint32_t kBatteryLogPeriodS = 10;
 
-std::mutex g_mx;      // a g_model-t védi (0. mag: írás, 1. mag: olvasás)
+std::mutex g_mx;      // a g_model-t és a g_battery-t védi (0. mag: írás, 1. mag: olvasás)
 DashModel g_model;
+BatteryStatus g_battery;
 EspNowLink g_link;
+StatusLed* g_led = nullptr;
+LcdPanel* g_lcd = nullptr;
+BatteryAdc g_adc;
+BatteryGauge g_gauge;
+bool g_adc_ok = false;
 
 inline uint32_t now_ms() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
 
@@ -85,6 +105,18 @@ const lv_color_t kGrey = lv_color_hex(0x9A9A9A);
 const lv_color_t kOrange = lv_color_hex(0xFF8000);
 const lv_color_t kRed = lv_color_hex(0xE02020);
 
+// Mit csinál: a töltöttséghez illő akkumulátor-ikon (töltés becsült állapotában villám).
+const char* battery_symbol(const BatteryStatus& b) {
+    if (b.charging) return LV_SYMBOL_CHARGE;
+    if (b.percent >= 88) return LV_SYMBOL_BATTERY_FULL;
+    if (b.percent >= 63) return LV_SYMBOL_BATTERY_3;
+    if (b.percent >= 38) return LV_SYMBOL_BATTERY_2;
+    if (b.percent >= 13) return LV_SYMBOL_BATTERY_1;
+    return LV_SYMBOL_BATTERY_EMPTY;
+}
+
+inline bool battery_shown(const BatteryStatus& b) { return b.valid && b.level != BatteryLevel::Absent; }
+
 // ------------------------------------------------------------------------------- nézetek
 
 // (1) Fő műszer: 270°-os fordulatszám-ív, középen a fordulatszám, alatta a sebesség.
@@ -94,7 +126,9 @@ struct MainView {
     lv_obj_t* rpm;
     lv_obj_t* speed;
     lv_obj_t* nodata;
+    lv_obj_t* battery;
     bool red = false;
+    bool battery_red = false;
 
     void build() {
         scr = make_screen();
@@ -116,10 +150,19 @@ struct MainView {
         make_label(scr, &lv_font_montserrat_20, kGrey, LV_ALIGN_CENTER, 0, 10, "1/perc");
         speed = make_label(scr, &lv_font_montserrat_28, lv_color_white(), LV_ALIGN_CENTER, 0, 60, "-- km/h");
         nodata = make_label(scr, &lv_font_montserrat_20, kRed, LV_ALIGN_CENTER, 0, 110, "NINCS ADAT");
+        battery = make_label(scr, &lv_font_montserrat_20, kGrey, LV_ALIGN_TOP_MID, 0, 62, "");
     }
 
-    void update(const DashValues& v) {
+    void update(const DashValues& v, const BatteryStatus& bat) {
         char b[24];
+        if (battery_shown(bat)) std::snprintf(b, sizeof b, "%s %u %%", battery_symbol(bat), bat.percent);
+        else b[0] = 0;
+        set_text(battery, b);
+        const bool bat_red = battery_shown(bat) && bat.level != BatteryLevel::Ok;
+        if (bat_red != battery_red) {
+            lv_obj_set_style_text_color(battery, bat_red ? kRed : kGrey, 0);
+            battery_red = bat_red;
+        }
         const bool ok_rpm = v.fresh && (v.flags & kFlagRpm);
         const int32_t r = ok_rpm ? static_cast<int32_t>(v.rpm + 0.5f) : 0;
         if (lv_arc_get_value(arc) != r) lv_arc_set_value(arc, r);
@@ -151,23 +194,27 @@ struct Row {
     }
 };
 
-// (2) Részletek: hűtővíz, fojtószelep, feszültség, MIL és hibakódok.
+// (2) Részletek: hűtővíz, fojtószelep, a jármű feszültsége, MIL és hibakódok, a cella feszültsége.
 struct DetailView {
     lv_obj_t* scr;
-    Row coolant, throttle, vbat, mil;
+    Row coolant, throttle, vbat, mil, cell;
     bool mil_red = false;
 
     void build() {
         scr = make_screen();
-        make_label(scr, &lv_font_montserrat_20, kOrange, LV_ALIGN_TOP_MID, 0, 50, "RESZLETEK");
-        coolant.build(scr, -75, "VIZ");
-        throttle.build(scr, -25, "FOJTO");
-        vbat.build(scr, 25, "AKKU");
-        mil.build(scr, 75, "MIL");
+        make_label(scr, &lv_font_montserrat_20, kOrange, LV_ALIGN_TOP_MID, 0, 45, "RESZLETEK");
+        coolant.build(scr, -90, "VIZ");
+        throttle.build(scr, -45, "FOJTO");
+        vbat.build(scr, 0, "JARMU");
+        mil.build(scr, 45, "MIL");
+        cell.build(scr, 90, "CELLA");
     }
 
-    void update(const DashValues& v) {
+    void update(const DashValues& v, const BatteryStatus& bat) {
         char b[24];
+        if (battery_shown(bat)) fmt_dec(b, sizeof b, "%.2f V", bat.mv / 1000.0);
+        else std::snprintf(b, sizeof b, "--");
+        set_text(cell.value, b);
         auto ok = [&](uint16_t f) { return v.fresh && (v.flags & f); };
         if (ok(kFlagCoolant)) std::snprintf(b, sizeof b, "%d °C", static_cast<int>(v.coolant_c));
         else std::snprintf(b, sizeof b, "--");
@@ -242,13 +289,15 @@ uint32_t g_pause_until = 0;
 void ui_tick(lv_timer_t*) {
     DashValues v;
     DashLink l;
+    BatteryStatus bat;
     {
         std::lock_guard<std::mutex> lock(g_mx);
         v = g_model.values(now_ms());
         l = g_model.link();
+        bat = g_battery;
     }
-    g_main.update(v);
-    g_detail.update(v);
+    g_main.update(v, bat);
+    g_detail.update(v, bat);
     g_linkv.update(v, l);
 }
 
@@ -279,9 +328,40 @@ void on_gesture(lv_event_t*) {
 
 // ---------------------------------------------------------------------- kapcsolatfeladat
 
-// Mit csinál: fogadja a csomagokat, frissíti a modellt, és másodpercenként naplóz.
+// Mit csinál: megméri az akkumulátort, alacsony szintnél csökkenti a háttérvilágítást, és
+//             a tartósan alacsony feszültséget hibaként jelzi.
+// Miért:      a kijelzőegység leírása szerint 3,5 V alatt USB kihúzásakor már újraindulás várható,
+//             ezért a szintet kezelni kell. Becsült töltés közben nincs alacsony-akku hiba.
+void battery_tick(PersistFilter& power_fault, uint32_t second) {
+    static bool dimmed = false;
+    uint16_t mv = 0;
+    if (!g_adc_ok || !g_adc.read_mv(mv)) return;
+    g_gauge.feed(mv, now_ms());
+    const BatteryStatus b = g_gauge.status();
+    {
+        std::lock_guard<std::mutex> lock(g_mx);
+        g_battery = b;
+    }
+    const bool low = b.level == BatteryLevel::Low || b.level == BatteryLevel::Critical;
+    g_led->set_fault(Fault::Power, power_fault.update(low && !b.charging, now_ms()));
+    if (low != dimmed) {
+        dimmed = low;
+        g_lcd->set_backlight(low ? std::min(CONFIG_OG_LCD_BACKLIGHT_PERCENT, kLowBatteryBacklight)
+                                 : CONFIG_OG_LCD_BACKLIGHT_PERCENT);
+    }
+    if (second % kBatteryLogPeriodS == 0)
+        ESP_LOGI(TAG, "Akkumulátor: nyers %u mV, szűrt %u mV, %u %%, szint %d, töltés (becslés) %d", mv, b.mv,
+                 b.percent, static_cast<int>(b.level), b.charging);
+}
+
+// Mit csinál: fogadja a csomagokat, frissíti a modellt, másodpercenként életjelet küld, méri az
+//             akkumulátort, frissíti a LED-állapotot és naplóz.
 // Hogyan:     a 0. magon fut; a zárat csak a modell frissítésének idejére veszi fel.
 void link_task(void*) {
+    PersistFilter radio_fault(kRadioFaultMs, kFaultClearMs);
+    PersistFilter power_fault(kPowerFaultMs, kFaultClearMs);
+    uint16_t hb_seq = 0;
+    uint32_t second = 0;
     uint32_t next = now_ms() + 1000;
     for (;;) {
         const int32_t rem = static_cast<int32_t>(next - now_ms());
@@ -300,6 +380,21 @@ void link_task(void*) {
             l = g_model.link();
             v = g_model.values(now_ms());
         }
+        ++second;
+        const uint32_t now = now_ms();
+        HeartbeatMsg hb = {};
+        hb.h = make_header(MsgType::Heartbeat, hb_seq++);
+        hb.uptime_s = now / 1000;
+        g_link.send(&hb, sizeof hb);
+        bool alive;
+        {
+            std::lock_guard<std::mutex> lock(g_mx);
+            alive = g_model.peer_alive(now);
+        }
+        g_led->set_link(alive ? LinkLed::Ok : LinkLed::Waiting);
+        g_led->set_fault(Fault::Radio, radio_fault.update(!alive, now));
+        battery_tick(power_fault, second);
+
         const EspNowLink::Stats ls = g_link.stats();
         ESP_LOGI(TAG,
                  "%lu csomag/s, RSSI %d dBm | összes %lu, elveszett %lu (%.2f %%), elavult %lu, újraindulás %lu, "
@@ -313,11 +408,16 @@ void link_task(void*) {
 
 }  // namespace
 
-void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch) {
+void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& led) {
+    g_led = &led;
+    g_lcd = &lcd;
     if (!g_link.init(CONFIG_OG_ESPNOW_CHANNEL)) {
         ESP_LOGE(TAG, "Az ESP-NOW nem indult el");
+        led.set_fault(Fault::Init, true);
         return;
     }
+    led.set_link(LinkLed::Waiting);
+    g_adc_ok = g_adc.init(board::kPinBattery);
     lv_display_t* disp = lvgl_start(lcd, swap_bytes);
     if (!disp) return;
     if (touch && !lvgl_add_touch(disp, *touch)) ESP_LOGW(TAG, "Érintő nélkül fut: csak automatikus váltás");

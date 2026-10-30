@@ -146,6 +146,7 @@ bool TwaiBus::send(const CanFrame& f, uint32_t timeout_ms) {
                 ok = true;
                 break;
             }
+            if (alerts & TWAI_ALERT_BUS_OFF) ++stats_.bus_off;
             if (alerts & (TWAI_ALERT_TX_FAILED | TWAI_ALERT_BUS_OFF)) break;
         }
     }

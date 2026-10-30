@@ -4,25 +4,31 @@
 //             kiolvassa a VIN-t és a hibakódok számát, majd a PID-terv szerint ciklikusan
 //             lekérdezi a fordulatszámot, sebességet stb., és másodpercenként összesítést ír.
 //             Az értékekből 100 ms-onként TelemetryMsg-t küld ESP-NOW-n a kijelzőnek.
-//             Minden CAN-keretet naplóz (TwaiBus).
+//             Minden CAN-keretet naplóz (TwaiBus). A LED-ekkel jelzi az állapotot, és
+//             másodpercenként életjelet küld a kijelzőnek, illetve figyeli a kijelzőét.
 // Hogyan:     ugyanazok az osztályok (obd_detect, IsoTp, ObdClient, PidScheduler), mint a
 //             PC-s teszteken, csak a VirtualBus helyett TwaiBus-szal. Ha a fordulatszám
 //             egymás után sokszor nem jön, a felismerés újraindul (pl. kihúzott kábel).
 // Miért:      az asztali teszt (S2 ECU-szimulátor <-> C3 -> S3 kijelző) azt igazolja, hogy a PC-n
 //             tesztelt logika a valódi buszon és rádión is működik.
+#include <atomic>
+
 #include "board_pins.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "espnow_link.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "isotp.h"
 #include "obd_client.h"
+#include "led_pattern.h"
 #include "obd_detect.h"
 #include "og_codec.h"
 #include "pid_scheduler.h"
 #include "pid_table.h"
 #include "sdkconfig.h"
+#include "status_led.h"
 #include "telemetry_builder.h"
 #include "twai_bus.h"
 
@@ -52,9 +58,20 @@ constexpr uint32_t kLostAfterFailures = 10;
 // A telemetria küldési periódusa (10 Hz, a fordulatszám lekérdezéséhez igazítva; S-04).
 constexpr uint32_t kTelemetryPeriodMs = 100;
 
+// Hibák tartóssági feltételei (a LED-táblázat szerint): ennél rövidebb kimaradás nem hiba.
+// Az ECU hallgatása lehet leállított jármű is, ezért jóval hosszabb a határ, mint a rádióé.
+constexpr uint32_t kEcuFaultMs = 30000;
+constexpr uint32_t kRadioFaultMs = 3000;
+constexpr uint32_t kFaultClearMs = 1000;
+constexpr uint32_t kCanFaultHoldMs = 10000;  // bus-off után a jelzés legalább ennyi ideig marad
+
 og::EspNowLink g_link;
+og::StatusLed g_led;
 bool g_link_ok = false;
 uint16_t g_seq = 0;
+std::atomic<bool> g_in_session{false};       // van-e élő lekérdezési ciklus az ECU-val
+std::atomic<uint32_t> g_peer_rx{0};          // a kijelzőtől vett életjelek
+std::atomic<int> g_peer_rssi{0};             // az utolsó életjel térereje (dBm)
 
 // Mit csinál: a CAN-adó-vevőt nagy sebességű (normál) üzemmódba kapcsolja, ha van RS lába.
 // Miért:      az SN65HVD231 RS lába HIGH szinten készenlétbe teszi az adó-vevőt; a saját
@@ -65,6 +82,59 @@ void transceiver_enable() {
     gpio_reset_pin(rs);
     gpio_set_direction(rs, GPIO_MODE_OUTPUT);
     gpio_set_level(rs, 0);
+}
+
+// Mit csinál: életjelet küld, figyeli a kijelző életjelét, és frissíti a LED-állapotot.
+// Hogyan:     saját feladatban fut, a rádió vételi sorára vár. A hibákat PersistFilter szűri.
+// Miért:      a CAN-feladat a felismerés alatt másodpercekig blokkolódik; az életjel és a
+//             LED-ek állapota ettől nem függhet.
+void status_task(void* arg) {
+    const og::TwaiBus& bus = *static_cast<og::TwaiBus*>(arg);
+    og::PersistFilter ecu_fault(kEcuFaultMs, kFaultClearMs);
+    og::PersistFilter radio_fault(kRadioFaultMs, kFaultClearMs);
+    bool heard = false;
+    uint32_t last_heard = 0, can_hold_until = 0, last_bus_off = 0;
+    uint16_t hb_seq = 0;
+    uint32_t next = static_cast<uint32_t>(esp_timer_get_time() / 1000);
+    for (;;) {
+        uint32_t now = static_cast<uint32_t>(esp_timer_get_time() / 1000);
+        const int32_t rem = static_cast<int32_t>(next - now);
+        if (rem > 0) {
+            og::EspNowLink::Packet p;
+            if (!g_link_ok) {
+                vTaskDelay(pdMS_TO_TICKS(rem));
+            } else if (g_link.recv(p, static_cast<uint32_t>(rem))) {
+                og::HeartbeatMsg hb;
+                if (og::decode(p.data, p.len, hb)) {
+                    heard = true;
+                    last_heard = p.rx_ms;
+                    g_peer_rx.fetch_add(1, std::memory_order_relaxed);
+                    g_peer_rssi.store(p.rssi, std::memory_order_relaxed);
+                }
+            }
+            continue;
+        }
+        next += og::kHeartbeatPeriodMs;
+        if (static_cast<int32_t>(now - next) >= 0) next = now + og::kHeartbeatPeriodMs;
+
+        const bool alive = heard && now - last_heard <= og::kPeerTimeoutMs;
+        if (g_link_ok) {
+            og::HeartbeatMsg hb = {};
+            hb.h = og::make_header(og::MsgType::Heartbeat, hb_seq++);
+            hb.uptime_s = now / 1000;
+            g_link.send(&hb, sizeof hb);
+            g_led.set_link(alive ? og::LinkLed::Ok : og::LinkLed::Waiting);
+            g_led.set_fault(og::Fault::Radio, radio_fault.update(!alive, now));
+        }
+        g_led.set_fault(og::Fault::Ecu, ecu_fault.update(!g_in_session.load(std::memory_order_relaxed), now));
+
+        const uint32_t bus_off = bus.stats().bus_off;
+        if (bus_off != last_bus_off) {
+            last_bus_off = bus_off;
+            can_hold_until = now + kCanFaultHoldMs;
+        }
+        g_led.set_fault(og::Fault::Can, static_cast<int32_t>(can_hold_until - now) > 0);
+    }
 }
 
 // Mit csinál: megmondja, hogy a felismeréskor kiolvasott bitmap szerint támogatott-e a PID.
@@ -157,6 +227,8 @@ void run_session(og::TwaiBus& bus, const og::ProtocolInfo& info) {
         return;
     }
 
+    g_in_session.store(true, std::memory_order_relaxed);
+    g_led.set_searching(false);
     uint32_t next_log = start + 1000;
     uint32_t next_tx = start + kTelemetryPeriodMs;
     for (;;) {
@@ -184,8 +256,10 @@ void run_session(og::TwaiBus& bus, const og::ProtocolInfo& info) {
                      (unsigned long)st.rx, (unsigned long)st.restarts);
             if (g_link_ok) {
                 const og::EspNowLink::Stats ls = g_link.stats();
-                ESP_LOGI(TAG, "ESP-NOW: seq %u, elküldve %lu, sikertelen %lu", g_seq, (unsigned long)ls.tx_ok,
-                         (unsigned long)ls.tx_fail);
+                ESP_LOGI(TAG, "ESP-NOW: seq %u, elküldve %lu, sikertelen %lu | kijelző életjele: %lu, RSSI %d dBm",
+                         g_seq, (unsigned long)ls.tx_ok, (unsigned long)ls.tx_fail,
+                         (unsigned long)g_peer_rx.load(std::memory_order_relaxed),
+                         g_peer_rssi.load(std::memory_order_relaxed));
             }
             next_log = now + 1000;
         }
@@ -202,15 +276,23 @@ void run_session(og::TwaiBus& bus, const og::ProtocolInfo& info) {
 extern "C" void app_main(void) {
     ESP_LOGI(TAG, "OpenGauge OBD-egység indul; protokoll v%d, Telemetry = %u B", og::kProtoVersion,
              (unsigned)sizeof(og::TelemetryMsg));
+    if (!g_led.start(og::board::kLeds)) ESP_LOGE(TAG, "A LED-ek nem indultak el");
     transceiver_enable();
     g_link_ok = g_link.init(CONFIG_OG_ESPNOW_CHANNEL);
-    if (!g_link_ok) ESP_LOGE(TAG, "Az ESP-NOW nem indult el; a CAN-oldal rádió nélkül fut tovább");
+    if (!g_link_ok) {
+        ESP_LOGE(TAG, "Az ESP-NOW nem indult el; a CAN-oldal rádió nélkül fut tovább");
+        g_led.set_fault(og::Fault::Init, true);
+    }
 
-    og::TwaiBus bus(og::board::kPinCanTx, og::board::kPinCanRx, "can");
+    static og::TwaiBus bus(og::board::kPinCanTx, og::board::kPinCanRx, "can");
+    xTaskCreate(status_task, "og_status", 4096, &bus, 4, nullptr);
     for (;;) {
+        g_in_session.store(false, std::memory_order_relaxed);
+        g_led.set_searching(true);
         ESP_LOGI(TAG, "Protokoll-felismerés...");
         og::ProtocolInfo info;
         const og::Err e = og::obd_detect(bus, og::DetectConfig(), info);
+        g_led.set_fault(og::Fault::Init, !g_link_ok || !bus.installed());
         if (e == og::Err::NotSupported) {
             log_protocol(info);
             ESP_LOGW(TAG, "OBDonUDS (J1979-2) jármű: az eszköz ezt nem támogatja");

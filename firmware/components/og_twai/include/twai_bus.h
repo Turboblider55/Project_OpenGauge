@@ -28,6 +28,7 @@ public:
         uint32_t tx_fail = 0;     // nyugta nélkül maradt vagy el sem küldhető keretek
         uint32_t rx = 0;          // fogadott keretek
         uint32_t restarts = 0;    // a driver újraindításai (megszakított adás, bus-off)
+        uint32_t bus_off = 0;     // bus-off események (valódi buszhiba; a nyugta hiánya nem ilyen)
     };
 
     // Mit csinál: eltárolja a lábakat és a napló címkéjét; a drivert még nem telepíti.
@@ -48,6 +49,7 @@ public:
     // Keretnaplózás be/ki (alapértéke a CONFIG_OG_TWAI_LOG_FRAMES beállítás).
     void set_frame_log(bool on) { log_frames_ = on; }
     const Stats& stats() const { return stats_; }
+    bool installed() const { return installed_; }
 
 private:
     bool install();

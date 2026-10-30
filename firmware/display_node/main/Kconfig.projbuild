@@ -74,6 +74,15 @@ menu "OpenGauge: kijelzőegység"
         bool "BGR színsorrend (ha a piros és a kék fel van cserélve)"
         default n
 
+    config OG_BAT_SCALE_PERMILLE
+        int "Akkumulátormérés: osztásarány ezrelékben (a 2000 a névleges 1:2)"
+        range 1800 2200
+        default 2000
+        help
+            Az osztó ellenállásainak tűrése miatt a mért érték néhány tíz mV-tal eltérhet.
+            Multiméterrel mért cellafeszültséghez így igazítható: új érték =
+            régi érték * mért feszültség / a naplóban látható feszültség.
+
     config OG_LCD_BACKLIGHT_PERCENT
         int "Háttérvilágítás (%)"
         range 0 100

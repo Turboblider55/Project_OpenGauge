@@ -53,6 +53,13 @@ public:
     //             értékei kerülnek a modellbe, a duplikált vagy késve érkezett nem.
     bool on_packet(const uint8_t* data, size_t len, int8_t rssi, uint32_t now_ms);
 
+    // Mit csinál: igaz, ha kPeerTimeoutMs-on belül jött érvényes csomag (telemetria vagy életjel).
+    // Miért:      a "friss adat" (fresh) a CAN-oldaltól is függ; az életjel azt mutatja meg, hogy
+    //             a rádiókapcsolat él akkor is, ha az OBD-egység éppen nem kap adatot az ECU-tól.
+    bool peer_alive(uint32_t now_ms) const {
+        return heard_ && now_ms - last_heard_ms_ <= kPeerTimeoutMs;
+    }
+
     // Mit csinál: lezár egy másodpercet: a csomag/s és az átlagos térerő ebből számolódik.
     void on_second();
 
@@ -64,6 +71,8 @@ private:
     TelemetryMsg last_ = {};
     bool has_data_ = false;
     uint32_t last_ms_ = 0;
+    bool heard_ = false;
+    uint32_t last_heard_ms_ = 0;
     Smoother rpm_, speed_;
     uint32_t invalid_ = 0;
     uint32_t sec_count_ = 0, per_sec_ = 0;

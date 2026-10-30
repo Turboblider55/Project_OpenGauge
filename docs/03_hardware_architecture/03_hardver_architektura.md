@@ -175,3 +175,41 @@ A felismert hibák a fejlesztési naplóban részletesen szerepelnek (`docs/fejl
 - `obd_telemetria_muszaki_leiras`: az OBD-egység kapcsolása, méretezései, védelme, NYÁK-ja és mérési útmutatója
 - `display_node_muszaki_leiras`: a kijelzőegység kapcsolása, tápútja, kijelző-interfésze és NYÁK-ja
 - `fejlesztesi_naplo.xlsx`: hibák, változtatások és tervezési döntések
+
+---
+
+## 💡 7. Állapotjelző LED-ek
+
+A két egység ugyanazt a jelzésrendszert használja. Minden LED 330 Ω-on át a földre kötött, aktív magas kimenet (OBD: zöld IO6, kék IO7, piros IO8; kijelző: piros IO15, zöld IO16, kék IO17). A fényerőt PWM állítja, mert a színek nyitófeszültsége és fényereje eltér. Induláskor a piros, a zöld és a kék LED egymás után 300 ms-ig világít (önteszt). Alvás és időzített ébredés alatt a LED-ek nem világítanak.
+
+| LED | Jelzés | Jelentés |
+|:--|:--|:--|
+| Zöld | Folyamatos, 2 s-onként 100 ms kihagyás | A program fut |
+| Zöld | Lassú villogás (0,5 Hz, csak OBD) | Protokollkeresés |
+| Zöld | 1 Hz, a piros LED mellett | Súlyos hiba (2. vagy 4. kód); a táp és a program működik |
+| Kék | Nem világít | A rádió nem indult el |
+| Kék | 2 Hz | A másik egység nem hallható |
+| Kék | Folyamatos | Friss csomag jön a másik egységtől (2,5 s-on belül) |
+
+A kék LED a mindkét irányú életjelre épül: az egységek másodpercenként HeartbeatMsg üzenetet szórnak a CAN-kapcsolattól függetlenül. Így a szórásos, nyugta nélküli ESP-NOW mellett az OBD-egység is tudja, hogy a kijelző hallható-e, a kijelző pedig meg tudja különböztetni a rádiókapcsolat és az ECU-kapcsolat hiányát.
+
+### 7.1 Hibakódok
+
+A piros LED alaphelyzetben nem világít. Hibánál a kód szerinti számú villanás (200 ms be, 200 ms ki) után 1,5 s szünet következik; több hibánál a legsúlyosabb látszik. Eseti kimaradásból nem lesz hiba: minden kódhoz tartóssági feltétel tartozik.
+
+| Kód | Hiba | Tartóssági feltétel | Egység |
+|:--|:--|:--|:--|
+| 1 | Az ECU nem válaszol | 30 s óta nincs élő lekérdezési ciklus | OBD |
+| 2 | CAN-buszhiba (bus-off) | Azonnal, legalább 10 s-ig látszik | OBD |
+| 3 | A másik egység nem hallható | 3 s a kapcsolat megszakadása után | Mindkettő |
+| 4 | Inicializálási hiba (rádió, kijelző, érintő, CAN-driver) | Azonnal | Mindkettő |
+| 5 | Alacsony akkumulátorfeszültség | 5 s folyamatosan, becsült töltés közben nem | Kijelző |
+| 6 | Rendellenes újraindulás (összeomlás, watchdog, tápesés) | Induláskor, 60 s-ig látszik | Mindkettő |
+
+A fontossági sorrend: 4, 2, 5, 1, 3, 6. A jármű hibajelzője (MIL) nem eszközhiba, ezért nem a piros LED-en, hanem a kijelzőn jelenik meg. Az ECU hallgatása leállított járműnél természetes, ezért hosszú az 1. kód határideje; a szándékolt alvó üzemmód a hibajelzés előtt lép életbe. A 2. kód csak valódi bus-off esetén jelez: a nyugta hiánya (például kihúzott kábel) az 1. kódhoz vezet. A zöld minta a LED-feladat futását mutatja, ezért a rendszer leállását jelzi, egyetlen másik feladat elakadását nem.
+
+## 🔋 8. Akkumulátormérés
+
+A cellafeszültséget az IO7 (ADC1) méri a BTR+ 100 kΩ / 100 kΩ-os osztóján át, 12 dB-es csillapítással, gyári kalibrációval, 64 minta átlagából, másodpercenként. Az osztásarány a menuconfigban (OG_BAT_SCALE_PERMILLE) igazítható a multiméterrel mért értékhez. A százalék szakaszonként lineáris LiPo-görbéből adódik, 3,4 V = 0 %, 4,2 V = 100 %, mert 3,4 V alatt az LDO már nem szabályoz. 3,5 V alatt a szint alacsony (a háttérvilágítás legfeljebb 40 %), 3,4 V alatt kritikus. A görbe tipikus cellára vonatkozik, nem mért adat.
+
+Hardveres korlát: a TP4056 CHRG és STDBY kimenete csak a töltésjelző LED-ekre (D6, D7) csatlakozik, VBUS-érzékelés nincs, ezért a mikrovezérlő nem tudja biztosan, hogy tölt-e a cella. A töltést a szűrt feszültség 2 perces emelkedéséből becsli; a kapocsfeszültség töltés közben a nyugalminál magasabb, ezért a százalék ilyenkor túlzó. A CHRG jel bekötése a következő NYÁK-verzióban ezt megszünteti.

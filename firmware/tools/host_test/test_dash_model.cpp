@@ -26,6 +26,24 @@ static bool feed(DashModel& d, const TelemetryMsg& m, uint32_t t, int8_t rssi = 
     return d.on_packet(buf, sizeof buf, rssi, t);
 }
 
+// Az életjel a kapcsolatot élőnek jelzi, de nem telemetria: nem friss adat, nem is érvénytelen csomag.
+static void heartbeat_keeps_peer_alive() {
+    DashModel d;
+    CHECK(!d.peer_alive(0));
+    HeartbeatMsg hb = {};
+    hb.h = make_header(MsgType::Heartbeat, 1);
+    uint8_t buf[sizeof(HeartbeatMsg)];
+    std::memcpy(buf, &hb, sizeof hb);
+    CHECK(!d.on_packet(buf, sizeof buf, -40, 1000));
+    CHECK(d.peer_alive(1000 + kPeerTimeoutMs));
+    CHECK(!d.peer_alive(1001 + kPeerTimeoutMs));
+    CHECK(!d.values(1000).has_data);
+    CHECK(d.link().invalid == 0);
+    CHECK(d.link().received == 0);
+    feed(d, telemetry(1, kFlagRpm, 1000.f), 5000);
+    CHECK(d.peer_alive(5000));
+}
+
 static void no_data_at_start() {
     DashModel d;
     const DashValues v = d.values(1000);
@@ -76,6 +94,7 @@ static void per_second_and_rssi() {
 
 int main() {
     RUN(no_data_at_start);
+    RUN(heartbeat_keeps_peer_alive);
     RUN(values_and_freshness);
     RUN(invalid_and_duplicate);
     RUN(per_second_and_rssi);

@@ -5,11 +5,20 @@
 namespace og {
 
 bool DashModel::on_packet(const uint8_t* data, size_t len, int8_t rssi, uint32_t now_ms) {
+    // Az életjel nem hiba és nem telemetria: csak a kapcsolat élő voltát jelzi, a csomagstatisztikát nem érinti.
+    HeartbeatMsg hb;
+    if (decode(data, len, hb)) {
+        heard_ = true;
+        last_heard_ms_ = now_ms;
+        return false;
+    }
     TelemetryMsg m;
     if (!decode(data, len, m)) {
         ++invalid_;
         return false;
     }
+    heard_ = true;
+    last_heard_ms_ = now_ms;
     ++sec_count_;
     sec_rssi_sum_ += rssi;
     if (!stats_.on_seq(m.h.seq)) return false;  // duplikátum vagy késve érkezett
