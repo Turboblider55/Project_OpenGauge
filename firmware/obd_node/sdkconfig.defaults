@@ -10,3 +10,6 @@ CONFIG_ESP_MAIN_TASK_STACK_SIZE=6144
 CONFIG_BT_ENABLED=y
 CONFIG_BT_NIMBLE_ENABLED=y
 
+
+# Az alkalmazás (Wi-Fi + ESP-NOW + BLE + TWAI) az alapértelmezett 1 MB-ot már kitölti; 1,5 MB-os partíció.
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y

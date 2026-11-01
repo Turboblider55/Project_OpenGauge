@@ -16,10 +16,15 @@ menu "OpenGauge: OBD-egység"
             A CAN-oldal és az ESP-NOW nem indul el; a C3 másodpercenként növekvő számlálóval
             hirdet, a kijelzőegység BLE-tesztje (OG_DISP_TEST_BLE) ezt szkenneli.
 
+    config OG_OBD_BLE_BEACON
+        bool "BLE-hirdetés a normál működés mellett (koegzisztencia-teszt, H-16)"
+        default n
+        depends on !OG_OBD_TEST_BLE
+
     config OG_BLE_ADV_INTERVAL_MS
         int "BLE hirdetési periódus (ms)"
         range 20 10240
         default 100
-        depends on OG_OBD_TEST_BLE
+        depends on OG_OBD_TEST_BLE || OG_OBD_BLE_BEACON
 
 endmenu

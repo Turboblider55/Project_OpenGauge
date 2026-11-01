@@ -28,21 +28,47 @@ const char* TAG = "og_disp";
 og::StatusLed g_led;
 }
 
+#if defined(CONFIG_OG_DISP_TEST_BLE) || defined(CONFIG_OG_DISP_TEST_COEX)
+// Mit csinál: másodpercenként naplózza a BLE szkennelés és (ha van) a kapcsolat statisztikáját.
+// Miért:      a koegzisztencia-teszt mellett az ESP-NOW vételi teszt is naplóz, a két sor együtt mutatja,
+//             hogy a BLE terhelése mikor rontja a rádióvételt (H-16).
+void ble_report_task(void*) {
+    uint32_t prev = 0;
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        const og::BleScanStats s = og::ble_scan_stats();
+        ESP_LOGI(TAG, "BLE szkenner: %lu hirdetés/s, számláló %ld, látott mp %lu, kimaradt mp %lu, RSSI %d dBm",
+                 static_cast<unsigned long>(s.adverts - prev), static_cast<long>(s.last_counter),
+                 static_cast<unsigned long>(s.seconds_seen), static_cast<unsigned long>(s.seconds_lost), s.rssi);
+        prev = s.adverts;
+#if defined(CONFIG_OG_DISP_TEST_COEX)
+        const og::BleConnStats c = og::ble_conn_stats();
+        ESP_LOGI(TAG, "BLE kapcsolat: %s, értesítés %s, periódus %lu us, kapcsolódás %lu, bontás %lu (ok %d), értesítés ok/hiba %lu/%lu",
+                 c.connected ? "VAN" : "nincs", c.subscribed ? "igen" : "nem", static_cast<unsigned long>(c.itvl_us),
+                 static_cast<unsigned long>(c.connects), static_cast<unsigned long>(c.disconnects), c.last_reason,
+                 static_cast<unsigned long>(c.notify_ok), static_cast<unsigned long>(c.notify_fail));
+#endif
+    }
+}
+#endif
+
 extern "C" void app_main(void) {
     ESP_LOGI(TAG, "OpenGauge kijelzőegység indul; protokoll v%d", og::kProtoVersion);
     if (!g_led.start(og::board::kLeds)) ESP_LOGE(TAG, "A LED-ek nem indultak el");
 #if defined(CONFIG_OG_DISP_TEST_BLE)
     // BLE-szkennelési teszt: a kijelző nem indul; másodpercenként a vételi statisztika kerül a naplóba.
     if (!og::ble_start_scanning(CONFIG_OG_BLE_SCAN_WINDOW_PCT)) g_led.set_fault(og::Fault::Init, true);
-    uint32_t prev = 0;
-    for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        const og::BleScanStats s = og::ble_scan_stats();
-        ESP_LOGI(TAG, "BLE: %lu hirdetés/s, számláló %ld, látott mp %lu, kimaradt mp %lu, RSSI %d dBm",
-                 static_cast<unsigned long>(s.adverts - prev), static_cast<long>(s.last_counter),
-                 static_cast<unsigned long>(s.seconds_seen), static_cast<unsigned long>(s.seconds_lost), s.rssi);
-        prev = s.adverts;
+    ble_report_task(nullptr);
+#endif
+#if defined(CONFIG_OG_DISP_TEST_COEX)
+    // Koegzisztencia: a BLE (periféria + szkenner) a 0. magon fut, mellette az ESP-NOW vételi teszt.
+    // A periféria indul előbb (a GATT-táblát a verem indulása előtt kell felvenni).
+    if (!og::ble_start_peripheral("OpenGauge") || !og::ble_start_scanning(CONFIG_OG_BLE_SCAN_WINDOW_PCT)) {
+        g_led.set_fault(og::Fault::Init, true);
     }
+    xTaskCreate(ble_report_task, "ble_report", 4096, nullptr, 2, nullptr);
+    og::run_espnow_rx_test();
+    return;
 #endif
 #if defined(CONFIG_OG_DISP_TEST_ESPNOW)
     // A kijelzőt nem inicializáljuk: a panel nem kap képet, a vételi teszt csak naplóz.

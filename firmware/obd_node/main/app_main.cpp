@@ -291,6 +291,12 @@ extern "C" void app_main(void) {
         ESP_LOGE(TAG, "Az ESP-NOW nem indult el; a CAN-oldal rádió nélkül fut tovább");
         g_led.set_fault(og::Fault::Init, true);
     }
+#if defined(CONFIG_OG_OBD_BLE_BEACON)
+    // Koegzisztencia-teszt: a BLE-hirdetés az ESP-NOW és a CAN mellett fut (H-16).
+    if (!og::ble_start_advertising(og::BleRole::ObdNode, CONFIG_OG_BLE_ADV_INTERVAL_MS)) {
+        g_led.set_fault(og::Fault::Init, true);
+    }
+#endif
 
     static og::TwaiBus bus(og::board::kPinCanTx, og::board::kPinCanRx, "can");
     xTaskCreate(status_task, "og_status", 4096, &bus, 4, nullptr);
