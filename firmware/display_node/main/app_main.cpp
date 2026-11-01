@@ -7,7 +7,10 @@
 // Hogyan:     a lábkiosztás a board_pins.h-ból, a kijelzőbeállítások a menuconfigból jönnek.
 // Miért:      a kijelzős tesztek ugyanazt a panelinicializálást használják; a színteszt új hardveren
 //             (pl. a saját NYÁK-on) az első lépés marad, az LVGL-teszt a felület alapja.
+#include "ble_radio.h"
 #include "board_pins.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "color_test.h"
 #include "dash_app.h"
 #include "esp_log.h"
@@ -28,6 +31,19 @@ og::StatusLed g_led;
 extern "C" void app_main(void) {
     ESP_LOGI(TAG, "OpenGauge kijelzőegység indul; protokoll v%d", og::kProtoVersion);
     if (!g_led.start(og::board::kLeds)) ESP_LOGE(TAG, "A LED-ek nem indultak el");
+#if defined(CONFIG_OG_DISP_TEST_BLE)
+    // BLE-szkennelési teszt: a kijelző nem indul; másodpercenként a vételi statisztika kerül a naplóba.
+    if (!og::ble_start_scanning(CONFIG_OG_BLE_SCAN_WINDOW_PCT)) g_led.set_fault(og::Fault::Init, true);
+    uint32_t prev = 0;
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        const og::BleScanStats s = og::ble_scan_stats();
+        ESP_LOGI(TAG, "BLE: %lu hirdetés/s, számláló %ld, látott mp %lu, kimaradt mp %lu, RSSI %d dBm",
+                 static_cast<unsigned long>(s.adverts - prev), static_cast<long>(s.last_counter),
+                 static_cast<unsigned long>(s.seconds_seen), static_cast<unsigned long>(s.seconds_lost), s.rssi);
+        prev = s.adverts;
+    }
+#endif
 #if defined(CONFIG_OG_DISP_TEST_ESPNOW)
     // A kijelzőt nem inicializáljuk: a panel nem kap képet, a vételi teszt csak naplóz.
     og::run_espnow_rx_test();

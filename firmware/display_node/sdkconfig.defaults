@@ -27,3 +27,8 @@ CONFIG_LV_PERF_MONITOR_ALIGN_BOTTOM_MID=y
 # Saját partíciótábla: 3 MB-os alkalmazáspartíció (partitions.csv).
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# BLE (NimBLE): az ébresztő hirdetés/szkennelés (S-13) miatt; a tesztmódokon kívül nem indul el.
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+

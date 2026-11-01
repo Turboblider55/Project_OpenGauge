@@ -13,6 +13,7 @@
 //             tesztelt logika a valódi buszon és rádión is működik.
 #include <atomic>
 
+#include "ble_radio.h"
 #include "board_pins.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
@@ -277,6 +278,13 @@ extern "C" void app_main(void) {
     ESP_LOGI(TAG, "OpenGauge OBD-egység indul; protokoll v%d, Telemetry = %u B", og::kProtoVersion,
              (unsigned)sizeof(og::TelemetryMsg));
     if (!g_led.start(og::board::kLeds)) ESP_LOGE(TAG, "A LED-ek nem indultak el");
+#if defined(CONFIG_OG_OBD_TEST_BLE)
+    // BLE-hirdetési teszt: se CAN, se ESP-NOW; a LED-ek csak az indulást mutatják.
+    if (!og::ble_start_advertising(og::BleRole::ObdNode, CONFIG_OG_BLE_ADV_INTERVAL_MS)) {
+        g_led.set_fault(og::Fault::Init, true);
+    }
+    return;
+#endif
     transceiver_enable();
     g_link_ok = g_link.init(CONFIG_OG_ESPNOW_CHANNEL);
     if (!g_link_ok) {

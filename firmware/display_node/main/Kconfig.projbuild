@@ -22,7 +22,15 @@ menu "OpenGauge: kijelzőegység"
             bool "Színteszt (M2): egyszínű képek, színsávok, tájolás, átmenetek"
         config OG_DISP_TEST_ESPNOW
             bool "ESP-NOW vétel (M4): telemetria és csomagvesztés naplózása, kijelző nélkül"
+        config OG_DISP_TEST_BLE
+            bool "BLE-szkennelés (S-13): az OBD-egység hirdetésének vétele, kijelző nélkül"
     endchoice
+
+    config OG_BLE_SCAN_WINDOW_PCT
+        int "BLE szkennelési ablak (a 100 ms-os periódus %-a)"
+        range 1 100
+        default 100
+        depends on OG_DISP_TEST_BLE
 
     choice OG_LCD_INIT
         prompt "ST77916 init-sorozat"

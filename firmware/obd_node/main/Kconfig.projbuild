@@ -9,4 +9,17 @@ menu "OpenGauge: OBD-egység"
             bool "Saját NYÁK, Rev. A (ESP32-C3-WROOM-02 + SN65HVD231)"
     endchoice
 
+    config OG_OBD_TEST_BLE
+        bool "BLE-hirdetési teszt (S-13): csak hirdet, CAN és ESP-NOW nélkül"
+        default n
+        help
+            A CAN-oldal és az ESP-NOW nem indul el; a C3 másodpercenként növekvő számlálóval
+            hirdet, a kijelzőegység BLE-tesztje (OG_DISP_TEST_BLE) ezt szkenneli.
+
+    config OG_BLE_ADV_INTERVAL_MS
+        int "BLE hirdetési periódus (ms)"
+        range 20 10240
+        default 100
+        depends on OG_OBD_TEST_BLE
+
 endmenu
