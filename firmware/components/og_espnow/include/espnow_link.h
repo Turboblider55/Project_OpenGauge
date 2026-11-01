@@ -43,6 +43,11 @@ public:
     //             és a csomagok egy része elvész.
     bool init(uint8_t channel, const uint8_t* peer = nullptr);
 
+    // Mit csinál: leállítja az ESP-NOW-t és a Wi-Fi-t (alvás előtt); a küldés és a vétel ilyenkor
+    //             sikertelen. A resume() visszaállítja az init() szerinti állapotot.
+    void suspend();
+    bool resume();
+
     // Mit csinál: egy csomagot küld a társnak. Hamis, ha a küldés el sem indult.
     bool send(const void* data, size_t len);
 
@@ -55,6 +60,9 @@ public:
 
 private:
     uint8_t peer_[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    bool bring_up(uint8_t channel);
+
+    uint8_t channel_ = 1;
     bool ready_ = false;
 };
 

@@ -16,6 +16,8 @@
 #include "ble_radio.h"
 #include "board_pins.h"
 #include "driver/gpio.h"
+#include "esp_rom_sys.h"
+#include "esp_sleep.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "espnow_link.h"
@@ -27,6 +29,7 @@
 #include "obd_detect.h"
 #include "og_codec.h"
 #include "pid_scheduler.h"
+#include "power_fsm.h"
 #include "pid_table.h"
 #include "sdkconfig.h"
 #include "status_led.h"
@@ -84,6 +87,82 @@ void transceiver_enable() {
     gpio_set_direction(rs, GPIO_MODE_OUTPUT);
     gpio_set_level(rs, 0);
 }
+
+#if defined(CONFIG_OG_OBD_POWER_SAVE)
+og::PowerFsm g_power(og::PowerConfig{CONFIG_OG_OBD_IDLE_TO_SLEEP_S * 1000u, CONFIG_OG_OBD_SLEEP_PERIOD_MS,
+                                     CONFIG_OG_OBD_LISTEN_MS});
+uint32_t g_last_rx = 0;
+
+inline uint32_t now_ms() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
+
+// Mit csinál: a buszon vett keretek számának változásából és az élő munkamenetből aktivitást jelez.
+// Miért:      csak a más csomópontoktól vett keretek számítanak (a saját adás nem növeli az rx-et).
+void note_activity(const og::TwaiBus& bus) {
+    const uint32_t rx = bus.stats().rx;
+    if (rx != g_last_rx || g_in_session.load(std::memory_order_relaxed)) {
+        g_last_rx = rx;
+        g_power.on_activity(now_ms());
+    }
+}
+
+// Mit csinál: igaz, ha a figyelőablakban a buszon (az RX-lábon) domináns szint volt.
+// Hogyan:     az RS lábat alacsonyra húzza (a vevő felébred), kis várakozás után lekérdezi az
+//             RX-lábat; recesszív szint = 1, bármilyen keret domináns biteket tartalmaz.
+// Miért:      az SN65HVD231 alvó módban a vevőt is kikapcsolja (H-11), ezért időzített ablak kell.
+bool listen_window() {
+    const int rs = og::board::kPinCanRs;
+    const gpio_num_t rx = static_cast<gpio_num_t>(og::board::kPinCanRx);
+    if (rs >= 0) {
+        gpio_set_level(static_cast<gpio_num_t>(rs), 0);
+        esp_rom_delay_us(2000);  // az adó-vevő felébredési ideje
+    }
+    bool activity = false;
+    const int64_t end = esp_timer_get_time() + static_cast<int64_t>(CONFIG_OG_OBD_LISTEN_MS) * 1000;
+    while (esp_timer_get_time() < end) {
+        if (gpio_get_level(rx) == 0) {
+            activity = true;
+            break;
+        }
+        esp_rom_delay_us(20);
+    }
+    if (rs >= 0) gpio_set_level(static_cast<gpio_num_t>(rs), 1);
+    return activity;
+}
+
+// Mit csinál: light sleepbe teszi az egységet, és időzített figyelőablakokkal várja a busz-forgalmat.
+// Hogyan:     a LED-ek kialszanak, a rádió és a TWAI leáll; az RX láb szabad bemenet marad. Az
+//             időzített ébredések között a CPU alszik; ha az ablakban forgalom van, visszatér.
+// Miért:      a kikapcsolt gyújtású autóban az egység áramfelvétele minimális legyen (S-12).
+void sleep_until_bus_activity(og::TwaiBus& bus) {
+    const uint32_t t0 = now_ms();
+    ESP_LOGI(TAG, "Alvás indul: %lu s óta nincs busz-forgalom és ECU-munkamenet",
+             (unsigned long)(g_power.config().idle_to_sleep_ms / 1000));
+    g_in_session.store(false, std::memory_order_relaxed);
+    g_led.set_enabled(false);
+    g_link.suspend();
+    bus.release();
+    const gpio_num_t rx = static_cast<gpio_num_t>(og::board::kPinCanRx);
+    gpio_reset_pin(rx);
+    gpio_set_direction(rx, GPIO_MODE_INPUT);
+    if (og::board::kPinCanRs >= 0) {
+        const gpio_num_t rs = static_cast<gpio_num_t>(og::board::kPinCanRs);
+        gpio_set_direction(rs, GPIO_MODE_OUTPUT);
+        gpio_set_level(rs, 1);  // készenlét: a vevő is kikapcsol (SN65HVD231)
+    }
+    g_power.enter_sleep();
+    for (;;) {
+        esp_sleep_enable_timer_wakeup(static_cast<uint64_t>(g_power.config().sleep_period_ms) * 1000);
+        esp_light_sleep_start();
+        if (g_power.on_window(listen_window(), now_ms())) break;
+    }
+    transceiver_enable();
+    g_link.resume();
+    g_led.set_enabled(true);
+    g_last_rx = bus.stats().rx;
+    ESP_LOGI(TAG, "Ébredés: busz-forgalom a(z) %lu. figyelőablakban, alvás %lu ms után",
+             (unsigned long)g_power.windows(), (unsigned long)(now_ms() - t0));
+}
+#endif
 
 // Mit csinál: életjelet küld, figyeli a kijelző életjelét, és frissíti a LED-állapotot.
 // Hogyan:     saját feladatban fut, a rádió vételi sorára vár. A hibákat PersistFilter szűri.
@@ -300,7 +379,14 @@ extern "C" void app_main(void) {
 
     static og::TwaiBus bus(og::board::kPinCanTx, og::board::kPinCanRx, "can");
     xTaskCreate(status_task, "og_status", 4096, &bus, 4, nullptr);
+#if defined(CONFIG_OG_OBD_POWER_SAVE)
+    g_power.on_activity(now_ms());
+#endif
     for (;;) {
+#if defined(CONFIG_OG_OBD_POWER_SAVE)
+        note_activity(bus);
+        if (g_power.should_sleep(now_ms())) sleep_until_bus_activity(bus);
+#endif
         g_in_session.store(false, std::memory_order_relaxed);
         g_led.set_searching(true);
         ESP_LOGI(TAG, "Protokoll-felismerés...");
@@ -320,5 +406,8 @@ extern "C" void app_main(void) {
         }
         log_protocol(info);
         run_session(bus, info);
+#if defined(CONFIG_OG_OBD_POWER_SAVE)
+        g_power.on_activity(now_ms());  // a munkamenet vége is aktivitás: az idő innen számít
+#endif
     }
 }

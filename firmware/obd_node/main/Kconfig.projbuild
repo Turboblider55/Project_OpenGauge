@@ -21,6 +21,29 @@ menu "OpenGauge: OBD-egység"
         default n
         depends on !OG_OBD_TEST_BLE
 
+    config OG_OBD_POWER_SAVE
+        bool "Alvás: busz-forgalom hiányában light sleep, időzített figyelőablakokkal (S-12)"
+        default n
+        depends on !OG_OBD_TEST_BLE && !OG_OBD_BLE_BEACON
+
+    config OG_OBD_IDLE_TO_SLEEP_S
+        int "Ennyi másodperc csend (nincs ECU-munkamenet és busz-forgalom) után alszik el"
+        range 3 600
+        default 10
+        depends on OG_OBD_POWER_SAVE
+
+    config OG_OBD_SLEEP_PERIOD_MS
+        int "Az alvási szakaszok hossza (ms): az ébredési késleltetés felső korlátja"
+        range 100 10000
+        default 1000
+        depends on OG_OBD_POWER_SAVE
+
+    config OG_OBD_LISTEN_MS
+        int "A figyelőablak hossza (ms)"
+        range 10 500
+        default 60
+        depends on OG_OBD_POWER_SAVE
+
     config OG_BLE_ADV_INTERVAL_MS
         int "BLE hirdetési periódus (ms)"
         range 20 10240

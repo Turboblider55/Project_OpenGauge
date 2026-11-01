@@ -32,6 +32,10 @@ public:
     void set_link(LinkLed link) { link_.store(static_cast<uint8_t>(link), std::memory_order_relaxed); }
     void set_searching(bool on) { searching_.store(on, std::memory_order_relaxed); }
 
+    // Mit csinál: kikapcsolt állapotban a LED-ek sötétek (a minták tovább számolódnak).
+    // Miért:      alvás és időzített ébredés alatt a LED-ek nem világítanak (felesleges fogyasztás).
+    void set_enabled(bool on) { enabled_.store(on, std::memory_order_relaxed); }
+
     // Mit csinál: egy hiba be- vagy kikapcsolása (a szűrés a hívó dolga: PersistFilter).
     void set_fault(Fault f, bool on) {
         if (on) faults_.fetch_or(fault_bit(f), std::memory_order_relaxed);
@@ -46,6 +50,7 @@ private:
     LedPins pins_ = {-1, -1, -1, 0, 0, 0};
     std::atomic<uint8_t> link_{static_cast<uint8_t>(LinkLed::Off)};
     std::atomic<bool> searching_{false};
+    std::atomic<bool> enabled_{true};
     std::atomic<uint8_t> faults_{0};
     uint32_t reset_fault_until_ms_ = 0;
 };

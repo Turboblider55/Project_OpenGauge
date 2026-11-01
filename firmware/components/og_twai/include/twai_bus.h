@@ -51,6 +51,10 @@ public:
     const Stats& stats() const { return stats_; }
     bool installed() const { return installed_; }
 
+    // Mit csinál: leállítja és eltávolítja a drivert (a lábak szabadok lesznek); a következő
+    //             configure() újra telepíti. Miért: alvás előtt, hogy a periféria ne fogyasszon.
+    void release() { uninstall(); }
+
 private:
     bool install();
     void uninstall();

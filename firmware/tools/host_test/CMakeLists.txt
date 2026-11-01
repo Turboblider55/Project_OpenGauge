@@ -12,7 +12,7 @@ enable_testing()
 set(ROOT ${CMAKE_CURRENT_LIST_DIR}/../..)
 include_directories(${ROOT}/components/og_protocol/include ${ROOT}/components/og_obd/include
                     ${ROOT}/components/og_common/include ${ROOT}/display_node/components/disp_smooth/include
-                    ${ROOT}/display_node/components/disp_model/include)
+                    ${ROOT}/display_node/components/disp_model/include ${ROOT}/tools/ecu_sim/main)
 add_executable(test_protocol test_protocol.cpp ${ROOT}/components/og_protocol/src/og_codec.cpp)
 add_executable(test_pid test_pid.cpp ${ROOT}/components/og_obd/src/pid_table.cpp)
 set(OBD_SRC ${ROOT}/components/og_obd/src/pid_table.cpp ${ROOT}/components/og_obd/src/isotp.cpp
@@ -26,6 +26,7 @@ add_executable(test_smoother test_smoother.cpp)
 add_executable(test_dash_model test_dash_model.cpp ${ROOT}/display_node/components/disp_model/src/dash_model.cpp
                ${ROOT}/components/og_protocol/src/og_codec.cpp)
 add_executable(test_led_battery test_led_battery.cpp)
+add_executable(test_power_sim test_power_sim.cpp)
 add_test(NAME protocol COMMAND test_protocol)
 add_test(NAME pid COMMAND test_pid)
 add_test(NAME smoother COMMAND test_smoother)
@@ -33,3 +34,4 @@ add_test(NAME isotp COMMAND test_isotp)
 add_test(NAME obd COMMAND test_obd)
 add_test(NAME dash_model COMMAND test_dash_model)
 add_test(NAME led_battery COMMAND test_led_battery)
+add_test(NAME power_sim COMMAND test_power_sim)

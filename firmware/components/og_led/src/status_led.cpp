@@ -107,7 +107,8 @@ void StatusLed::task() {
         s.link = static_cast<LinkLed>(link_.load(std::memory_order_relaxed));
         s.faults = faults_.load(std::memory_order_relaxed);
 
-        const LedOutput o = led_frame(s, now - start);
+        LedOutput o = led_frame(s, now - start);
+        if (!enabled_.load(std::memory_order_relaxed)) o = {false, false, false};
         const bool values[3] = {o.red, o.green, o.blue};
         const bool old[3] = {last.red, last.green, last.blue};
         for (int i = 0; i < 3; ++i)
