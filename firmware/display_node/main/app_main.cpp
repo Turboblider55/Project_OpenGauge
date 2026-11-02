@@ -19,6 +19,7 @@
 #include "led_pattern.h"
 #include "lvgl_test.h"
 #include "touch_test.h"
+#include "wake_test.h"
 #include "og_codec.h"
 #include "sdkconfig.h"
 #include "status_led.h"
@@ -55,6 +56,10 @@ void ble_report_task(void*) {
 extern "C" void app_main(void) {
     ESP_LOGI(TAG, "OpenGauge kijelzőegység indul; protokoll v%d", og::kProtoVersion);
     if (!g_led.start(og::board::kLeds)) ESP_LOGE(TAG, "A LED-ek nem indultak el");
+#if defined(CONFIG_OG_DISP_TEST_WAKE)
+    og::run_wake_test(g_led);
+    return;
+#endif
 #if defined(CONFIG_OG_DISP_TEST_BLE)
     // BLE-szkennelési teszt: a kijelző nem indul; másodpercenként a vételi statisztika kerül a naplóba.
     if (!og::ble_start_scanning(CONFIG_OG_BLE_SCAN_WINDOW_PCT)) g_led.set_fault(og::Fault::Init, true);

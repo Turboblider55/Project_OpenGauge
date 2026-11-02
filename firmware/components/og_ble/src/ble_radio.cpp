@@ -25,6 +25,9 @@ constexpr uint8_t kMagic0 = 'O';
 constexpr uint8_t kMagic1 = 'G';
 
 std::atomic<bool> g_synced{false};
+bool g_started = false;
+std::atomic<bool> g_adv_run{false};
+std::atomic<bool> g_adv_task_alive{false};
 std::atomic<uint32_t> g_adverts{0};
 std::atomic<uint32_t> g_seen{0};
 std::atomic<uint32_t> g_lost{0};
@@ -177,8 +180,7 @@ void notify_task(void*) {
 
 // Mit csinál: egyszer elindítja az NVS-t és a NimBLE-t, és megvárja a host szinkronját.
 bool stack_start() {
-    static bool started = false;
-    if (started) return true;
+    if (g_started) return true;
     esp_err_t e = nvs_flash_init();
     if (e == ESP_ERR_NVS_NO_FREE_PAGES || e == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         nvs_flash_erase();
@@ -196,12 +198,12 @@ bool stack_start() {
     ble_hs_cfg.sync_cb = on_sync;
     if (g_periph_name) gatt_init();
     nimble_port_freertos_init(host_task);
-    for (int i = 0; i < 100 && !g_synced; ++i) vTaskDelay(pdMS_TO_TICKS(50));
+    for (int i = 0; i < 1000 && !g_synced; ++i) vTaskDelay(pdMS_TO_TICKS(5));
     if (!g_synced) {
         ESP_LOGE(TAG, "A BLE host nem szinkronizált");
         return false;
     }
-    started = true;
+    g_started = true;
     return true;
 }
 
@@ -232,11 +234,14 @@ void advertise(uint16_t counter) {
 }
 
 void adv_task(void*) {
+    g_adv_task_alive = true;
     uint16_t counter = 0;
-    for (;;) {
+    while (g_adv_run) {
         advertise(counter++);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        for (int i = 0; i < 10 && g_adv_run; ++i) vTaskDelay(pdMS_TO_TICKS(100));  // másodpercenként új számláló
     }
+    g_adv_task_alive = false;
+    vTaskDelete(nullptr);
 }
 
 // Mit csinál: egy szkennelt hirdetést dolgoz fel; csak a saját (OG) csomagot számolja.
@@ -263,6 +268,7 @@ bool ble_start_advertising(BleRole role, uint32_t itvl_ms) {
     g_role = role;
     g_itvl_ms = itvl_ms;
     if (!stack_start()) return false;
+    g_adv_run = true;
     xTaskCreate(adv_task, "ble_adv", 3072, nullptr, 3, nullptr);
     ESP_LOGI(TAG, "Hirdetés indul: %lu ms periódus", static_cast<unsigned long>(itvl_ms));
     return true;
@@ -307,6 +313,18 @@ bool ble_start_scanning(uint32_t window_pct) {
     }
     ESP_LOGI(TAG, "Szkennelés indul: ablak %lu %%", static_cast<unsigned long>(g_window_pct));
     return true;
+}
+
+void ble_stop() {
+    if (!g_started) return;
+    g_adv_run = false;
+    for (int i = 0; i < 40 && g_adv_task_alive; ++i) vTaskDelay(pdMS_TO_TICKS(50));
+    ble_gap_adv_stop();
+    ble_gap_disc_cancel();
+    nimble_port_stop();
+    nimble_port_deinit();
+    g_started = false;
+    g_synced = false;
 }
 
 BleScanStats ble_scan_stats() {

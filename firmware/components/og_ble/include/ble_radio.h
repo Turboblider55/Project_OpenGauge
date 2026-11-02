@@ -53,6 +53,11 @@ bool ble_start_advertising(BleRole role, uint32_t itvl_ms);
 //             ablak aránya a periódusból, 100 = folyamatos). Hamis, ha a verem nem indult el.
 bool ble_start_scanning(uint32_t window_pct);
 
+// Mit csinál: leállítja a hirdetést és a szkennelést, és leállítja a NimBLE-t (a következő
+//             ble_start_... újraindítja). Miért: light sleep előtt a verem nem maradhat futva,
+//             és az ébresztő hirdetést csak az ébredés után kell adni.
+void ble_stop();
+
 // Mit csinál: pillanatfelvétel a szkenner statisztikájáról.
 BleScanStats ble_scan_stats();
 

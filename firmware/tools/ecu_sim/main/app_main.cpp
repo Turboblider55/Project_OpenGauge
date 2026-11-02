@@ -14,16 +14,21 @@
 //             nem válaszol, bekapcsolva 20 ms-onként háttérforgalmat ad), "auto on|off" (az
 //             értékek automatikus változása), "rpm|speed|coolant|throttle|vbat <szám>" (kézi
 //             érték, az automatikus változás kikapcsolásával), "status", "help".
+#include <atomic>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 #include "board_pins.h"
 #include "ecu_model.h"
 #include "esp_log.h"
+#include "esp_timer.h"
+#include "espnow_link.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "og_codec.h"
+#include "og_protocol.h"
 #include "sim_command.h"
 #include "sdkconfig.h"
 #include "twai_bus.h"
@@ -31,6 +36,50 @@
 namespace {
 
 const char* TAG = "og_sim";
+
+std::atomic<uint32_t> g_key_on_ms{0};   // a gyújtás bekapcsolásának ideje (esp_timer, ms)
+std::atomic<bool> g_wait_display{false};  // a gyújtás óta még nem láttunk a kijelzőtől életjelet
+
+inline uint32_t esp_ms() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
+
+// Mit csinál: megfigyeli a rádiót (szórt ESP-NOW csomagok), és méri az ébredési láncot.
+// Hogyan:     a Telemetria feladója az OBD-egység (a MAC-ját megjegyzi); más feladótól jövő életjel
+//             a kijelzőé. A gyújtás bekapcsolása után az első kijelző-életjel idejét kiírja;
+//             az OBD-egység ALVÁS üzenetét is jelzi.
+// Miért:      mindkét egység naplója elnémul light sleep után (H-33), a rádió kívülről látszik.
+void radio_observer_task(void*) {
+    static og::EspNowLink link;
+    if (!link.init(CONFIG_OG_ESPNOW_CHANNEL)) {
+        ESP_LOGE(TAG, "Az ESP-NOW megfigyelő nem indult el");
+        vTaskDelete(nullptr);
+    }
+    uint8_t obd_mac[6] = {};
+    bool have_obd = false;
+    for (;;) {
+        og::EspNowLink::Packet p;
+        if (!link.recv(p, 1000)) continue;
+#ifdef CONFIG_OG_SIM_RADIO_TRACE
+        ESP_LOGI(TAG, "RÁDIÓ: típus 0x%02X, hossz %u, feladó ..:%02X, RSSI %d, %lu ms a gyújtás óta", p.data[1], p.len,
+                 p.src[5], p.rssi, (unsigned long)(p.rx_ms - g_key_on_ms.load()));
+#endif
+        og::TelemetryMsg t;
+        og::HeartbeatMsg hb;
+        og::SleepMsg sl;
+        if (og::decode(p.data, p.len, t)) {
+            memcpy(obd_mac, p.src, 6);
+            have_obd = true;
+        } else if (og::decode(p.data, p.len, sl)) {
+            ESP_LOGI(TAG, "RÁDIÓ: ALVÁS üzenet az OBD-egységtől (%lu ms-mal a gyújtás után/előtt számítva)",
+                     (unsigned long)(p.rx_ms - g_key_on_ms.load()));
+        } else if (og::decode(p.data, p.len, hb)) {
+            const bool from_obd = have_obd && memcmp(obd_mac, p.src, 6) == 0;
+            if (!from_obd && g_wait_display.exchange(false)) {
+                ESP_LOGI(TAG, "ÉBREDÉS: az első kijelző-életjel %lu ms-mal a gyújtás bekapcsolása után",
+                         (unsigned long)(p.rx_ms - g_key_on_ms.load()));
+            }
+        }
+    }
+}
 
 QueueHandle_t g_cmd_queue = nullptr;  // a konzol parancsai a fő ciklusnak (az ECU-modellt csak az érinti)
 
@@ -166,6 +215,7 @@ extern "C" void app_main(void) {
 
     g_cmd_queue = xQueueCreate(8, sizeof(og::SimCommand));
     xTaskCreate(console_task, "og_console", 4096, nullptr, 2, nullptr);
+    xTaskCreate(radio_observer_task, "og_radio_obs", 4096, nullptr, 2, nullptr);
     ESP_LOGI(TAG, "%s", kHelp);
 
     DelayedEmitter out(bus);
@@ -188,6 +238,8 @@ extern "C" void app_main(void) {
                     key_on = true;
                     next_bg = now;
                     key_on_ms = now;
+                    g_key_on_ms.store(esp_ms());
+                    g_wait_display.store(true);
                     ack_base = bus.stats().tx_ok;
                     wait_ack = wait_req = true;
                     ESP_LOGI(TAG, "GYÚJTÁS BE (uptime %lu ms)", (unsigned long)now);

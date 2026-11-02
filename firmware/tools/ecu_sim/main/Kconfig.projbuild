@@ -36,4 +36,10 @@ menu "OpenGauge: ECU-szimulátor"
         range 0 8
         default 2
 
+    config OG_SIM_RADIO_TRACE
+        bool "Minden vett ESP-NOW csomag naplózása (a telemetria is: 10 sor/s)"
+        default n
+        help
+            Az ébredési lánc hibakereséséhez: megmutatja, mely csomagok (típus, feladó) jönnek a gyújtás után.
+
 endmenu

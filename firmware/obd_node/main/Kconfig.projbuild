@@ -32,6 +32,15 @@ menu "OpenGauge: OBD-egység"
         default 10
         depends on OG_OBD_POWER_SAVE
 
+    config OG_OBD_SLEEP_GRACE_S
+        int "Indulás után ennyi másodpercig nem alszik el (programozás és hibakeresés)"
+        range 0 600
+        default 60
+        depends on OG_OBD_POWER_SAVE
+        help
+            Light sleep után a C3 USB-s soros/JTAG-kapcsolata nem tér vissza (H-33), és a programozás
+            sem megy, amíg a lapkát kézzel újra nem indítjuk. A türelmi idő alatt a lapka programozható.
+
     config OG_OBD_SLEEP_PERIOD_MS
         int "Az alvási szakaszok hossza (ms): az ébredési késleltetés felső korlátja"
         range 100 10000

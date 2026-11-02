@@ -12,6 +12,15 @@ static void sleeps_only_after_idle_time() {
     CHECK(p.should_sleep(1000 + p.config().idle_to_sleep_ms));
 }
 
+static void startup_grace_delays_first_sleep() {
+    PowerConfig c;
+    c.startup_grace_ms = 60000;
+    PowerFsm p(c);
+    p.on_activity(0);
+    CHECK(!p.should_sleep(30000));  // az üresjárati idő letelt, de az indulási türelmi idő nem
+    CHECK(p.should_sleep(60000));
+}
+
 static void activity_postpones_sleep() {
     PowerFsm p;
     p.on_activity(0);
@@ -78,6 +87,7 @@ static void parses_empty_help_status() {
 
 int main() {
     RUN(sleeps_only_after_idle_time);
+    RUN(startup_grace_delays_first_sleep);
     RUN(activity_postpones_sleep);
     RUN(quiet_windows_keep_sleeping);
     RUN(bus_activity_wakes_and_resets_idle_timer);

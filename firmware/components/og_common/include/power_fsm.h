@@ -18,6 +18,7 @@ struct PowerConfig {
     uint32_t idle_to_sleep_ms = 10000;  // ennyi csend után alszik el
     uint32_t sleep_period_ms = 1000;    // az alvási szakaszok hossza (az ébredési késleltetés felső korlátja)
     uint32_t listen_ms = 60;            // a figyelőablak hossza (a keretek ennél sűrűbben követik egymást)
+    uint32_t startup_grace_ms = 0;      // indulás után ennyi ideig nem alszik el (programozás, hibakeresés)
 };
 
 enum class PowerState : uint8_t { Active, Sleeping };
@@ -31,7 +32,8 @@ public:
 
     // Mit csinál: igaz, ha az egység ébren van, és az utolsó aktivitás óta letelt az üresjárati idő.
     bool should_sleep(uint32_t now_ms) const {
-        return state_ == PowerState::Active && now_ms - last_activity_ms_ >= cfg_.idle_to_sleep_ms;
+        return state_ == PowerState::Active && now_ms >= cfg_.startup_grace_ms &&
+               now_ms - last_activity_ms_ >= cfg_.idle_to_sleep_ms;
     }
 
     // Mit csinál: átvált alvó állapotba (a ciklusszámlálót nullázza).

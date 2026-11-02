@@ -90,8 +90,13 @@ void transceiver_enable() {
 
 #if defined(CONFIG_OG_OBD_POWER_SAVE)
 og::PowerFsm g_power(og::PowerConfig{CONFIG_OG_OBD_IDLE_TO_SLEEP_S * 1000u, CONFIG_OG_OBD_SLEEP_PERIOD_MS,
-                                     CONFIG_OG_OBD_LISTEN_MS});
+                                     CONFIG_OG_OBD_LISTEN_MS, CONFIG_OG_OBD_SLEEP_GRACE_S * 1000u});
 uint32_t g_last_rx = 0;
+
+// Az ébredés után ennyi ideig hirdet a C3 a (alvó) kijelzőnek, ha az nem válaszol az életjellel.
+constexpr uint32_t kBleWakeMs = 10000;
+constexpr uint32_t kBleWakeIntervalMs = 20;
+std::atomic<uint32_t> g_ble_wake_until{0};
 
 inline uint32_t now_ms() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
 
@@ -138,6 +143,17 @@ void sleep_until_bus_activity(og::TwaiBus& bus) {
     ESP_LOGI(TAG, "Alvás indul: %lu s óta nincs busz-forgalom és ECU-munkamenet",
              (unsigned long)(g_power.config().idle_to_sleep_ms / 1000));
     g_in_session.store(false, std::memory_order_relaxed);
+    // Az ALVÁS üzenetet többször küldjük (a szórásnak nincs nyugtája), mielőtt a rádió leáll.
+    if (g_link_ok) {
+        static uint16_t sleep_seq = 0;
+        for (int i = 0; i < 3; ++i) {
+            og::SleepMsg m = {};
+            m.h = og::make_header(og::MsgType::Sleep, sleep_seq++);
+            m.reason = 0;
+            g_link.send(&m, sizeof m);
+            vTaskDelay(pdMS_TO_TICKS(30));
+        }
+    }
     g_led.set_enabled(false);
     g_link.suspend();
     bus.release();
@@ -159,6 +175,9 @@ void sleep_until_bus_activity(og::TwaiBus& bus) {
     g_link.resume();
     g_led.set_enabled(true);
     g_last_rx = bus.stats().rx;
+    // Az alvó kijelzőt BLE-hirdetéssel ébresztjük; az életjelének megérkezésekor leáll (status_task).
+    if (og::ble_start_advertising(og::BleRole::ObdNode, kBleWakeIntervalMs))
+        g_ble_wake_until.store(now_ms() + kBleWakeMs, std::memory_order_relaxed);
     ESP_LOGI(TAG, "Ébredés: busz-forgalom a(z) %lu. figyelőablakban, alvás %lu ms után",
              (unsigned long)g_power.windows(), (unsigned long)(now_ms() - t0));
 }
@@ -198,6 +217,14 @@ void status_task(void* arg) {
         if (static_cast<int32_t>(now - next) >= 0) next = now + og::kHeartbeatPeriodMs;
 
         const bool alive = heard && now - last_heard <= og::kPeerTimeoutMs;
+#if defined(CONFIG_OG_OBD_POWER_SAVE)
+        const uint32_t ble_until = g_ble_wake_until.load(std::memory_order_relaxed);
+        if (ble_until && (alive || static_cast<int32_t>(now - ble_until) >= 0)) {
+            og::ble_stop();
+            g_ble_wake_until.store(0, std::memory_order_relaxed);
+            ESP_LOGI(TAG, "BLE-ébresztő hirdetés leállt (%s)", alive ? "a kijelző életjelet küldött" : "időtúllépés");
+        }
+#endif
         if (g_link_ok) {
             og::HeartbeatMsg hb = {};
             hb.h = og::make_header(og::MsgType::Heartbeat, hb_seq++);
@@ -378,7 +405,7 @@ extern "C" void app_main(void) {
 #endif
 
     static og::TwaiBus bus(og::board::kPinCanTx, og::board::kPinCanRx, "can");
-    xTaskCreate(status_task, "og_status", 4096, &bus, 4, nullptr);
+    xTaskCreate(status_task, "og_status", 6144, &bus, 4, nullptr);
 #if defined(CONFIG_OG_OBD_POWER_SAVE)
     g_power.on_activity(now_ms());
 #endif
