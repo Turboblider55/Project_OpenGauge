@@ -1,5 +1,7 @@
 #include "ble_radio.h"
 
+#include "ble_internal.h"
+
 #include <atomic>
 #include <cstring>
 
@@ -8,6 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "host/ble_hs.h"
+#include "host/ble_store.h"
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
 #include "nvs_flash.h"
@@ -56,6 +59,9 @@ const ble_uuid128_t kSvcUuid = BLE_UUID128_INIT(0x4f, 0x47, 0x00, 0x01, 0x6f, 0x
 const ble_uuid128_t kChrUuid = BLE_UUID128_INIT(0x4f, 0x47, 0x00, 0x02, 0x6f, 0x70, 0x65, 0x6e, 0x67, 0x61, 0x75, 0x67, 0x65, 0x00, 0x00, 0x01);
 ble_gatt_chr_def g_chrs[2];
 ble_gatt_svc_def g_svcs[2];
+
+bool g_custom_svc = true;   // a saját (számláló) szolgáltatás felvétele
+bool g_secure = false;      // párosítás és kötés (bonding) bekapcsolása
 
 void periph_advertise();
 void gatt_init();
@@ -152,6 +158,7 @@ void gatt_init() {
     ble_svc_gap_init();
     ble_svc_gatt_init();
     ble_svc_gap_device_name_set(g_periph_name);
+    if (!g_custom_svc) return;
     memset(g_chrs, 0, sizeof g_chrs);
     g_chrs[0].uuid = &kChrUuid.u;
     g_chrs[0].access_cb = chr_access;
@@ -196,6 +203,17 @@ bool stack_start() {
         return false;
     }
     ble_hs_cfg.sync_cb = on_sync;
+    if (g_secure) {
+        // Just Works párosítás (nincs kijelző és billentyű), tartós kötéssel: az iPhone az AMS-hez titkosított kapcsolatot kér.
+        ble_hs_cfg.sm_io_cap = BLE_HS_IO_NO_INPUT_OUTPUT;
+        ble_hs_cfg.sm_bonding = 1;
+        ble_hs_cfg.sm_mitm = 0;
+        ble_hs_cfg.sm_sc = 1;
+        ble_hs_cfg.sm_our_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+        ble_hs_cfg.sm_their_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+        ble_hs_cfg.store_status_cb = ble_store_util_status_rr;
+        ble_store_config_init();
+    }
     if (g_periph_name) gatt_init();
     nimble_port_freertos_init(host_task);
     for (int i = 0; i < 1000 && !g_synced; ++i) vTaskDelay(pdMS_TO_TICKS(5));
@@ -274,8 +292,19 @@ bool ble_start_advertising(BleRole role, uint32_t itvl_ms) {
     return true;
 }
 
+bool ble_internal_start(const char* name, bool custom_service, bool secure) {
+    g_periph_name = name;
+    g_custom_svc = custom_service;
+    g_secure = secure;
+    return stack_start();
+}
+
+uint8_t ble_internal_addr_type() { return g_own_addr_type; }
+
 bool ble_start_peripheral(const char* name) {
     g_periph_name = name;
+    g_custom_svc = true;
+    g_secure = false;
     if (!stack_start()) return false;
     periph_advertise();
     xTaskCreate(notify_task, "ble_notify", 3072, nullptr, 3, nullptr);

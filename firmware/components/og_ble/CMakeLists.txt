@@ -4,7 +4,7 @@ idf_build_get_property(og_target IDF_TARGET)
 if(og_target STREQUAL "esp32s2")
   idf_component_register()
 else()
-  idf_component_register(SRCS "src/ble_radio.cpp"
+  idf_component_register(SRCS "src/ble_radio.cpp" "src/ble_ams.cpp"
                          INCLUDE_DIRS "include"
                          PRIV_REQUIRES bt nvs_flash esp_timer)
 endif()

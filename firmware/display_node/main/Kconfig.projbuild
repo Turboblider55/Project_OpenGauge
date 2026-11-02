@@ -28,7 +28,14 @@ menu "OpenGauge: kijelzőegység"
             bool "Alvás/ébresztés (S-12/S-13): ALVÁS üzenetre light sleep, ébredés az OBD-egység BLE-hirdetésére"
         config OG_DISP_TEST_COEX
             bool "Koegzisztencia (H-16): ESP-NOW vétel + BLE-szkennelés + csatlakoztatható BLE-hirdetés"
+        config OG_DISP_TEST_AMS
+            bool "iOS zene (S-14): AMS-kliens BLE-n (párosítás, Most játszik adatok, vezérlés) + ESP-NOW vétel, kijelző nélkül"
     endchoice
+
+    config OG_AMS_DEMO_COMMANDS
+        bool "Az AMS-teszt időnként lejátszásvezérlő parancsot küld (szünet/lejátszás, következő, előző)"
+        default y
+        depends on OG_DISP_TEST_AMS
 
     config OG_DISP_SLEEP
         bool "Alvás a műszerfalban: tétlenség után light sleep, ébredés érintésre vagy az OBD-egység BLE-hirdetésére"
@@ -54,13 +61,11 @@ menu "OpenGauge: kijelzőegység"
         int "Alvási szakasz hossza két szkennelő ablak között (ms)"
         range 200 10000
         default 1500
-        depends on OG_DISP_TEST_WAKE || OG_DISP_SLEEP
 
     config OG_WAKE_SCAN_WINDOW_MS
         int "A szkennelő ablak hossza (ms)"
         range 20 1000
         default 80
-        depends on OG_DISP_TEST_WAKE || OG_DISP_SLEEP
 
     config OG_BLE_SCAN_WINDOW_PCT
         int "BLE szkennelési ablak (a 100 ms-os periódus %-a)"
