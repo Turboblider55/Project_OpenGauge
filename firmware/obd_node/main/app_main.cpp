@@ -77,6 +77,20 @@ std::atomic<bool> g_in_session{false};       // van-e élő lekérdezési ciklus
 std::atomic<uint32_t> g_peer_rx{0};          // a kijelzőtől vett életjelek
 std::atomic<int> g_peer_rssi{0};             // az utolsó életjel térereje (dBm)
 
+// Mit csinál: háromszor elküldi a kijelzőnek az ALVÁS üzenetet a megadott okkal (a szórásnak nincs nyugtája).
+// Miért:      reason = EngineStopped: a kijelző visszaszámlálhat az alvásig; reason = Sleep: az OBD-egység alszik.
+void send_sleep_msg(og::SleepReason reason) {
+    if (!g_link_ok) return;
+    static uint16_t sleep_seq = 0;
+    for (int i = 0; i < 3; ++i) {
+        og::SleepMsg m = {};
+        m.h = og::make_header(og::MsgType::Sleep, sleep_seq++);
+        m.reason = static_cast<uint8_t>(reason);
+        g_link.send(&m, sizeof m);
+        vTaskDelay(pdMS_TO_TICKS(30));
+    }
+}
+
 // Mit csinál: a CAN-adó-vevőt nagy sebességű (normál) üzemmódba kapcsolja, ha van RS lába.
 // Miért:      az SN65HVD231 RS lába HIGH szinten készenlétbe teszi az adó-vevőt; a saját
 //             NYÁK-on ezt az IO10 vezérli. A tesztmodulon nincs ilyen láb.
@@ -143,17 +157,7 @@ void sleep_until_bus_activity(og::TwaiBus& bus) {
     ESP_LOGI(TAG, "Alvás indul: %lu s óta nincs busz-forgalom és ECU-munkamenet",
              (unsigned long)(g_power.config().idle_to_sleep_ms / 1000));
     g_in_session.store(false, std::memory_order_relaxed);
-    // Az ALVÁS üzenetet többször küldjük (a szórásnak nincs nyugtája), mielőtt a rádió leáll.
-    if (g_link_ok) {
-        static uint16_t sleep_seq = 0;
-        for (int i = 0; i < 3; ++i) {
-            og::SleepMsg m = {};
-            m.h = og::make_header(og::MsgType::Sleep, sleep_seq++);
-            m.reason = 0;
-            g_link.send(&m, sizeof m);
-            vTaskDelay(pdMS_TO_TICKS(30));
-        }
-    }
+    send_sleep_msg(og::SleepReason::Sleep);  // még a rádió leállása előtt
     g_led.set_enabled(false);
     g_link.suspend();
     bus.release();
@@ -433,6 +437,7 @@ extern "C" void app_main(void) {
         }
         log_protocol(info);
         run_session(bus, info);
+        send_sleep_msg(og::SleepReason::EngineStopped);  // az ECU elnémult: a kijelző számolhat vissza
 #if defined(CONFIG_OG_OBD_POWER_SAVE)
         g_power.on_activity(now_ms());  // a munkamenet vége is aktivitás: az idő innen számít
 #endif

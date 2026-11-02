@@ -79,7 +79,7 @@ void run_wake_test(StatusLed& led) {
         EspNowLink::Packet p;
         if (link.recv(p, 50)) {
             SleepMsg sm;
-            if (decode(p.data, p.len, sm)) {
+            if (decode(p.data, p.len, sm) && sm.reason == static_cast<uint8_t>(SleepReason::Sleep)) {
                 sleep_until_ble_wake(link, led);
                 next_hb = ms_now();  // ébredés után azonnal életjel
             }

@@ -92,9 +92,42 @@ static void per_second_and_rssi() {
     CHECK(l.per_sec == 0 && l.rssi_dbm == 0);
 }
 
+static void engine_stopped_message_sets_and_new_data_clears() {
+    DashModel d;
+    SleepMsg sl = {};
+    sl.h = make_header(MsgType::Sleep, 1);
+    sl.reason = static_cast<uint8_t>(SleepReason::EngineStopped);
+    uint8_t buf[sizeof(SleepMsg)];
+    CHECK(encode(sl, buf, sizeof buf) == sizeof(SleepMsg));
+    CHECK(!d.on_packet(buf, sizeof buf, -40, 5000));
+    CHECK(d.engine_stopped());
+    CHECK(d.stopped_ms() == 5000);
+    CHECK(d.peer_alive(5100));
+    TelemetryMsg t = {};
+    t.h = make_header(MsgType::Telemetry, 1);
+    t.flags = kFlagRpm;
+    uint8_t tb[sizeof(TelemetryMsg)];
+    CHECK(encode(t, tb, sizeof tb) == sizeof(TelemetryMsg));
+    CHECK(d.on_packet(tb, sizeof tb, -40, 6000));
+    CHECK(!d.engine_stopped());
+}
+
+static void sleep_now_message_is_not_engine_stop() {
+    DashModel d;
+    SleepMsg sl = {};
+    sl.h = make_header(MsgType::Sleep, 1);
+    sl.reason = static_cast<uint8_t>(SleepReason::Sleep);
+    uint8_t buf[sizeof(SleepMsg)];
+    CHECK(encode(sl, buf, sizeof buf) == sizeof(SleepMsg));
+    d.on_packet(buf, sizeof buf, -40, 5000);
+    CHECK(!d.engine_stopped());
+}
+
 int main() {
     RUN(no_data_at_start);
     RUN(heartbeat_keeps_peer_alive);
+    RUN(engine_stopped_message_sets_and_new_data_clears);
+    RUN(sleep_now_message_is_not_engine_stop);
     RUN(values_and_freshness);
     RUN(invalid_and_duplicate);
     RUN(per_second_and_rssi);

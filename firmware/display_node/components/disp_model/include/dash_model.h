@@ -60,6 +60,11 @@ public:
         return heard_ && now_ms - last_heard_ms_ <= kPeerTimeoutMs;
     }
 
+    // Mit csinál: igaz, ha az OBD-egység jelezte, hogy a motor leállt, és azóta nem jött új telemetria.
+    // Miért:      a kijelző ekkor számolhat vissza az alvásig; az új telemetria törli a jelzést.
+    bool engine_stopped() const { return engine_stopped_; }
+    uint32_t stopped_ms() const { return stopped_ms_; }
+
     // Mit csinál: lezár egy másodpercet: a csomag/s és az átlagos térerő ebből számolódik.
     void on_second();
 
@@ -71,6 +76,8 @@ private:
     TelemetryMsg last_ = {};
     bool has_data_ = false;
     uint32_t last_ms_ = 0;
+    bool engine_stopped_ = false;
+    uint32_t stopped_ms_ = 0;
     bool heard_ = false;
     uint32_t last_heard_ms_ = 0;
     Smoother rpm_, speed_;

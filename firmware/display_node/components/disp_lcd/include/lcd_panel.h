@@ -60,6 +60,9 @@ public:
     // Háttérvilágítás 0..100 %.
     void set_backlight(uint8_t percent);
 
+    // Mit csinál: a panel megjelenítését ki- vagy bekapcsolja (a képtartalom megmarad).
+    void display_on(bool on);
+
     // Mit csinál: egyszínű téglalapot rajzol (a szín natív RGB565, a cserét ez végzi).
     // Hogyan:     a puffert legfeljebb kStripLines sornyi színnel tölti, és sávonként küldi.
     bool fill_rect(int x, int y, int w, int h, uint16_t color);

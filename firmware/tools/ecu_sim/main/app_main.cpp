@@ -69,7 +69,8 @@ void radio_observer_task(void*) {
             memcpy(obd_mac, p.src, 6);
             have_obd = true;
         } else if (og::decode(p.data, p.len, sl)) {
-            ESP_LOGI(TAG, "RÁDIÓ: ALVÁS üzenet az OBD-egységtől (%lu ms-mal a gyújtás után/előtt számítva)",
+            ESP_LOGI(TAG, "RÁDIÓ: %s üzenet az OBD-egységtől (%lu ms a gyújtás óta)",
+                     sl.reason == static_cast<uint8_t>(og::SleepReason::EngineStopped) ? "MOTOR LEÁLLT" : "ALVÁS",
                      (unsigned long)(p.rx_ms - g_key_on_ms.load()));
         } else if (og::decode(p.data, p.len, hb)) {
             const bool from_obd = have_obd && memcmp(obd_mac, p.src, 6) == 0;

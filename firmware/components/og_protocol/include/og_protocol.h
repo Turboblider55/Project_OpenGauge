@@ -40,6 +40,12 @@ enum class RequestCode : uint8_t {
     ReadDtc = 1,  // csak olvasás; a hibakódok törlése nem része a projektnek
 };
 
+// SleepMsg::reason értékei (OBD-egység -> kijelző).
+enum class SleepReason : uint8_t {
+    Sleep = 0,          // az OBD-egység most elalszik
+    EngineStopped = 1,  // a motor leállt (az ECU-munkamenet véget ért): a kijelző visszaszámlálhat az alvásig
+};
+
 #pragma pack(push, 1)
 
 struct Header {

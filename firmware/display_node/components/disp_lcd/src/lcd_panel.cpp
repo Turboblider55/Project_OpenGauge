@@ -142,6 +142,10 @@ bool LcdPanel::send_strip(int x, int y, int w, int h) {
     return xSemaphoreTake(static_cast<SemaphoreHandle_t>(done_), pdMS_TO_TICKS(1000)) == pdTRUE;
 }
 
+void LcdPanel::display_on(bool on) {
+    if (panel_) esp_lcd_panel_disp_on_off(panel_, on);
+}
+
 bool LcdPanel::fill_rect(int x, int y, int w, int h, uint16_t color) {
     if (!panel_ || w <= 0 || h <= 0) return false;
     const uint16_t c = to_panel(color);

@@ -12,6 +12,16 @@ bool DashModel::on_packet(const uint8_t* data, size_t len, int8_t rssi, uint32_t
         last_heard_ms_ = now_ms;
         return false;
     }
+    SleepMsg sl;
+    if (decode(data, len, sl)) {
+        heard_ = true;
+        last_heard_ms_ = now_ms;
+        if (sl.reason == static_cast<uint8_t>(SleepReason::EngineStopped)) {
+            engine_stopped_ = true;
+            stopped_ms_ = now_ms;
+        }
+        return false;
+    }
     TelemetryMsg m;
     if (!decode(data, len, m)) {
         ++invalid_;
@@ -23,6 +33,7 @@ bool DashModel::on_packet(const uint8_t* data, size_t len, int8_t rssi, uint32_t
     sec_rssi_sum_ += rssi;
     if (!stats_.on_seq(m.h.seq)) return false;  // duplikátum vagy késve érkezett
 
+    engine_stopped_ = false;  // új adat: a motor megint jár
     last_ = m;
     has_data_ = true;
     last_ms_ = now_ms;

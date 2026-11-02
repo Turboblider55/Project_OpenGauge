@@ -29,7 +29,7 @@ menu "OpenGauge: OBD-egység"
     config OG_OBD_IDLE_TO_SLEEP_S
         int "Ennyi másodperc csend (nincs ECU-munkamenet és busz-forgalom) után alszik el"
         range 3 600
-        default 10
+        default 20
         depends on OG_OBD_POWER_SAVE
 
     config OG_OBD_SLEEP_GRACE_S

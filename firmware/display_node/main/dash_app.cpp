@@ -20,17 +20,22 @@
 #include "dash_app.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <cstring>
 #include <mutex>
 
 #include "battery_adc.h"
 #include "battery_gauge.h"
+#include "ble_radio.h"
 #include "board_pins.h"
 #include "dash_model.h"
+#include "display_power.h"
+#include "driver/gpio.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_lvgl_port.h"
+#include "esp_sleep.h"
 #include "esp_timer.h"
 #include "espnow_link.h"
 #include "freertos/FreeRTOS.h"
@@ -67,6 +72,11 @@ LcdPanel* g_lcd = nullptr;
 BatteryAdc g_adc;
 BatteryGauge g_gauge;
 bool g_adc_ok = false;
+int g_backlight_pct = CONFIG_OG_LCD_BACKLIGHT_PERCENT;  // a jelenlegi (akkumulátorszinttől függő) fényerő
+std::atomic<int> g_sleep_in_s{-1};                      // az alvásig hátralévő idő a kijelzőre (-1: nem mutatjuk)
+#if defined(CONFIG_OG_DISP_SLEEP)
+DisplayPowerFsm g_power(DisplayPowerConfig{CONFIG_OG_DISP_SLEEP_AFTER_S * 1000u, CONFIG_OG_DISP_SLEEP_GRACE_S * 1000u});
+#endif
 
 inline uint32_t now_ms() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
 
@@ -127,6 +137,7 @@ struct MainView {
     lv_obj_t* speed;
     lv_obj_t* nodata;
     lv_obj_t* battery;
+    lv_obj_t* sleepmsg;
     bool red = false;
     bool battery_red = false;
 
@@ -151,10 +162,14 @@ struct MainView {
         speed = make_label(scr, &lv_font_montserrat_28, lv_color_white(), LV_ALIGN_CENTER, 0, 60, "-- km/h");
         nodata = make_label(scr, &lv_font_montserrat_20, kRed, LV_ALIGN_CENTER, 0, 110, "NINCS ADAT");
         battery = make_label(scr, &lv_font_montserrat_20, kGrey, LV_ALIGN_TOP_MID, 0, 62, "");
+        sleepmsg = make_label(scr, &lv_font_montserrat_20, kOrange, LV_ALIGN_BOTTOM_MID, 0, -26, "");
     }
 
-    void update(const DashValues& v, const BatteryStatus& bat) {
+    void update(const DashValues& v, const BatteryStatus& bat, int sleep_in_s) {
         char b[24];
+        if (sleep_in_s >= 0) std::snprintf(b, sizeof b, "ALVAS %d S", sleep_in_s);
+        else b[0] = 0;
+        set_text(sleepmsg, b);
         if (battery_shown(bat)) std::snprintf(b, sizeof b, "%s %u %%", battery_symbol(bat), bat.percent);
         else b[0] = 0;
         set_text(battery, b);
@@ -296,7 +311,7 @@ void ui_tick(lv_timer_t*) {
         l = g_model.link();
         bat = g_battery;
     }
-    g_main.update(v, bat);
+    g_main.update(v, bat, g_sleep_in_s.load(std::memory_order_relaxed));
     g_detail.update(v, bat);
     g_linkv.update(v, l);
 }
@@ -346,13 +361,87 @@ void battery_tick(PersistFilter& power_fault, uint32_t second) {
     g_led->set_fault(Fault::Power, power_fault.update(low && !b.charging, now_ms()));
     if (low != dimmed) {
         dimmed = low;
-        g_lcd->set_backlight(low ? std::min(CONFIG_OG_LCD_BACKLIGHT_PERCENT, kLowBatteryBacklight)
-                                 : CONFIG_OG_LCD_BACKLIGHT_PERCENT);
+        g_backlight_pct = low ? std::min(CONFIG_OG_LCD_BACKLIGHT_PERCENT, kLowBatteryBacklight)
+                              : CONFIG_OG_LCD_BACKLIGHT_PERCENT;
+        g_lcd->set_backlight(g_backlight_pct);
     }
     if (second % kBatteryLogPeriodS == 0)
         ESP_LOGI(TAG, "Akkumulátor: nyers %u mV, szűrt %u mV, %u %%, szint %d, töltés (becslés) %d", mv, b.mv,
                  b.percent, static_cast<int>(b.level), b.charging);
 }
+
+#if defined(CONFIG_OG_DISP_SLEEP)
+// Mit csinál: light sleepbe teszi a kijelzőegységet; érintésre vagy az OBD-egység BLE-hirdetésére ébred.
+// Hogyan:     az LVGL leáll, a háttérvilágítás és a panel kikapcsol, az ESP-NOW leáll. Az alvási szakaszok
+//             (OG_WAKE_SCAN_PERIOD_MS) után rövid BLE-szkennelő ablak jön; az érintő megszakítás-lába
+//             (alacsony szint) light sleepből is ébreszt. Ébredéskor minden visszaáll.
+// Miért:      az autó leállása után a kijelző ne fogyassza az akkumulátort, de a vezető érintésére és
+//             a gyújtás bekapcsolására (a C3 BLE-hirdetésével) azonnal ébredjen.
+void enter_sleep() {
+    const gpio_num_t ti = static_cast<gpio_num_t>(board::kTouch.intr);
+    ESP_LOGI(TAG, "Alvás indul: %d s tétlenség után; ébredés érintésre vagy BLE-hirdetésre", CONFIG_OG_DISP_SLEEP_AFTER_S);
+    g_led->set_enabled(false);
+    lvgl_port_stop();
+    g_lcd->set_backlight(0);
+    g_lcd->display_on(false);
+    g_link.suspend();
+    ESP_LOGI(TAG, "Szabad belső RAM alvás előtt: %u kB (legnagyobb blokk %u kB)",
+             (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024),
+             (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL) / 1024));
+
+    gpio_config_t io = {};
+    io.pin_bit_mask = 1ULL << ti;
+    io.mode = GPIO_MODE_INPUT;
+    io.pull_up_en = GPIO_PULLUP_ENABLE;
+    gpio_config(&io);
+    for (int i = 0; i < 100 && gpio_get_level(ti) == 0; ++i) vTaskDelay(pdMS_TO_TICKS(10));  // ujj még az érintőn
+    gpio_wakeup_enable(ti, GPIO_INTR_LOW_LEVEL);
+    esp_sleep_enable_gpio_wakeup();
+
+    bool touched = false;
+    uint32_t cycles = 0;
+    const uint32_t t0 = now_ms();
+    for (;;) {
+        esp_sleep_enable_timer_wakeup(static_cast<uint64_t>(CONFIG_OG_WAKE_SCAN_PERIOD_MS) * 1000);
+        esp_light_sleep_start();
+        ++cycles;
+        if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_GPIO) {
+            touched = true;
+            break;
+        }
+        const uint32_t before = ble_scan_stats().adverts;
+        if (!ble_start_scanning(100)) {
+            ESP_LOGW(TAG, "A BLE-szkennelés nem indult (szabad belső RAM %u kB, legnagyobb blokk %u kB)",
+                     (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024),
+                     (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL) / 1024));
+            ble_stop();
+            continue;
+        }
+        vTaskDelay(pdMS_TO_TICKS(CONFIG_OG_WAKE_SCAN_WINDOW_MS));
+        const bool seen = ble_scan_stats().adverts != before;
+        if (cycles == 1)
+            ESP_LOGI(TAG, "Szabad belső RAM futó BLE mellett: %u kB", (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024));
+        ble_stop();
+        if (cycles == 1)
+            ESP_LOGI(TAG, "Szabad belső RAM a BLE leállítása után: %u kB", (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024));
+        if (seen) break;
+    }
+    gpio_wakeup_disable(ti);
+    g_link.resume();
+    g_lcd->display_on(true);
+    g_lcd->set_backlight(g_backlight_pct);
+    lvgl_port_resume();
+    if (lvgl_port_lock(200)) {
+        lv_obj_invalidate(lv_screen_active());
+        lv_display_trigger_activity(nullptr);  // az ébresztő érintés ne számítson régi tétlenségnek
+        lvgl_port_unlock();
+    }
+    g_led->set_enabled(true);
+    g_power.on_wake(now_ms());
+    ESP_LOGI(TAG, "Ébredés: %s, %lu alvási szakasz, %lu ms után", touched ? "érintés" : "az OBD-egység hirdetése",
+             (unsigned long)cycles, (unsigned long)(now_ms() - t0));
+}
+#endif
 
 // Mit csinál: fogadja a csomagokat, frissíti a modellt, másodpercenként életjelet küld, méri az
 //             akkumulátort, frissíti a LED-állapotot és naplóz.
@@ -367,8 +456,20 @@ void link_task(void*) {
         const int32_t rem = static_cast<int32_t>(next - now_ms());
         EspNowLink::Packet p;
         if (rem > 0 && g_link.recv(p, static_cast<uint32_t>(rem))) {
-            std::lock_guard<std::mutex> lock(g_mx);
-            g_model.on_packet(p.data, p.len, p.rssi, p.rx_ms);
+            bool fresh, stopped;
+            uint32_t stopped_ms;
+            {
+                std::lock_guard<std::mutex> lock(g_mx);
+                fresh = g_model.on_packet(p.data, p.len, p.rssi, p.rx_ms);
+                stopped = g_model.engine_stopped();
+                stopped_ms = g_model.stopped_ms();
+            }
+#if defined(CONFIG_OG_DISP_SLEEP)
+            if (fresh) g_power.on_data(p.rx_ms);
+            g_power.sync_engine(stopped, stopped_ms);
+#else
+            (void)fresh; (void)stopped; (void)stopped_ms;
+#endif
             continue;
         }
         next += 1000;
@@ -394,6 +495,24 @@ void link_task(void*) {
         g_led->set_link(alive ? LinkLed::Ok : LinkLed::Waiting);
         g_led->set_fault(Fault::Radio, radio_fault.update(!alive, now));
         battery_tick(power_fault, second);
+#if defined(CONFIG_OG_DISP_SLEEP)
+        {
+            // Az érintés ideje az LVGL tétlenségi számlálójából; az alvásig hátralévő idő a kijelzőre megy.
+            uint32_t idle = 0;
+            if (lvgl_port_lock(100)) {
+                idle = lv_display_get_inactive_time(nullptr);
+                lvgl_port_unlock();
+            }
+            g_power.on_touch(now > idle ? now - idle : 0);
+            g_sleep_in_s.store(g_power.counting_down(now) ? g_power.seconds_left(now) : -1, std::memory_order_relaxed);
+            if (g_power.should_sleep(now)) {
+                enter_sleep();
+                g_sleep_in_s.store(-1, std::memory_order_relaxed);
+                next = now_ms();  // ébredés után azonnal életjel (a C3 ebből tudja, hogy leállíthatja a hirdetést)
+                continue;
+            }
+        }
+#endif
 
         const EspNowLink::Stats ls = g_link.stats();
         ESP_LOGI(TAG,
