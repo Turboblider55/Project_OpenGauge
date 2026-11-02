@@ -80,6 +80,30 @@ static void invalid_and_duplicate() {
     CHECK(l.invalid == 1 && l.received == 2 && l.lost == 2 && l.stale == 1 && l.last_seq == 13);
 }
 
+static void rolling_loss_window() {
+    DashModel d;
+    uint16_t seq = 0;
+    // 60 s hibátlan adás, majd 60 s, amelyben minden 10. csomag elvész.
+    for (int s = 0; s < 60; ++s) {
+        for (int i = 0; i < 10; ++i) feed(d, telemetry(seq++, 0, 0.f), s * 1000 + i * 100);
+        d.on_second();
+    }
+    CHECK_NEAR(d.link().loss_ratio_window, 0.f, 1e-6);
+    for (int s = 60; s < 120; ++s) {
+        for (int i = 0; i < 10; ++i, ++seq)
+            if (i != 5) feed(d, telemetry(seq, 0, 0.f), s * 1000 + i * 100);
+        d.on_second();
+    }
+    CHECK_NEAR(d.link().loss_ratio_window, 0.1, 1e-3);  // az ablak csak az utolsó 60 s-ot látja
+    CHECK_NEAR(d.link().loss_ratio, 60.0 / 1200.0, 1e-3);  // a teljes futás átlaga a fele
+    // Az adó újraindul (a sorszám 0-ra ugrik): a statisztika nullázódik, az ablak is újrakezdődik a következő másodperctől.
+    // (a kis sorszámról 0-ra ugrás régebbi csomagnak látszik: kResyncAfter csomag után áll át)
+    for (uint16_t q = 0; q < LinkStats::kResyncAfter; ++q) feed(d, telemetry(q, 0, 0.f), 120000 + q * 100);
+    d.on_second();
+    CHECK(d.link().resyncs == 1 && d.link().lost == 0 && d.link().received == 1);
+    CHECK(d.link().loss_ratio_window < 0.11f);
+}
+
 static void per_second_and_rssi() {
     DashModel d;
     feed(d, telemetry(1, 0, 0.f), 0, -30);
@@ -130,6 +154,7 @@ int main() {
     RUN(sleep_now_message_is_not_engine_stop);
     RUN(values_and_freshness);
     RUN(invalid_and_duplicate);
+    RUN(rolling_loss_window);
     RUN(per_second_and_rssi);
     TEST_MAIN_END();
 }

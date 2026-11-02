@@ -36,6 +36,7 @@ struct DashValues {
 struct DashLink {
     uint32_t received = 0, lost = 0, stale = 0, resyncs = 0, invalid = 0;
     float loss_ratio = 0.f;
+    float loss_ratio_window = 0.f;  // az utolsó kWindowS másodperc vesztesége (0..1): a pillanatnyi kapcsolatminőség
     uint16_t last_seq = 0;
     uint32_t per_sec = 0;  // az utolsó lezárt másodperc csomagszáma
     int rssi_dbm = 0;      // az utolsó lezárt másodperc átlagos térereje (0, ha nem jött csomag)
@@ -45,6 +46,8 @@ class DashModel {
 public:
     // Ennél régebbi adat már nem számít frissnek (5 kimaradt csomag 10 Hz-en).
     static constexpr uint32_t kStaleMs = 500;
+    // A gördülő veszteségarány ablaka másodpercben.
+    static constexpr int kWindowS = 60;
 
     explicit DashModel(uint32_t sample_period_ms = 100) : rpm_(sample_period_ms), speed_(sample_period_ms) {}
 
@@ -73,6 +76,10 @@ public:
 
 private:
     LinkStats stats_;
+    // Másodpercenkénti vett/elveszett csomagszám körpuffere a gördülő ablakhoz.
+    uint32_t win_rx_[kWindowS] = {}, win_lost_[kWindowS] = {};
+    int win_pos_ = 0;
+    uint32_t win_prev_rx_ = 0, win_prev_lost_ = 0;
     TelemetryMsg last_ = {};
     bool has_data_ = false;
     uint32_t last_ms_ = 0;

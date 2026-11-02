@@ -636,10 +636,10 @@ void link_task(void*) {
 
         const EspNowLink::Stats ls = g_link.stats();
         ESP_LOGI(TAG,
-                 "%lu csomag/s, RSSI %d dBm | összes %lu, elveszett %lu (%.2f %%), elavult %lu, újraindulás %lu, "
+                 "%lu csomag/s, RSSI %d dBm | összes %lu, elveszett %lu (%.2f %%, 60 s: %.2f %%), elavult %lu, újraindulás %lu, "
                  "érvénytelen %lu, sor tele %lu, seq %u | adat %s, %lu 1/perc | FPS %lu, belső RAM %u kB",
                  (unsigned long)l.per_sec, l.rssi_dbm, (unsigned long)l.received, (unsigned long)l.lost,
-                 l.loss_ratio * 100.0, (unsigned long)l.stale, (unsigned long)l.resyncs, (unsigned long)l.invalid,
+                 l.loss_ratio * 100.0, l.loss_ratio_window * 100.0, (unsigned long)l.stale, (unsigned long)l.resyncs, (unsigned long)l.invalid,
                  (unsigned long)ls.rx_dropped, l.last_seq, v.fresh ? "friss" : "NINCS", (unsigned long)(v.rpm + 0.5f),
                  (unsigned long)lvgl_take_frames(), (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024));
     }

@@ -97,6 +97,25 @@ static void link_stats() {
     CHECK(!r.on_seq(1));
     CHECK(r.on_seq(2) && r.resyncs() == 1 && r.last_seq() == 2);
     CHECK(r.on_seq(3) && r.lost() == 0);
+    // Az újraszinkronizálás nullázza a számlálókat, az újraindulások száma megmarad.
+    LinkStats z;
+    z.on_seq(10);
+    z.on_seq(15);
+    CHECK(z.lost() == 4 && z.received() == 2);
+    z.on_seq(5);
+    z.on_seq(6);
+    CHECK(z.on_seq(7) && z.resyncs() == 1 && z.lost() == 0 && z.stale() == 0 && z.received() == 1);
+    // Újraindulás nagy sorszámról 0-ra: a félkörös összehasonlítás ezt előreugrásnak látja, mégsem lehet veszteség.
+    LinkStats big;
+    big.on_seq(60000);
+    big.on_seq(60001);
+    CHECK(big.on_seq(0) && big.lost() == 0 && big.resyncs() == 1 && big.received() == 1);
+    CHECK(big.on_seq(1) && big.on_seq(3) && big.lost() == 1 && big.loss_ratio() > 0.f);
+    // A határ: kMaxGap csomag kiesés még veszteség, eggyel több már újraindulás.
+    LinkStats g;
+    g.on_seq(1000);
+    CHECK(g.on_seq(1000 + 1 + LinkStats::kMaxGap) && g.lost() == LinkStats::kMaxGap && g.resyncs() == 0);
+    CHECK(g.on_seq(1000 + 1 + LinkStats::kMaxGap + 1 + LinkStats::kMaxGap + 1) && g.resyncs() == 1 && g.lost() == 0);
 }
 
 int main() {
