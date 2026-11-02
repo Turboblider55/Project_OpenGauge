@@ -30,6 +30,7 @@ struct AmsInfo {
     int playback = -1;       // -1 ismeretlen, 0 szünet, 1 lejátszás, 2 visszatekerés, 3 előretekerés
     float rate = 0;          // lejátszási sebesség (1,0 = normál)
     float elapsed_s = 0;     // az eltelt idő a legutóbbi frissítéskor
+    uint32_t playback_stamp_ms = 0;  // a lejátszási adat vételének ideje (esp_timer, ms): ebből számolható az eltelt idő most
     float duration_s = 0;    // a szám hossza
     float volume = -1;       // 0..1; -1 ismeretlen
     char player[32] = {};    // a lejátszó neve (pl. "Spotify")

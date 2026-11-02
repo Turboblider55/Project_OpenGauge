@@ -27,6 +27,7 @@
 
 #include "battery_adc.h"
 #include "battery_gauge.h"
+#include "ble_ams.h"
 #include "ble_radio.h"
 #include "board_pins.h"
 #include "dash_model.h"
@@ -41,6 +42,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "led_pattern.h"
+#include "music_model.h"
 #include "lvgl_setup.h"
 #include "og_codec.h"
 #include "sdkconfig.h"
@@ -289,10 +291,112 @@ struct LinkView {
     }
 };
 
+#if defined(CONFIG_OG_DISP_MUSIC)
+// Mit csinál: a képernyő gombjai (előző, lejátszás/szünet, következő) lejátszásvezérlő parancsot küldenek az iPhone-nak.
+void on_music_button(lv_event_t* e) {
+    const auto cmd = static_cast<AmsCommand>(reinterpret_cast<uintptr_t>(lv_event_get_user_data(e)));
+    ble_ams_command(cmd);
+}
+
+// (4) Zene: az iPhone "Most játszik" adatai (AMS): cím, előadó, folyamatjelző, idő, vezérlőgombok.
+// Hogyan:     a hosszú cím/előadó körbeforgó görgetéssel fér ki; az ékezeteket az ASCII-ra egyszerűsítés
+//             (music_model.h) cseréli, mert a betűkészletben nincsenek; az eltelt időt a nézet számolja a
+//             lejátszási sebességgel, mert az iPhone csak változáskor küld új értéket.
+struct MusicView {
+    lv_obj_t* scr;
+    lv_obj_t *title, *artist, *bar, *time, *play_icon;
+    int32_t last_bar = -1;
+
+    // Mit csinál: egy kerek gombot rak a képernyő aljára a megadott szimbólummal és paranccsal; a gomb feliratát adja vissza.
+    lv_obj_t* add_button(int32_t x, const char* symbol, AmsCommand cmd) {
+        lv_obj_t* b = lv_button_create(scr);
+        lv_obj_set_size(b, 60, 60);
+        lv_obj_align(b, LV_ALIGN_CENTER, x, 108);
+        lv_obj_set_style_radius(b, LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_bg_color(b, lv_color_hex(0x303030), 0);
+        lv_obj_set_style_shadow_width(b, 0, 0);
+        lv_obj_add_event_cb(b, on_music_button, LV_EVENT_CLICKED, reinterpret_cast<void*>(static_cast<uintptr_t>(cmd)));
+        lv_obj_t* l = lv_label_create(b);
+        lv_obj_set_style_text_font(l, &lv_font_montserrat_28, 0);
+        lv_label_set_text(l, symbol);
+        lv_obj_center(l);
+        return l;
+    }
+
+    void build() {
+        scr = make_screen();
+        make_label(scr, &lv_font_montserrat_20, kOrange, LV_ALIGN_TOP_MID, 0, 45, "ZENE");
+        title = make_label(scr, &lv_font_montserrat_28, lv_color_white(), LV_ALIGN_CENTER, 0, -60, "");
+        artist = make_label(scr, &lv_font_montserrat_20, kGrey, LV_ALIGN_CENTER, 0, -22, "");
+        for (lv_obj_t* l : {title, artist}) {
+            lv_obj_set_width(l, 250);
+            lv_label_set_long_mode(l, LV_LABEL_LONG_SCROLL_CIRCULAR);
+            lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
+        }
+        bar = lv_bar_create(scr);
+        lv_obj_set_size(bar, 220, 8);
+        lv_obj_align(bar, LV_ALIGN_CENTER, 0, 22);
+        lv_bar_set_range(bar, 0, 1000);
+        lv_obj_set_style_bg_color(bar, lv_color_hex(0x303030), LV_PART_MAIN);
+        lv_obj_set_style_bg_color(bar, kOrange, LV_PART_INDICATOR);
+        time = make_label(scr, &lv_font_montserrat_20, kGrey, LV_ALIGN_CENTER, 0, 48, "");
+        add_button(-85, LV_SYMBOL_PREV, AmsCommand::PreviousTrack);
+        play_icon = add_button(0, LV_SYMBOL_PLAY, AmsCommand::TogglePlayPause);
+        add_button(85, LV_SYMBOL_NEXT, AmsCommand::NextTrack);
+    }
+
+    // Mit csinál: a megjelenített adat frissítése az AMS pillanatképéből (az LVGL-feladatban hívva).
+    void update(const AmsInfo& i, uint32_t now) {
+        char t[sizeof i.title], a[sizeof i.artist], tm[40];
+        const bool playing = i.playback == 1 || i.playback == 2 || i.playback == 3;
+        if (!i.connected) {
+            std::snprintf(t, sizeof t, "NINCS TELEFON");
+            std::snprintf(a, sizeof a, "Keresd: OpenGauge");
+        } else if (!i.ready) {
+            std::snprintf(t, sizeof t, "PAROSITAS...");
+            a[0] = 0;
+        } else if (!i.title[0]) {
+            std::snprintf(t, sizeof t, "NINCS ZENE");
+            fold_ascii(i.player, a, sizeof a);
+        } else {
+            fold_ascii(i.title, t, sizeof t);
+            fold_ascii(i.artist, a, sizeof a);
+        }
+        set_text(title, t);
+        set_text(artist, a);
+        const float e = music_elapsed(i.elapsed_s, i.playback_stamp_ms, i.rate, playing, now, i.duration_s);
+        if (i.ready && i.title[0]) {
+            char es[16], ds[16];
+            format_time(es, sizeof es, e);
+            if (i.duration_s > 0) {
+                format_time(ds, sizeof ds, i.duration_s);
+                std::snprintf(tm, sizeof tm, "%s / %s", es, ds);
+            } else {
+                std::snprintf(tm, sizeof tm, "%s", es);
+            }
+        } else {
+            tm[0] = 0;
+        }
+        set_text(time, tm);
+        const int32_t pm = static_cast<int32_t>(music_progress(e, i.duration_s) * 1000);
+        if (pm != last_bar) {
+            lv_bar_set_value(bar, pm, LV_ANIM_OFF);
+            last_bar = pm;
+        }
+        set_text(play_icon, playing ? LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY);
+    }
+};
+MusicView g_music;
+constexpr int kScreenCount = 4;  // a 4. (zene) képernyőre csak kézzel lépünk; az automatikus váltás az első háromban forog
+#else
+constexpr int kScreenCount = 3;
+#endif
+constexpr int kAutoScreens = 3;
+
 MainView g_main;
 DetailView g_detail;
 LinkView g_linkv;
-lv_obj_t* g_screens[3];
+lv_obj_t* g_screens[kScreenCount];
 int g_current = 0;
 lv_timer_t* g_switch_timer = nullptr;
 uint32_t g_pause_until = 0;
@@ -314,11 +418,14 @@ void ui_tick(lv_timer_t*) {
     g_main.update(v, bat, g_sleep_in_s.load(std::memory_order_relaxed));
     g_detail.update(v, bat);
     g_linkv.update(v, l);
+#if defined(CONFIG_OG_DISP_MUSIC)
+    g_music.update(ble_ams_info(), now_ms());
+#endif
 }
 
 // Mit csinál: a szomszédos képernyőre vált (step = +1: következő, -1: előző), csúszó animációval.
 void show_next(int step) {
-    g_current = (g_current + step + 3) % 3;
+    g_current = (g_current + step + kScreenCount) % kScreenCount;
     lv_screen_load_anim(g_screens[g_current], step > 0 ? LV_SCREEN_LOAD_ANIM_MOVE_LEFT : LV_SCREEN_LOAD_ANIM_MOVE_RIGHT,
                         kSwitchAnimMs, 0, false);
 }
@@ -326,6 +433,13 @@ void show_next(int step) {
 // Mit csinál: automatikus váltás, ha az utolsó érintés óta eltelt kTouchPauseMs.
 void switch_tick(lv_timer_t*) {
     if (static_cast<int32_t>(now_ms() - g_pause_until) < 0) return;
+    if (g_current >= kAutoScreens) return;  // a zene képernyőről csak kézzel lépünk tovább
+    if (g_current == kAutoScreens - 1 && kScreenCount > kAutoScreens) {
+        // az utolsó automatikus képernyő után az elsőre ugrunk, a zene képernyőt kihagyva
+        g_current = 0;
+        lv_screen_load_anim(g_screens[0], LV_SCREEN_LOAD_ANIM_MOVE_LEFT, kSwitchAnimMs, 0, false);
+        return;
+    }
     show_next(+1);
 }
 
@@ -381,6 +495,9 @@ void enter_sleep() {
     const gpio_num_t ti = static_cast<gpio_num_t>(board::kTouch.intr);
     ESP_LOGI(TAG, "Alvás indul: %d s tétlenség után; ébredés érintésre vagy BLE-hirdetésre", CONFIG_OG_DISP_SLEEP_AFTER_S);
     g_led->set_enabled(false);
+#if defined(CONFIG_OG_DISP_MUSIC)
+    ble_stop();  // a telefonos kapcsolat megszűnik; az ébresztő ablakok saját BLE-indítást használnak
+#endif
     lvgl_port_stop();
     g_lcd->set_backlight(0);
     g_lcd->display_on(false);
@@ -437,6 +554,9 @@ void enter_sleep() {
         lvgl_port_unlock();
     }
     g_led->set_enabled(true);
+#if defined(CONFIG_OG_DISP_MUSIC)
+    ble_ams_start("OpenGauge");  // az iPhone a kötött eszközhöz magától újracsatlakozik
+#endif
     g_power.on_wake(now_ms());
     ESP_LOGI(TAG, "Ébredés: %s, %lu alvási szakasz, %lu ms után", touched ? "érintés" : "az OBD-egység hirdetése",
              (unsigned long)cycles, (unsigned long)(now_ms() - t0));
@@ -548,12 +668,21 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
         g_screens[0] = g_main.scr;
         g_screens[1] = g_detail.scr;
         g_screens[2] = g_linkv.scr;
+#if defined(CONFIG_OG_DISP_MUSIC)
+        g_music.build();
+        g_screens[3] = g_music.scr;
+#endif
         for (lv_obj_t* scr : g_screens) lv_obj_add_event_cb(scr, on_gesture, LV_EVENT_GESTURE, nullptr);
         lv_screen_load(g_main.scr);
         lv_timer_create(ui_tick, kUiPeriodMs, nullptr);
         g_switch_timer = lv_timer_create(switch_tick, kSwitchPeriodMs, nullptr);
         lvgl_port_unlock();
     }
+
+#if defined(CONFIG_OG_DISP_MUSIC)
+    // A BLE (iOS zene) mindig kész: a NimBLE host a PSRAM-ban fut (H-34), így belefér a belső RAM-ba.
+    if (!ble_ams_start("OpenGauge")) ESP_LOGE(TAG, "A BLE nem indult el");
+#endif
 
     // A kapcsolatfeladat a 0. magon (az LVGL az 1. magon fut).
     xTaskCreatePinnedToCore(link_task, "og_link", 4096, nullptr, 5, nullptr, 0);

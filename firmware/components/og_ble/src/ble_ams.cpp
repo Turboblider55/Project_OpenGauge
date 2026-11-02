@@ -6,6 +6,7 @@
 
 #include "ble_internal.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "host/ble_hs.h"
@@ -75,6 +76,7 @@ void apply(uint8_t ent, uint8_t attr, const uint8_t* v, size_t n) {
         } else if (attr == 1) {
             char* end = nullptr;
             g_info.playback = static_cast<int>(strtol(tmp, &end, 10));
+            g_info.playback_stamp_ms = static_cast<uint32_t>(esp_timer_get_time() / 1000);
             if (end && *end == ',') {
                 g_info.rate = to_float(end + 1);
                 const char* c = strchr(end + 1, ',');
