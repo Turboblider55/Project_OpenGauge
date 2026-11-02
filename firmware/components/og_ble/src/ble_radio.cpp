@@ -301,6 +301,8 @@ bool ble_internal_start(const char* name, bool custom_service, bool secure) {
 
 uint8_t ble_internal_addr_type() { return g_own_addr_type; }
 
+bool ble_internal_running() { return g_started; }
+
 bool ble_start_peripheral(const char* name) {
     g_periph_name = name;
     g_custom_svc = true;
@@ -346,13 +348,13 @@ bool ble_start_scanning(uint32_t window_pct) {
 
 void ble_stop() {
     if (!g_started) return;
+    g_started = false;  // előbb jelezzük: a háttérfeladatok ettől kezdve nem hívhatnak verem-függvényt
     g_adv_run = false;
     for (int i = 0; i < 40 && g_adv_task_alive; ++i) vTaskDelay(pdMS_TO_TICKS(50));
     ble_gap_adv_stop();
     ble_gap_disc_cancel();
     nimble_port_stop();
     nimble_port_deinit();
-    g_started = false;
     g_synced = false;
 }
 

@@ -11,6 +11,9 @@ namespace og {
 // Hogyan:     a GATT-táblát a verem indulása előtt kell felvenni, ezért a beállítások az indításkor érvényesek.
 bool ble_internal_start(const char* name, bool custom_service, bool secure);
 
+// Mit csinál: igaz, ha a NimBLE fut (a ble_stop() hívásától hamis); a háttérfeladatok ebből tudják, hogy nem hívhatnak verem-függvényt.
+bool ble_internal_running();
+
 // Mit csinál: a host szinkronja után a saját címtípus (a hirdetéshez és a kapcsolódáshoz).
 uint8_t ble_internal_addr_type();
 

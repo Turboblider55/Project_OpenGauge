@@ -9,6 +9,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/task.h"
 #include "host/ble_hs.h"
 #include "host/ble_store.h"
 #include "os/os_mbuf.h"
@@ -45,6 +46,21 @@ volatile uint16_t g_conn = BLE_HS_CONN_HANDLE_NONE;
 const char* g_name = nullptr;
 bool g_trunc_busy = false;
 uint8_t g_trunc_ent = 0, g_trunc_attr = 0;
+
+// A csatlakozás felügyelete: ha a kapcsolat él, de nincs kész adat, a felügyelő feladat újrapróbál.
+constexpr uint32_t kStallMs = 4000;      // ennyi előrelépés nélküli idő után újrapróbálás
+constexpr uint32_t kRetryDelayMs = 500;  // hiba után ennyi idő múlva újrapróbálás
+constexpr int kMaxAttempts = 3;          // ennyi próba után bontjuk a kapcsolatot (az iPhone újracsatlakozik)
+volatile bool g_enc = false;
+volatile uint32_t g_conn_ms = 0;
+volatile uint32_t g_progress_ms = 0;
+int g_attempt = 0;
+bool g_wd_started = false;
+
+inline uint32_t now_ms() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
+const char* kStepNames[] = {"Idle", "szolgaltatas keresese", "jellemzok keresese", "CCCD keresese (parancs)",
+                            "CCCD keresese (entitas)", "feliratkozas (parancs)", "feliratkozas (entitas)",
+                            "lejatszo entitas", "szam entitas", "kesz"};
 
 void advertise();
 void next_step();
@@ -96,8 +112,10 @@ void apply(uint8_t ent, uint8_t attr, const uint8_t* v, size_t n) {
 
 // Mit csinál: a felfedezés/írás hibáját naplózza, és leállítja a lépéssort.
 void fail(const char* what, int status) {
-    ESP_LOGE(TAG, "AMS: %s sikertelen (állapot %d; 0x105 = az ATT hitelesítést kér)", what, status);
+    ESP_LOGE(TAG, "[+%lu ms] AMS: %s sikertelen (állapot %d; 0x105 = az ATT hitelesítést kér); újrapróbálás lesz",
+             static_cast<unsigned long>(now_ms() - g_conn_ms), what, status);
     g_step = Step::Idle;
+    g_progress_ms = now_ms();
 }
 
 int svc_cb(uint16_t, const ble_gatt_error* err, const ble_gatt_svc* svc, void*) {
@@ -175,7 +193,8 @@ int write_cb(uint16_t, const ble_gatt_error* err, ble_gatt_attr*, void*) {
             g_step = Step::Ready;
             Lock l;
             g_info.ready = true;
-            ESP_LOGI(TAG, "AMS kész: feliratkozva a lejátszóra és a számra");
+            ESP_LOGI(TAG, "[+%lu ms] AMS kész: feliratkozva a lejátszóra és a számra (%d. próba)",
+                     static_cast<unsigned long>(now_ms() - g_conn_ms), g_attempt + 1);
             return 0;
         }
         default: return 0;
@@ -209,6 +228,9 @@ void next_step() {
     static const uint8_t kTrack[] = {kEntityTrack, 0, 1, 2, 3};  // előadó, album, cím, hossz
     const uint16_t c = g_conn;
     int rc = 0;
+    g_progress_ms = now_ms();
+    ESP_LOGI(TAG, "[+%lu ms] Lépés: %s (%d. próba)", static_cast<unsigned long>(now_ms() - g_conn_ms),
+             kStepNames[static_cast<int>(g_step)], g_attempt + 1);
     switch (g_step) {
         case Step::DiscSvc:
             memset(&g_h, 0, sizeof g_h);
@@ -247,25 +269,39 @@ void on_entity_update(const uint8_t* d, size_t n) {
     }
 }
 
+// Mit csinál: új kapcsolatot vesz nyilvántartásba (azonosító, kezdőidő, állapotok nullázása).
+// Miért:      a kapcsolat első eseménye lehet a CONNECT és az ENC_CHANGE is; mindkettő ezt hívja, ha még nem ismeri.
+void begin_connection(uint16_t handle) {
+    g_conn = handle;
+    g_conn_ms = g_progress_ms = now_ms();
+    g_attempt = 0;
+    g_enc = false;
+    g_step = Step::Idle;
+    Lock l;
+    g_info.connected = true;
+}
+
 // Mit csinál: a kapcsolat eseményeit dolgozza fel: kapcsolódás, titkosítás, értesítések, bontás.
 int ams_event(ble_gap_event* ev, void*) {
     switch (ev->type) {
         case BLE_GAP_EVENT_CONNECT:
             if (ev->connect.status == 0) {
-                g_conn = ev->connect.conn_handle;
-                {
-                    Lock l;
-                    g_info.connected = true;
-                }
-                ESP_LOGI(TAG, "Az iPhone csatlakozott; biztonsági kérés küldése");
-                ble_gap_security_initiate(g_conn);
+                // A kötött iPhone a csatlakozás után azonnal titkosít, és az ENC_CHANGE esemény megelőzheti
+                // a CONNECT eseményt (H-35): ilyenkor a kapcsolat állapotát nem szabad lenullázni.
+                const bool known = g_conn == ev->connect.conn_handle;
+                if (!known) begin_connection(ev->connect.conn_handle);
+                const int src = g_enc ? 0 : ble_gap_security_initiate(g_conn);
+                ESP_LOGI(TAG, "[+%lu ms] Az iPhone csatlakozott%s; biztonsági kérés (eredmény %d)",
+                         static_cast<unsigned long>(now_ms() - g_conn_ms), known ? " (a titkosítás már megvan)" : "", src);
             } else {
                 advertise();
             }
             break;
         case BLE_GAP_EVENT_DISCONNECT: {
-            ESP_LOGW(TAG, "Bontva, ok: %d", ev->disconnect.reason);
+            ESP_LOGW(TAG, "[+%lu ms] Bontva, ok: %d, állapot: %s", static_cast<unsigned long>(now_ms() - g_conn_ms),
+                     ev->disconnect.reason, kStepNames[static_cast<int>(g_step)]);
             g_conn = BLE_HS_CONN_HANDLE_NONE;
+            g_enc = false;
             g_step = Step::Idle;
             g_trunc_busy = false;
             {
@@ -279,15 +315,22 @@ int ams_event(ble_gap_event* ev, void*) {
         }
         case BLE_GAP_EVENT_ENC_CHANGE:
             if (ev->enc_change.status == 0) {
+                if (g_conn != ev->enc_change.conn_handle) begin_connection(ev->enc_change.conn_handle);
                 {
                     Lock l;
                     g_info.encrypted = true;
                 }
-                ESP_LOGI(TAG, "Titkosított kapcsolat; az AMS felderítése");
-                g_step = Step::DiscSvc;
-                next_step();
+                g_enc = true;
+                g_progress_ms = now_ms();
+                ESP_LOGI(TAG, "[+%lu ms] Titkosított kapcsolat (állapot: %s)", static_cast<unsigned long>(now_ms() - g_conn_ms),
+                         kStepNames[static_cast<int>(g_step)]);
+                if (g_step == Step::Idle) {  // egy újratitkosítás közben már futó felderítést nem szakítunk meg
+                    g_step = Step::DiscSvc;
+                    next_step();
+                }
             } else {
-                ESP_LOGE(TAG, "A titkosítás sikertelen (%d)", ev->enc_change.status);
+                ESP_LOGE(TAG, "[+%lu ms] A titkosítás sikertelen (%d)", static_cast<unsigned long>(now_ms() - g_conn_ms),
+                         ev->enc_change.status);
             }
             break;
         case BLE_GAP_EVENT_REPEAT_PAIRING: {
@@ -351,10 +394,61 @@ void advertise() {
     if (rc != 0 && rc != BLE_HS_EALREADY) ESP_LOGE(TAG, "adv_start: %d", rc);
 }
 
+// Mit csinál: a csatlakozás felügyelete: ha a kapcsolat él, de nincs kész adat, újrapróbál, végül bont.
+// Hogyan:     250 ms-onként ellenőrzi, mióta nincs előrelépés. Hiba után (a lépéssor leállt) kRetryDelayMs,
+//             egyébként kStallMs elteltével próbál: titkosítás előtt újra biztonsági kérést küld, titkosítás
+//             után újrakezdi a felderítést. kMaxAttempts próba után bontja a kapcsolatot; az iPhone a kötött
+//             eszközhöz újracsatlakozik, és tiszta lappal indul.
+// Miért:      a BLE-n egy elveszett csomag vagy az iPhone és az eszköz egyidejű titkosítás-kezdeményezése
+//             félbehagyhatja a felderítést; kézi újracsatlakozás nélkül is helyre kell állnia (H-35).
+void watchdog_task(void*) {
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(250));
+        const uint16_t c = g_conn;
+        if (c == BLE_HS_CONN_HANDLE_NONE || g_step == Step::Ready || !ble_internal_running()) continue;
+        const uint32_t idle = now_ms() - g_progress_ms;
+        const bool failed = g_step == Step::Idle && g_enc && idle > kRetryDelayMs;
+        if (!failed && idle < kStallMs) continue;
+        if (++g_attempt >= kMaxAttempts) {
+            ESP_LOGW(TAG, "[+%lu ms] %d próba után sincs kész adat (állapot: %s): a kapcsolat bontása",
+                     static_cast<unsigned long>(now_ms() - g_conn_ms), kMaxAttempts, kStepNames[static_cast<int>(g_step)]);
+            ble_gap_terminate(c, BLE_ERR_REM_USER_CONN_TERM);
+            g_progress_ms = now_ms();
+            continue;
+        }
+        g_progress_ms = now_ms();
+        ble_gap_conn_desc d;
+        if (!g_enc && ble_gap_conn_find(c, &d) == 0 && d.sec_state.encrypted) {
+            // A titkosítás kész, csak az eseményét nem kaptuk meg: a verem állapota az irányadó.
+            ESP_LOGW(TAG, "[+%lu ms] A kapcsolat titkosított, bár az esemény elmaradt: felderítés indul",
+                     static_cast<unsigned long>(now_ms() - g_conn_ms));
+            {
+                Lock l;
+                g_info.encrypted = true;
+            }
+            g_enc = true;
+        }
+        if (g_enc) {
+            ESP_LOGW(TAG, "[+%lu ms] Nincs előrelépés (állapot: %s): a felderítés újrakezdése",
+                     static_cast<unsigned long>(now_ms() - g_conn_ms), kStepNames[static_cast<int>(g_step)]);
+            g_step = Step::DiscSvc;
+            next_step();
+        } else {
+            const int rc = ble_gap_security_initiate(c);
+            ESP_LOGW(TAG, "[+%lu ms] Nincs titkosítás: újabb biztonsági kérés (eredmény %d)",
+                     static_cast<unsigned long>(now_ms() - g_conn_ms), rc);
+        }
+    }
+}
+
 }  // namespace
 
 bool ble_ams_start(const char* name) {
     if (!g_mutex) g_mutex = xSemaphoreCreateMutex();
+    if (!g_wd_started) {
+        g_wd_started = true;
+        xTaskCreate(watchdog_task, "ams_wd", 3072, nullptr, 3, nullptr);
+    }
     g_name = name;
     g_conn = BLE_HS_CONN_HANDLE_NONE;
     g_step = Step::Idle;
