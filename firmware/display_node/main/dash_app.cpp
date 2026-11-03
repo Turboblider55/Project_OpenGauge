@@ -43,6 +43,7 @@
 #include "freertos/task.h"
 #include "led_pattern.h"
 #include "music_model.h"
+#include "og_fonts.h"
 #include "lvgl_setup.h"
 #include "og_codec.h"
 #include "sdkconfig.h"
@@ -160,16 +161,16 @@ struct MainView {
         lv_obj_set_style_arc_color(arc, kOrange, LV_PART_INDICATOR);
 
         rpm = make_label(scr, &lv_font_montserrat_48, lv_color_white(), LV_ALIGN_CENTER, 0, -30, "--");
-        make_label(scr, &lv_font_montserrat_20, kGrey, LV_ALIGN_CENTER, 0, 10, "1/perc");
-        speed = make_label(scr, &lv_font_montserrat_28, lv_color_white(), LV_ALIGN_CENTER, 0, 60, "-- km/h");
-        nodata = make_label(scr, &lv_font_montserrat_20, kRed, LV_ALIGN_CENTER, 0, 110, "NINCS ADAT");
-        battery = make_label(scr, &lv_font_montserrat_20, kGrey, LV_ALIGN_TOP_MID, 0, 62, "");
-        sleepmsg = make_label(scr, &lv_font_montserrat_20, kOrange, LV_ALIGN_BOTTOM_MID, 0, -26, "");
+        make_label(scr, &og_font_montserrat_20, kGrey, LV_ALIGN_CENTER, 0, 10, "1/perc");
+        speed = make_label(scr, &og_font_montserrat_28, lv_color_white(), LV_ALIGN_CENTER, 0, 60, "-- km/h");
+        nodata = make_label(scr, &og_font_montserrat_20, kRed, LV_ALIGN_CENTER, 0, 110, "NINCS ADAT");
+        battery = make_label(scr, &og_font_montserrat_20, kGrey, LV_ALIGN_TOP_MID, 0, 62, "");
+        sleepmsg = make_label(scr, &og_font_montserrat_20, kOrange, LV_ALIGN_BOTTOM_MID, 0, -26, "");
     }
 
     void update(const DashValues& v, const BatteryStatus& bat, int sleep_in_s) {
         char b[24];
-        if (sleep_in_s >= 0) std::snprintf(b, sizeof b, "ALVAS %d S", sleep_in_s);
+        if (sleep_in_s >= 0) std::snprintf(b, sizeof b, "ALVÁS %d S", sleep_in_s);
         else b[0] = 0;
         set_text(sleepmsg, b);
         if (battery_shown(bat)) std::snprintf(b, sizeof b, "%s %u %%", battery_symbol(bat), bat.percent);
@@ -206,8 +207,8 @@ struct MainView {
 struct Row {
     lv_obj_t* value;
     void build(lv_obj_t* scr, int32_t y, const char* name) {
-        make_label(scr, &lv_font_montserrat_20, kGrey, LV_ALIGN_CENTER, -70, y, name);
-        value = make_label(scr, &lv_font_montserrat_28, lv_color_white(), LV_ALIGN_CENTER, 65, y, "--");
+        make_label(scr, &og_font_montserrat_20, kGrey, LV_ALIGN_CENTER, -70, y, name);
+        value = make_label(scr, &og_font_montserrat_28, lv_color_white(), LV_ALIGN_CENTER, 65, y, "--");
     }
 };
 
@@ -219,7 +220,7 @@ struct DetailView {
 
     void build() {
         scr = make_screen();
-        make_label(scr, &lv_font_montserrat_20, kOrange, LV_ALIGN_TOP_MID, 0, 45, "RESZLETEK");
+        make_label(scr, &og_font_montserrat_20, kOrange, LV_ALIGN_TOP_MID, 0, 45, "RÉSZLETEK");
         coolant.build(scr, -90, "VIZ");
         throttle.build(scr, -45, "FOJTO");
         vbat.build(scr, 0, "JARMU");
@@ -261,7 +262,7 @@ struct LinkView {
 
     void build() {
         scr = make_screen();
-        make_label(scr, &lv_font_montserrat_20, kOrange, LV_ALIGN_TOP_MID, 0, 45, "KAPCSOLAT");
+        make_label(scr, &og_font_montserrat_20, kOrange, LV_ALIGN_TOP_MID, 0, 45, "KAPCSOLAT");
         rate.build(scr, -90, "CSOMAG/S");
         loss.build(scr, -45, "VESZTES");
         rssi.build(scr, 0, "RSSI");
@@ -317,7 +318,7 @@ struct MusicView {
         lv_obj_set_style_shadow_width(b, 0, 0);
         lv_obj_add_event_cb(b, on_music_button, LV_EVENT_CLICKED, reinterpret_cast<void*>(static_cast<uintptr_t>(cmd)));
         lv_obj_t* l = lv_label_create(b);
-        lv_obj_set_style_text_font(l, &lv_font_montserrat_28, 0);
+        lv_obj_set_style_text_font(l, &og_font_montserrat_28, 0);
         lv_label_set_text(l, symbol);
         lv_obj_center(l);
         return l;
@@ -325,9 +326,9 @@ struct MusicView {
 
     void build() {
         scr = make_screen();
-        make_label(scr, &lv_font_montserrat_20, kOrange, LV_ALIGN_TOP_MID, 0, 45, "ZENE");
-        title = make_label(scr, &lv_font_montserrat_28, lv_color_white(), LV_ALIGN_CENTER, 0, -60, "");
-        artist = make_label(scr, &lv_font_montserrat_20, kGrey, LV_ALIGN_CENTER, 0, -22, "");
+        make_label(scr, &og_font_montserrat_20, kOrange, LV_ALIGN_TOP_MID, 0, 45, "ZENE");
+        title = make_label(scr, &og_font_montserrat_28, lv_color_white(), LV_ALIGN_CENTER, 0, -60, "");
+        artist = make_label(scr, &og_font_montserrat_20, kGrey, LV_ALIGN_CENTER, 0, -22, "");
         for (lv_obj_t* l : {title, artist}) {
             lv_obj_set_width(l, 250);
             lv_label_set_long_mode(l, LV_LABEL_LONG_SCROLL_CIRCULAR);
@@ -339,7 +340,7 @@ struct MusicView {
         lv_bar_set_range(bar, 0, 1000);
         lv_obj_set_style_bg_color(bar, lv_color_hex(0x303030), LV_PART_MAIN);
         lv_obj_set_style_bg_color(bar, kOrange, LV_PART_INDICATOR);
-        time = make_label(scr, &lv_font_montserrat_20, kGrey, LV_ALIGN_CENTER, 0, 48, "");
+        time = make_label(scr, &og_font_montserrat_20, kGrey, LV_ALIGN_CENTER, 0, 48, "");
         add_button(-85, LV_SYMBOL_PREV, AmsCommand::PreviousTrack);
         play_icon = add_button(0, LV_SYMBOL_PLAY, AmsCommand::TogglePlayPause);
         add_button(85, LV_SYMBOL_NEXT, AmsCommand::NextTrack);
@@ -353,14 +354,14 @@ struct MusicView {
             std::snprintf(t, sizeof t, "NINCS TELEFON");
             std::snprintf(a, sizeof a, "Keresd: OpenGauge");
         } else if (!i.ready) {
-            std::snprintf(t, sizeof t, "PAROSITAS...");
+            std::snprintf(t, sizeof t, "PÁROSÍTÁS...");
             a[0] = 0;
         } else if (!i.title[0]) {
             std::snprintf(t, sizeof t, "NINCS ZENE");
-            fold_ascii(i.player, a, sizeof a);
+            sanitize_text(i.player, a, sizeof a);
         } else {
-            fold_ascii(i.title, t, sizeof t);
-            fold_ascii(i.artist, a, sizeof a);
+            sanitize_text(i.title, t, sizeof t);
+            sanitize_text(i.artist, a, sizeof a);
         }
         set_text(title, t);
         set_text(artist, a);

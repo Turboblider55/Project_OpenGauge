@@ -1,4 +1,4 @@
-// A "Most játszik" képernyő logikájának tesztjei: ékezetek lecserélése, eltelt idő, időformátum.
+// A "Most játszik" képernyő logikájának tesztjei: szöveg-tisztítás, eltelt idő, időformátum.
 #include <cstring>
 
 #include "mini_test.h"
@@ -6,32 +6,37 @@
 
 using namespace og;
 
-static void fold(const char* in, const char* want) {
+static void clean(const char* in, const char* want) {
     char out[64];
-    fold_ascii(in, out, sizeof out);
+    sanitize_text(in, out, sizeof out);
     CHECK(std::strcmp(out, want) == 0);
 }
 
-static void folds_hungarian_accents() {
-    fold("Sebességmámor", "Sebessegmamor");
-    fold("Mindent vivő sláger", "Mindent vivo slager");
-    fold("Mindent viv\xC3\xB5 sl\xC3\xA1ger", "Mindent vivo slager");  // õ (U+00F5), ahogy a lejátszó küldte
-    fold("ŐÚŰÖÜÓÉÁÍ őúűöüóéáí", "OUUOUOEAI ouuouoeai");
+static void keeps_supported_accents() {
+    clean("Sebességmámor", "Sebességmámor");
+    clean("ŐÚŰÖÜÓÉÁÍ őúűöüóéáí", "ŐÚŰÖÜÓÉÁÍ őúűöüóéáí");
+    clean("Mindent viv\xC3\xB5 sl\xC3\xA1" "ger", "Mindent viv\xC3\xB5 sl\xC3\xA1" "ger");  // õ (U+00F5) változatlan marad
+    clean("Zażółć gęślą jaźń Łódź Ångström Dvořák", "Zażółć gęślą jaźń Łódź Ångström Dvořák");  // lengyel, svéd, cseh
+    clean("Beyoncé – Halo… ‘x’ “y” •", "Beyoncé – Halo… ‘x’ “y” •");
 }
 
-static void folds_punctuation_and_unknown() {
-    fold("It\xE2\x80\x99s \xE2\x80\x9Cok\xE2\x80\x9D \xE2\x80\x93 yes", "It's \"ok\" - yes");
-    fold("A\xE2\x82\xAC", "A?");              // euró jel: nincs megfelelője
-    fold("\xF0\x9F\x8E\xB5 dal", "? dal");   // emoji (4 bájt)
-    fold("hib\xC3", "hib?");                  // csonka bájtsor a végén
-    fold("a\tb", "a b");
+static void maps_variants_and_unknown() {
+    clean("a\xE2\x80\x90" "b\xE2\x80\x9E" "c", "a-b\xE2\x80\x9D" "c");  // kötőjel- és idézőjel-változatok
+    clean("A\xE2\x82\xAC", "A?");  // euró jel: nincs a betűkészletben
+    clean("\xD0\x9F\xD1\x80", "??");  // cirill betűk
+    clean("\xF0\x9F\x8E\xB5 dal", "? dal");  // emoji (4 bájt)
+    clean("hib\xC3", "hib?");  // csonka bájtsor a végén
+    clean("a\tb", "a b");
+    clean("\xFF", "?");
 }
 
-static void fold_truncates_safely() {
+static void clean_truncates_on_character_boundary() {
     char out[6];
-    fold_ascii("Árvíztűrő tükörfúrógép", out, sizeof out);
-    CHECK(std::strcmp(out, "Arviz") == 0);
-    fold_ascii(nullptr, out, sizeof out);
+    sanitize_text("Árvíztűrő tükörfúrógép", out, sizeof out);
+    CHECK(std::strcmp(out, "Árv") == 0);  // az í (2 bájt) már nem fér ki, félbevágva nem kerül be
+    sanitize_text("abcdefgh", out, sizeof out);
+    CHECK(std::strcmp(out, "abcde") == 0);
+    sanitize_text(nullptr, out, sizeof out);
     CHECK(out[0] == 0);
 }
 
@@ -66,9 +71,9 @@ static void formats_time() {
 }
 
 int main() {
-    RUN(folds_hungarian_accents);
-    RUN(folds_punctuation_and_unknown);
-    RUN(fold_truncates_safely);
+    RUN(keeps_supported_accents);
+    RUN(maps_variants_and_unknown);
+    RUN(clean_truncates_on_character_boundary);
     RUN(elapsed_counts_only_while_playing);
     RUN(elapsed_is_clamped_and_wrap_safe);
     RUN(progress_is_bounded);

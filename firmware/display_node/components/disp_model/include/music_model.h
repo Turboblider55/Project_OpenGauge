@@ -1,12 +1,12 @@
 #pragma once
-// A "Most játszik" képernyő hardverfüggetlen logikája: ékezetek lecserélése, az eltelt idő becslése, időformátum.
+// A "Most játszik" képernyő hardverfüggetlen logikája: szöveg-tisztítás, az eltelt idő becslése, időformátum.
 //
-// Mit csinál: (1) az UTF-8 szöveget ASCII-ra egyszerűsíti (a beépített Montserrat betűkészletben nincsenek
-//             ékezetes betűk); (2) az iPhone ritka frissítései között a lejátszási sebességgel számolja
+// Mit csinál: (1) az UTF-8 szöveget megjeleníthetővé teszi (a betűkészletben nem szereplő karakterek '?'-lé
+//             válnak); (2) az iPhone ritka frissítései között a lejátszási sebességgel számolja
 //             az eltelt időt; (3) a másodperceket "p:mm" alakra írja.
 // Miért:      az AMS az eltelt időt csak eseményre (indítás, szünet, léptetés) küldi, a kijelzőnek kell
-//             folyamatosan számolnia; a szövegek ékezetes betűit különben a betűkészlet üres négyzetként
-//             rajzolná. Mindez PC-n tesztelhető, ezért nem a nézetben van.
+//             folyamatosan számolnia; a betűkészletben nem szereplő karaktereket különben üres négyzetként
+//             rajzolná a kijelző. Mindez PC-n tesztelhető, ezért nem a nézetben van.
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -14,32 +14,47 @@
 namespace og {
 
 namespace music_detail {
-// U+00C0..U+00FF (Latin-1 kiegészítés) ASCII-megfelelői.
-inline const char* latin1() { return "AAAAAAACEEEEIIIIDNOOOOOxOUUUUYTsaaaaaaaceeeeiiiidnooooo/ouuuuyty"; }
-// U+0100..U+017F (Latin kiterjesztett-A) ASCII-megfelelői.
-inline const char* latin_ext_a() {
-    return "AaAaAa" "CcCcCcCc" "DdDd" "EeEeEeEeEe" "GgGgGgGg" "HhHh" "IiIiIiIiIi" "Ii" "Jj" "Kkk" "LlLlLlLlLl"
-           "NnNnNnnNn" "OoOoOo" "Oo" "RrRrRr" "SsSsSsSs" "TtTtTt" "UuUuUuUuUuUu" "Ww" "YyY" "ZzZzZz" "s";
+// Igaz, ha a kódpont szerepel a kijelző betűkészletében (main/fonts): ASCII (a beépített Montserrat),
+// Latin-1 kiegészítés + Latin kiterjesztett-A, és a megengedett tipográfiai jelek.
+inline bool in_font(uint32_t cp) {
+    return (cp >= 0x20 && cp <= 0x7E) || (cp >= 0xA0 && cp <= 0x17F) || cp == 0x2013 || cp == 0x2014 || cp == 0x2018 ||
+           cp == 0x2019 || cp == 0x201C || cp == 0x201D || cp == 0x2026 || cp == 0x2022;
 }
 }  // namespace music_detail
 
-// Mit csinál: az UTF-8 bemenetet ASCII-ra egyszerűsíti: az ékezetes latin betűket az alapbetűjükre cseréli,
-//             a tipográfiai idézőjeleket és gondolatjeleket egyszerű változatukra, a többi nem ASCII
-//             karaktert '?'-re; a vezérlőkarakterek szóközzé válnak. A kimenet mindig lezárt.
-// Hogyan:     a kódpontot kézzel dekódolja (1-4 bájt); hibás bájtsornál a bájtot '?'-re cseréli.
-inline void fold_ascii(const char* in, char* out, size_t cap) {
+// Mit csinál: az UTF-8 bemenetet megjelenítésre alkalmassá teszi: a betűkészletben szereplő karaktereket
+//             (ASCII, Latin-1, Latin kiterjesztett-A, tipográfiai jelek) változatlanul hagyja; a kötőjel-
+//             és idézőjel-változatokat a betűkészletben szereplő párjukra cseréli; a vezérlőkarakterek
+//             szóközzé, a többi (a betűkészletben nincs meg) és a hibás bájtsor '?'-lé válik.
+//             A kimenet mindig lezárt UTF-8, és sosem vág félbe egy karaktert.
+// Hogyan:     a kódpontot kézzel dekódolja (1-4 bájt), majd 1-3 bájtban újra kódolja.
+// Miért:      egy támogatatlan karakter a betűkészletben üres négyzetként jelenne meg; az iPhone bármilyen
+//             nyelvű címet küldhet.
+inline void sanitize_text(const char* in, char* out, size_t cap) {
     if (cap == 0) return;
     size_t o = 0;
-    auto put = [&](char c) {
-        if (o + 1 < cap) out[o++] = c;
+    auto put_cp = [&](uint32_t cp) {
+        const size_t n = cp < 0x80 ? 1 : (cp < 0x800 ? 2 : 3);
+        if (o + n >= cap) return false;  // nem fér ki: a lezáró nulla helye megmarad
+        if (n == 1) {
+            out[o++] = static_cast<char>(cp);
+        } else if (n == 2) {
+            out[o++] = static_cast<char>(0xC0 | (cp >> 6));
+            out[o++] = static_cast<char>(0x80 | (cp & 0x3F));
+        } else {
+            out[o++] = static_cast<char>(0xE0 | (cp >> 12));
+            out[o++] = static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+            out[o++] = static_cast<char>(0x80 | (cp & 0x3F));
+        }
+        return true;
     };
     const unsigned char* p = reinterpret_cast<const unsigned char*>(in ? in : "");
-    while (*p && o + 1 < cap) {
+    while (*p) {
         uint32_t cp = *p;
         int extra = 0;
         if (cp < 0x80) {
-            put(cp < 0x20 || cp == 0x7F ? ' ' : static_cast<char>(cp));
             ++p;
+            if (!put_cp(cp < 0x20 || cp == 0x7F ? ' ' : cp)) break;
             continue;
         } else if ((cp & 0xE0) == 0xC0) {
             cp &= 0x1F;
@@ -51,8 +66,8 @@ inline void fold_ascii(const char* in, char* out, size_t cap) {
             cp &= 0x07;
             extra = 3;
         } else {
-            put('?');
             ++p;
+            if (!put_cp('?')) break;
             continue;
         }
         ++p;
@@ -64,17 +79,13 @@ inline void fold_ascii(const char* in, char* out, size_t cap) {
             }
             cp = (cp << 6) | (*p & 0x3F);
         }
-        if (!ok) {
-            put('?');
-            continue;
-        }
-        if (cp >= 0xC0 && cp <= 0xFF) put(music_detail::latin1()[cp - 0xC0]);
-        else if (cp >= 0x100 && cp <= 0x17F) put(music_detail::latin_ext_a()[cp - 0x100]);
-        else if (cp == 0xA0) put(' ');
-        else if (cp == 0x2018 || cp == 0x2019 || cp == 0x201A) put('\'');
-        else if (cp == 0x201C || cp == 0x201D || cp == 0x201E) put('"');
-        else if (cp == 0x2010 || cp == 0x2011 || cp == 0x2012 || cp == 0x2013 || cp == 0x2014) put('-');
-        else put('?');
+        if (!ok) cp = '?';
+        else if (cp == 0x201A) cp = 0x2019;                                      // alsó egyszeres idézőjel
+        else if (cp == 0x201E) cp = 0x201D;                                      // alsó kettős idézőjel
+        else if (cp == 0x2010 || cp == 0x2011 || cp == 0x2012) cp = '-';         // kötőjel-változatok
+        else if (cp == 0x2015) cp = 0x2014;                                      // vízszintes vonal
+        else if (!music_detail::in_font(cp)) cp = '?';
+        if (!put_cp(cp)) break;
     }
     out[o] = 0;
 }
