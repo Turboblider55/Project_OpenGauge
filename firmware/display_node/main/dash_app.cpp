@@ -45,6 +45,8 @@
 #include "music_model.h"
 #include "og_fonts.h"
 #include "og_logo.h"
+#include "settings.h"
+#include "settings_store.h"
 #include "lvgl_setup.h"
 #include "og_codec.h"
 #include "sdkconfig.h"
@@ -56,7 +58,6 @@ namespace {
 const char* TAG = "og_dash";
 
 constexpr uint32_t kUiPeriodMs = 16;       // a nézetek frissítése (~60 Hz)
-constexpr uint32_t kSwitchPeriodMs = 5000; // automatikus képernyőváltás
 constexpr uint32_t kSwitchAnimMs = 400;
 constexpr uint32_t kTouchPauseMs = 15000;  // érintés után ennyi ideig nincs automatikus váltás
 constexpr uint32_t kLogoFadeInMs = 1000;   // az indító logó felúszása
@@ -100,9 +101,12 @@ void set_text(lv_obj_t* label, const char* text) {
     if (std::strcmp(lv_label_get_text(label), text) != 0) lv_label_set_text(label, text);
 }
 
+// A kiválasztott paletta színei; az apply_palette() tölti fel, még a képernyők építése előtt.
+lv_color_t g_bg, g_track, g_text, g_dim, g_accent, g_warn;
+
 lv_obj_t* make_screen() {
     lv_obj_t* scr = lv_obj_create(nullptr);
-    lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
+    lv_obj_set_style_bg_color(scr, g_bg, 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
     lv_obj_set_scrollable(scr, false);  // a húzás gesztusként érkezzen, ne görgetésként
     return scr;
@@ -118,9 +122,18 @@ lv_obj_t* make_label(lv_obj_t* parent, const lv_font_t* font, lv_color_t color, 
     return l;
 }
 
-const lv_color_t kGrey = lv_color_hex(0x9A9A9A);
-const lv_color_t kOrange = lv_color_hex(0xFF8000);
-const lv_color_t kRed = lv_color_hex(0xE02020);
+Settings g_cfg;  // a betöltött beállítások (indításkor állnak be, utána csak olvassuk)
+
+// Mit csinál: a beállításban kiválasztott palettát LVGL-színekké alakítja.
+void apply_palette(const Settings& s) {
+    const Palette& p = palette_get(s.palette);
+    g_bg = lv_color_hex(p.bg);
+    g_track = lv_color_hex(p.track);
+    g_text = lv_color_hex(p.text);
+    g_dim = lv_color_hex(p.dim);
+    g_accent = lv_color_hex(p.accent);
+    g_warn = lv_color_hex(p.warn);
+}
 
 // Mit csinál: a töltöttséghez illő akkumulátor-ikon (töltés becsült állapotában villám).
 const char* battery_symbol(const BatteryStatus& b) {
@@ -161,15 +174,15 @@ struct MainView {
         lv_obj_set_clickable(arc, false);
         lv_obj_set_style_arc_width(arc, 18, LV_PART_MAIN);
         lv_obj_set_style_arc_width(arc, 18, LV_PART_INDICATOR);
-        lv_obj_set_style_arc_color(arc, lv_color_hex(0x303030), LV_PART_MAIN);
-        lv_obj_set_style_arc_color(arc, kOrange, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_color(arc, g_track, LV_PART_MAIN);
+        lv_obj_set_style_arc_color(arc, g_accent, LV_PART_INDICATOR);
 
-        rpm = make_label(scr, &lv_font_montserrat_48, lv_color_white(), LV_ALIGN_CENTER, 0, -30, "--");
-        make_label(scr, &og_font_montserrat_20, kGrey, LV_ALIGN_CENTER, 0, 10, "1/perc");
-        speed = make_label(scr, &og_font_montserrat_28, lv_color_white(), LV_ALIGN_CENTER, 0, 60, "-- km/h");
-        nodata = make_label(scr, &og_font_montserrat_20, kRed, LV_ALIGN_CENTER, 0, 110, "NINCS ADAT");
-        battery = make_label(scr, &og_font_montserrat_20, kGrey, LV_ALIGN_TOP_MID, 0, 62, "");
-        sleepmsg = make_label(scr, &og_font_montserrat_20, kOrange, LV_ALIGN_BOTTOM_MID, 0, -26, "");
+        rpm = make_label(scr, &lv_font_montserrat_48, g_text, LV_ALIGN_CENTER, 0, -30, "--");
+        make_label(scr, &og_font_montserrat_20, g_dim, LV_ALIGN_CENTER, 0, 10, "1/perc");
+        speed = make_label(scr, &og_font_montserrat_28, g_text, LV_ALIGN_CENTER, 0, 60, "-- km/h");
+        nodata = make_label(scr, &og_font_montserrat_20, g_warn, LV_ALIGN_CENTER, 0, 110, "NINCS ADAT");
+        battery = make_label(scr, &og_font_montserrat_20, g_dim, LV_ALIGN_TOP_MID, 0, 62, "");
+        sleepmsg = make_label(scr, &og_font_montserrat_20, g_accent, LV_ALIGN_BOTTOM_MID, 0, -26, "");
     }
 
     void update(const DashValues& v, const BatteryStatus& bat, int sleep_in_s) {
@@ -182,7 +195,7 @@ struct MainView {
         set_text(battery, b);
         const bool bat_red = battery_shown(bat) && bat.level != BatteryLevel::Ok;
         if (bat_red != battery_red) {
-            lv_obj_set_style_text_color(battery, bat_red ? kRed : kGrey, 0);
+            lv_obj_set_style_text_color(battery, bat_red ? g_warn : g_dim, 0);
             battery_red = bat_red;
         }
         const bool ok_rpm = v.fresh && (v.flags & kFlagRpm);
@@ -190,7 +203,7 @@ struct MainView {
         if (lv_arc_get_value(arc) != r) lv_arc_set_value(arc, r);
         const bool want_red = r >= kRpmRed;
         if (want_red != red) {
-            lv_obj_set_style_arc_color(arc, want_red ? kRed : kOrange, LV_PART_INDICATOR);
+            lv_obj_set_style_arc_color(arc, want_red ? g_warn : g_accent, LV_PART_INDICATOR);
             red = want_red;
         }
         if (ok_rpm)
@@ -211,8 +224,8 @@ struct MainView {
 struct Row {
     lv_obj_t* value;
     void build(lv_obj_t* scr, int32_t y, const char* name) {
-        make_label(scr, &og_font_montserrat_20, kGrey, LV_ALIGN_CENTER, -70, y, name);
-        value = make_label(scr, &og_font_montserrat_28, lv_color_white(), LV_ALIGN_CENTER, 65, y, "--");
+        make_label(scr, &og_font_montserrat_20, g_dim, LV_ALIGN_CENTER, -70, y, name);
+        value = make_label(scr, &og_font_montserrat_28, g_text, LV_ALIGN_CENTER, 65, y, "--");
     }
 };
 
@@ -224,7 +237,7 @@ struct DetailView {
 
     void build() {
         scr = make_screen();
-        make_label(scr, &og_font_montserrat_20, kOrange, LV_ALIGN_TOP_MID, 0, 45, "RÉSZLETEK");
+        make_label(scr, &og_font_montserrat_20, g_accent, LV_ALIGN_TOP_MID, 0, 45, "RÉSZLETEK");
         coolant.build(scr, -90, "VIZ");
         throttle.build(scr, -45, "FOJTO");
         vbat.build(scr, 0, "JARMU");
@@ -252,7 +265,7 @@ struct DetailView {
         set_text(mil.value, b);
         const bool want_red = ok(kFlagMil) && v.mil_on;
         if (want_red != mil_red) {  // stílust csak változáskor: különben minden ütemben újrarajzolna
-            lv_obj_set_style_text_color(mil.value, want_red ? kRed : lv_color_white(), 0);
+            lv_obj_set_style_text_color(mil.value, want_red ? g_warn : g_text, 0);
             mil_red = want_red;
         }
     }
@@ -266,7 +279,7 @@ struct LinkView {
 
     void build() {
         scr = make_screen();
-        make_label(scr, &og_font_montserrat_20, kOrange, LV_ALIGN_TOP_MID, 0, 45, "KAPCSOLAT");
+        make_label(scr, &og_font_montserrat_20, g_accent, LV_ALIGN_TOP_MID, 0, 45, "KAPCSOLAT");
         rate.build(scr, -90, "CSOMAG/S");
         loss.build(scr, -45, "VESZTES");
         rssi.build(scr, 0, "RSSI");
@@ -290,7 +303,7 @@ struct LinkView {
         else std::snprintf(b, sizeof b, "%lu s", static_cast<unsigned long>(v.age_ms / 1000));
         set_text(age.value, b);
         if (age_red == v.fresh) {
-            lv_obj_set_style_text_color(age.value, v.fresh ? lv_color_white() : kRed, 0);
+            lv_obj_set_style_text_color(age.value, v.fresh ? g_text : g_warn, 0);
             age_red = !v.fresh;
         }
     }
@@ -318,7 +331,7 @@ struct MusicView {
         lv_obj_set_size(b, 60, 60);
         lv_obj_align(b, LV_ALIGN_CENTER, x, 108);
         lv_obj_set_style_radius(b, LV_RADIUS_CIRCLE, 0);
-        lv_obj_set_style_bg_color(b, lv_color_hex(0x303030), 0);
+        lv_obj_set_style_bg_color(b, g_track, 0);
         lv_obj_set_style_shadow_width(b, 0, 0);
         lv_obj_add_event_cb(b, on_music_button, LV_EVENT_CLICKED, reinterpret_cast<void*>(static_cast<uintptr_t>(cmd)));
         lv_obj_t* l = lv_label_create(b);
@@ -330,9 +343,9 @@ struct MusicView {
 
     void build() {
         scr = make_screen();
-        make_label(scr, &og_font_montserrat_20, kOrange, LV_ALIGN_TOP_MID, 0, 45, "ZENE");
-        title = make_label(scr, &og_font_montserrat_28, lv_color_white(), LV_ALIGN_CENTER, 0, -60, "");
-        artist = make_label(scr, &og_font_montserrat_20, kGrey, LV_ALIGN_CENTER, 0, -22, "");
+        make_label(scr, &og_font_montserrat_20, g_accent, LV_ALIGN_TOP_MID, 0, 45, "ZENE");
+        title = make_label(scr, &og_font_montserrat_28, g_text, LV_ALIGN_CENTER, 0, -60, "");
+        artist = make_label(scr, &og_font_montserrat_20, g_dim, LV_ALIGN_CENTER, 0, -22, "");
         for (lv_obj_t* l : {title, artist}) {
             lv_obj_set_width(l, 250);
             lv_label_set_long_mode(l, LV_LABEL_LONG_SCROLL_CIRCULAR);
@@ -342,9 +355,9 @@ struct MusicView {
         lv_obj_set_size(bar, 220, 8);
         lv_obj_align(bar, LV_ALIGN_CENTER, 0, 22);
         lv_bar_set_range(bar, 0, 1000);
-        lv_obj_set_style_bg_color(bar, lv_color_hex(0x303030), LV_PART_MAIN);
-        lv_obj_set_style_bg_color(bar, kOrange, LV_PART_INDICATOR);
-        time = make_label(scr, &og_font_montserrat_20, kGrey, LV_ALIGN_CENTER, 0, 48, "");
+        lv_obj_set_style_bg_color(bar, g_track, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(bar, g_accent, LV_PART_INDICATOR);
+        time = make_label(scr, &og_font_montserrat_20, g_dim, LV_ALIGN_CENTER, 0, 48, "");
         add_button(-85, LV_SYMBOL_PREV, AmsCommand::PreviousTrack);
         play_icon = add_button(0, LV_SYMBOL_PLAY, AmsCommand::TogglePlayPause);
         add_button(85, LV_SYMBOL_NEXT, AmsCommand::NextTrack);
@@ -666,16 +679,16 @@ void logo_done(lv_timer_t* t) {
 //             addig nem kezd el váltani.
 void show_boot_logo() {
     g_logo_scr = lv_obj_create(nullptr);
-    lv_obj_set_style_bg_color(g_logo_scr, lv_color_black(), 0);
+    lv_obj_set_style_bg_color(g_logo_scr, g_bg, 0);
     lv_obj_set_style_bg_opa(g_logo_scr, LV_OPA_COVER, 0);
     lv_obj_t* img = lv_image_create(g_logo_scr);
     lv_image_set_src(img, &og_logo);
-    lv_obj_set_style_image_recolor(img, lv_color_white(), 0);
+    lv_obj_set_style_image_recolor(img, g_text, 0);
     lv_obj_set_style_image_recolor_opa(img, LV_OPA_COVER, 0);
     lv_obj_center(img);
     lv_screen_load_anim(g_logo_scr, LV_SCREEN_LOAD_ANIM_FADE_ON, kLogoFadeInMs, 0, false);
     lv_timer_create(logo_done, kLogoFadeInMs + kLogoHoldMs, nullptr);
-    g_pause_until = now_ms() + kLogoFadeInMs + kLogoHoldMs + kLogoFadeOutMs + kSwitchPeriodMs;
+    g_pause_until = now_ms() + kLogoFadeInMs + kLogoHoldMs + kLogoFadeOutMs + g_cfg.switch_period_s * 1000u;
 }
 #endif
 
@@ -690,6 +703,9 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
         return;
     }
     led.set_link(LinkLed::Waiting);
+    const bool cfg_loaded = settings_load(g_cfg);  // az ESP-NOW indítása már előkészítette az NVS-t
+    apply_palette(g_cfg);
+    ESP_LOGI(TAG, "Beállítások: %s, paletta: %s", cfg_loaded ? "mentett" : "alapértelmezett", palette_get(g_cfg.palette).name);
     g_adc_ok = g_adc.init(board::kPinBattery);
     lv_display_t* disp = lvgl_start(lcd, swap_bytes);
     if (!disp) return;
@@ -708,12 +724,12 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
 #endif
         for (lv_obj_t* scr : g_screens) lv_obj_add_event_cb(scr, on_gesture, LV_EVENT_GESTURE, nullptr);
 #if defined(CONFIG_OG_DISP_BOOT_LOGO)
-        show_boot_logo();
+        if (!g_cfg.skip_logo) show_boot_logo(); else lv_screen_load(g_main.scr);
 #else
         lv_screen_load(g_main.scr);
 #endif
         lv_timer_create(ui_tick, kUiPeriodMs, nullptr);
-        g_switch_timer = lv_timer_create(switch_tick, kSwitchPeriodMs, nullptr);
+        if (g_cfg.auto_switch) g_switch_timer = lv_timer_create(switch_tick, g_cfg.switch_period_s * 1000u, nullptr);
         lvgl_port_unlock();
     }
 
@@ -724,7 +740,7 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
 
     // A kapcsolatfeladat a 0. magon (az LVGL az 1. magon fut).
     xTaskCreatePinnedToCore(link_task, "og_link", 4096, nullptr, 5, nullptr, 0);
-    ESP_LOGI(TAG, "Műszerfal fut: 3 képernyő, váltás %lu ms-onként", (unsigned long)kSwitchPeriodMs);
+    ESP_LOGI(TAG, "Műszerfal fut: 3 képernyő, váltás %lu ms-onként", (unsigned long)(g_cfg.switch_period_s * 1000u));
 }
 
 }  // namespace og
