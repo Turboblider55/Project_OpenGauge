@@ -42,6 +42,11 @@ menu "OpenGauge: kijelzőegység"
         default n
         depends on OG_DISP_TEST_DASH
 
+    config OG_DISP_BOOT_LOGO
+        bool "Indító logó a műszerfal előtt (1 s felúszás, 2 s látszik, 1 s áttűnés a műszerfalra)"
+        default y
+        depends on OG_DISP_TEST_DASH
+
     config OG_DISP_SLEEP
         bool "Alvás a műszerfalban: tétlenség után light sleep, ébredés érintésre vagy az OBD-egység BLE-hirdetésére"
         default n

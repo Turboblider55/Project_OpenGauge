@@ -44,6 +44,7 @@
 #include "led_pattern.h"
 #include "music_model.h"
 #include "og_fonts.h"
+#include "og_logo.h"
 #include "lvgl_setup.h"
 #include "og_codec.h"
 #include "sdkconfig.h"
@@ -58,6 +59,9 @@ constexpr uint32_t kUiPeriodMs = 16;       // a nézetek frissítése (~60 Hz)
 constexpr uint32_t kSwitchPeriodMs = 5000; // automatikus képernyőváltás
 constexpr uint32_t kSwitchAnimMs = 400;
 constexpr uint32_t kTouchPauseMs = 15000;  // érintés után ennyi ideig nincs automatikus váltás
+constexpr uint32_t kLogoFadeInMs = 1000;   // az indító logó felúszása
+constexpr uint32_t kLogoHoldMs = 2000;     // a logó teljes láthatósága
+constexpr uint32_t kLogoFadeOutMs = 1000;  // áttűnés a műszerfalra
 constexpr int32_t kRpmMax = 8000;
 constexpr int32_t kRpmRed = 6000;
 constexpr uint32_t kRadioFaultMs = 3000;      // ennyi csend után rádióhiba (LED-táblázat)
@@ -646,6 +650,35 @@ void link_task(void*) {
     }
 }
 
+#if defined(CONFIG_OG_DISP_BOOT_LOGO)
+lv_obj_t* g_logo_scr = nullptr;
+
+// Mit csinál: a logó időzítőjének lejártakor áttűnik a műszerfalra, és törli a logó képernyőt.
+// Miért:      a logó csak indulásnál kell; a felszabadított képernyő nem foglal memóriát.
+void logo_done(lv_timer_t* t) {
+    lv_screen_load_anim(g_main.scr, LV_SCREEN_LOAD_ANIM_FADE_ON, kLogoFadeOutMs, 0, true);
+    lv_timer_delete(t);
+}
+
+// Mit csinál: fekete képernyőt épít a középre tett fehér logóval, és betölti felúszással.
+// Hogyan:     a kép A8 maszk, a színét az image_recolor adja; a műszerfalra váltást egyszeri időzítő indítja.
+// Miért:      a 4 másodperc alatt a két egység párosodik és a BLE is elindul; az automatikus lapozás
+//             addig nem kezd el váltani.
+void show_boot_logo() {
+    g_logo_scr = lv_obj_create(nullptr);
+    lv_obj_set_style_bg_color(g_logo_scr, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(g_logo_scr, LV_OPA_COVER, 0);
+    lv_obj_t* img = lv_image_create(g_logo_scr);
+    lv_image_set_src(img, &og_logo);
+    lv_obj_set_style_image_recolor(img, lv_color_white(), 0);
+    lv_obj_set_style_image_recolor_opa(img, LV_OPA_COVER, 0);
+    lv_obj_center(img);
+    lv_screen_load_anim(g_logo_scr, LV_SCREEN_LOAD_ANIM_FADE_ON, kLogoFadeInMs, 0, false);
+    lv_timer_create(logo_done, kLogoFadeInMs + kLogoHoldMs, nullptr);
+    g_pause_until = now_ms() + kLogoFadeInMs + kLogoHoldMs + kLogoFadeOutMs + kSwitchPeriodMs;
+}
+#endif
+
 }  // namespace
 
 void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& led) {
@@ -674,7 +707,11 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
         g_screens[3] = g_music.scr;
 #endif
         for (lv_obj_t* scr : g_screens) lv_obj_add_event_cb(scr, on_gesture, LV_EVENT_GESTURE, nullptr);
+#if defined(CONFIG_OG_DISP_BOOT_LOGO)
+        show_boot_logo();
+#else
         lv_screen_load(g_main.scr);
+#endif
         lv_timer_create(ui_tick, kUiPeriodMs, nullptr);
         g_switch_timer = lv_timer_create(switch_tick, kSwitchPeriodMs, nullptr);
         lvgl_port_unlock();
