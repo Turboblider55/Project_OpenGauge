@@ -25,7 +25,7 @@ struct Settings {
     uint16_t sleep_s = 0;             // elalvási idő; 0: a fordításkor beállított érték
     uint8_t palette = 0;              // színpaletta azonosítója
     bool skip_logo = false;           // az indító logó kihagyása
-    uint8_t brightness_pct = 100;     // alap fényerő
+    uint8_t brightness_pct = 80;      // alap fényerő (a fordításkori alapérték)
     SpeedUnit speed_unit = SpeedUnit::Kmh;
     TempUnit temp_unit = TempUnit::Celsius;
     bool auto_switch = true;          // automatikus lapozás a képernyők között

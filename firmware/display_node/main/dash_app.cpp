@@ -37,6 +37,7 @@
 #include "esp_log.h"
 #include "esp_lvgl_port.h"
 #include "esp_sleep.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "espnow_link.h"
 #include "freertos/FreeRTOS.h"
@@ -47,6 +48,7 @@
 #include "og_logo.h"
 #include "settings.h"
 #include "settings_store.h"
+#include "settings_view.h"
 #include "lvgl_setup.h"
 #include "og_codec.h"
 #include "sdkconfig.h"
@@ -63,8 +65,6 @@ constexpr uint32_t kTouchPauseMs = 15000;  // érintés után ennyi ideig nincs 
 constexpr uint32_t kLogoFadeInMs = 1000;   // az indító logó felúszása
 constexpr uint32_t kLogoHoldMs = 2000;     // a logó teljes láthatósága
 constexpr uint32_t kLogoFadeOutMs = 1000;  // áttűnés a műszerfalra
-constexpr int32_t kRpmMax = 8000;
-constexpr int32_t kRpmRed = 6000;
 constexpr uint32_t kRadioFaultMs = 3000;      // ennyi csend után rádióhiba (LED-táblázat)
 constexpr uint32_t kPowerFaultMs = 5000;      // alacsony feszültség ennyi ideig folyamatosan
 constexpr uint32_t kFaultClearMs = 1000;
@@ -160,6 +160,15 @@ struct MainView {
     lv_obj_t* sleepmsg;
     bool red = false;
     bool battery_red = false;
+    int32_t rpm_max = 8000;  // a skála vége és a piros sáv kezdete (a beállításokból)
+    int32_t rpm_red = 6000;
+
+    // Mit csinál: új skálavég és redline (beállítás módosításakor).
+    void set_scale(int32_t max, int32_t redline) {
+        rpm_max = max;
+        rpm_red = redline;
+        lv_arc_set_range(arc, 0, rpm_max);
+    }
 
     void build() {
         scr = make_screen();
@@ -168,7 +177,7 @@ struct MainView {
         lv_obj_center(arc);
         lv_arc_set_rotation(arc, 135);
         lv_arc_set_bg_angles(arc, 0, 270);
-        lv_arc_set_range(arc, 0, kRpmMax);
+        lv_arc_set_range(arc, 0, rpm_max);
         lv_arc_set_value(arc, 0);
         lv_obj_remove_style(arc, nullptr, LV_PART_KNOB);
         lv_obj_set_clickable(arc, false);
@@ -201,7 +210,7 @@ struct MainView {
         const bool ok_rpm = v.fresh && (v.flags & kFlagRpm);
         const int32_t r = ok_rpm ? static_cast<int32_t>(v.rpm + 0.5f) : 0;
         if (lv_arc_get_value(arc) != r) lv_arc_set_value(arc, r);
-        const bool want_red = r >= kRpmRed;
+        const bool want_red = r >= rpm_red;
         if (want_red != red) {
             lv_obj_set_style_arc_color(arc, want_red ? g_warn : g_accent, LV_PART_INDICATOR);
             red = want_red;
@@ -211,10 +220,11 @@ struct MainView {
         else
             std::snprintf(b, sizeof b, "--");
         set_text(rpm, b);
+        const bool mph = g_cfg.speed_unit == SpeedUnit::Mph;
         if (v.fresh && (v.flags & kFlagSpeed))
-            std::snprintf(b, sizeof b, "%d km/h", static_cast<int>(v.speed_kmh + 0.5f));
+            std::snprintf(b, sizeof b, mph ? "%d mph" : "%d km/h", static_cast<int>((mph ? v.speed_kmh * 0.621371f : v.speed_kmh) + 0.5f));
         else
-            std::snprintf(b, sizeof b, "-- km/h");
+            std::snprintf(b, sizeof b, mph ? "-- mph" : "-- km/h");
         set_text(speed, b);
         if (lv_obj_is_hidden(nodata) != v.fresh) lv_obj_set_hidden(nodata, v.fresh);
     }
@@ -251,7 +261,10 @@ struct DetailView {
         else std::snprintf(b, sizeof b, "--");
         set_text(cell.value, b);
         auto ok = [&](uint16_t f) { return v.fresh && (v.flags & f); };
-        if (ok(kFlagCoolant)) std::snprintf(b, sizeof b, "%d °C", static_cast<int>(v.coolant_c));
+        const bool fahrenheit = g_cfg.temp_unit == TempUnit::Fahrenheit;
+        if (ok(kFlagCoolant))
+            std::snprintf(b, sizeof b, fahrenheit ? "%d °F" : "%d °C",
+                          static_cast<int>(fahrenheit ? v.coolant_c * 1.8f + 32.f : v.coolant_c));
         else std::snprintf(b, sizeof b, "--");
         set_text(coolant.value, b);
         if (ok(kFlagThrottle)) std::snprintf(b, sizeof b, "%d %%", static_cast<int>(v.throttle_pct + 0.5f));
@@ -405,19 +418,23 @@ struct MusicView {
     }
 };
 MusicView g_music;
-constexpr int kScreenCount = 4;  // a 4. (zene) képernyőre csak kézzel lépünk; az automatikus váltás az első háromban forog
-#else
-constexpr int kScreenCount = 3;
 #endif
-constexpr int kAutoScreens = 3;
+constexpr int kMusicId = 3;  // a zene képernyőre csak kézzel lépünk; az automatikus váltás kihagyja
 
 MainView g_main;
 DetailView g_detail;
 LinkView g_linkv;
-lv_obj_t* g_screens[kScreenCount];
-int g_current = 0;
+lv_obj_t* g_screens[kScreenIds] = {};  // képernyőazonosító szerint: 0 fő, 1 részletek, 2 kapcsolat, 3 zene
+int g_active[kScreenIds];               // a lapozásban részt vevő képernyők, a beállított sorrendben
+int g_active_n = 0;
+int g_pos = 0;                          // a jelenlegi képernyő helye a g_active-ban
 lv_timer_t* g_switch_timer = nullptr;
 uint32_t g_pause_until = 0;
+SettingsView g_settings_view;
+lv_obj_t* g_cog = nullptr;              // a beállítások ikonja (felfelé húzásra jelenik meg)
+lv_timer_t* g_cog_timer = nullptr;
+bool g_dimmed = false;                  // alacsony akkumulátor miatt vett vissza a fényerőből
+constexpr uint32_t kCogShowMs = 4000;
 
 // Mit csinál: kiolvassa a modellt (rövid zár alatt), és frissíti mindhárom nézetet.
 // Hogyan:     LVGL-időzítő, az LVGL-feladatban fut (az LVGL zárja már nála van).
@@ -441,33 +458,130 @@ void ui_tick(lv_timer_t*) {
 #endif
 }
 
+// Mit csinál: megmondja, részt vesz-e a képernyő a lapozásban a beállítások szerint.
+// Miért:      a Részletek és a Kapcsolat a debug módhoz tartozik, a zene a zene-kapcsolóhoz.
+bool screen_enabled(int id) {
+    if (!g_screens[id]) return false;
+    if (id == 1 || id == 2) return g_cfg.debug_mode;
+    if (id == kMusicId) return g_cfg.music_enabled;
+    return true;
+}
+
+// Mit csinál: újraépíti a lapozási listát a beállított sorrend és a kapcsolók szerint; a jelenlegi
+//             képernyő helyét megtartja, ha az még szerepel a listában.
+void rebuild_active() {
+    const int cur_id = g_active_n ? g_active[g_pos] : 0;
+    g_active_n = 0;
+    for (int i = 0; i < kScreenIds; ++i)
+        if (screen_enabled(g_cfg.screen_order[i])) g_active[g_active_n++] = g_cfg.screen_order[i];
+    if (g_active_n == 0) g_active[g_active_n++] = 0;
+    g_pos = 0;
+    for (int k = 0; k < g_active_n; ++k)
+        if (g_active[k] == cur_id) g_pos = k;
+}
+
+void load_pos(int pos, lv_screen_load_anim_t anim) {
+    g_pos = pos;
+    lv_screen_load_anim(g_screens[g_active[g_pos]], anim, kSwitchAnimMs, 0, false);
+}
+
 // Mit csinál: a szomszédos képernyőre vált (step = +1: következő, -1: előző), csúszó animációval.
 void show_next(int step) {
-    g_current = (g_current + step + kScreenCount) % kScreenCount;
-    lv_screen_load_anim(g_screens[g_current], step > 0 ? LV_SCREEN_LOAD_ANIM_MOVE_LEFT : LV_SCREEN_LOAD_ANIM_MOVE_RIGHT,
-                        kSwitchAnimMs, 0, false);
+    load_pos((g_pos + step + g_active_n) % g_active_n, step > 0 ? LV_SCREEN_LOAD_ANIM_MOVE_LEFT : LV_SCREEN_LOAD_ANIM_MOVE_RIGHT);
 }
 
-// Mit csinál: automatikus váltás, ha az utolsó érintés óta eltelt kTouchPauseMs.
+// Mit csinál: automatikus váltás, ha az utolsó érintés óta eltelt kTouchPauseMs, és be van kapcsolva.
+//             A zene képernyőt kihagyja, és arról magától nem lép tovább; a beállítások alatt sem vált.
 void switch_tick(lv_timer_t*) {
-    if (static_cast<int32_t>(now_ms() - g_pause_until) < 0) return;
-    if (g_current >= kAutoScreens) return;  // a zene képernyőről csak kézzel lépünk tovább
-    if (g_current == kAutoScreens - 1 && kScreenCount > kAutoScreens) {
-        // az utolsó automatikus képernyő után az elsőre ugrunk, a zene képernyőt kihagyva
-        g_current = 0;
-        lv_screen_load_anim(g_screens[0], LV_SCREEN_LOAD_ANIM_MOVE_LEFT, kSwitchAnimMs, 0, false);
-        return;
+    if (!g_cfg.auto_switch || static_cast<int32_t>(now_ms() - g_pause_until) < 0) return;
+    if (lv_screen_active() != g_screens[g_active[g_pos]]) return;  // logó, beállítások vagy váltás közben
+    if (g_active[g_pos] == kMusicId) return;
+    for (int k = 1; k < g_active_n; ++k) {
+        const int p = (g_pos + k) % g_active_n;
+        if (g_active[p] != kMusicId) {
+            load_pos(p, LV_SCREEN_LOAD_ANIM_MOVE_LEFT);
+            return;
+        }
     }
-    show_next(+1);
 }
 
-// Mit csinál: balra húzás: következő képernyő, jobbra húzás: előző; utána szünetel az
-//             automatikus váltás, hogy a kézzel választott képernyő ne tűnjön el azonnal.
+void set_perf_visible(bool on) {
+    if (on) lv_sysmon_show_performance(lv_display_get_default());
+    else lv_sysmon_hide_performance(lv_display_get_default());
+}
+
+// Mit csinál: elrejti a beállítások ikonját, és visszaadja a helyét az FPS/CPU kijelzésnek (debug módban).
+void hide_cog() {
+    if (g_cog_timer) {
+        lv_timer_delete(g_cog_timer);
+        g_cog_timer = nullptr;
+    }
+    if (g_cog && !lv_obj_has_flag(g_cog, LV_OBJ_FLAG_HIDDEN)) {
+        lv_obj_add_flag(g_cog, LV_OBJ_FLAG_HIDDEN);
+        if (g_cfg.debug_mode) set_perf_visible(true);
+    }
+}
+
+void cog_timeout(lv_timer_t*) {
+    g_cog_timer = nullptr;  // az egyszeri időzítő magát törli
+    hide_cog();
+}
+
+// Mit csinál: felfelé húzásra felmutatja a beállítások ikonját az FPS/CPU kijelzés helyén, kCogShowMs-ig.
+void show_cog() {
+    set_perf_visible(false);
+    lv_obj_remove_flag(g_cog, LV_OBJ_FLAG_HIDDEN);
+    if (g_cog_timer) lv_timer_delete(g_cog_timer);
+    g_cog_timer = lv_timer_create(cog_timeout, kCogShowMs, nullptr);
+    lv_timer_set_repeat_count(g_cog_timer, 1);
+    g_pause_until = now_ms() + kTouchPauseMs;
+}
+
+// Mit csinál: az ikonra koppintva megnyitja a beállítások képernyőjét.
+void open_settings(lv_event_t*) {
+    hide_cog();
+    g_settings_view.open(g_cfg);
+    lv_screen_load_anim(g_settings_view.scr, LV_SCREEN_LOAD_ANIM_MOVE_TOP, kSwitchAnimMs, 0, false);
+}
+
+// Mit csinál: a módosított beállításokat azonnal érvényesíti (skála, fényerő, lapozás, debug kijelzés, lista).
+void apply_live() {
+    g_main.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
+    if (g_switch_timer) lv_timer_set_period(g_switch_timer, g_cfg.switch_period_s * 1000u);
+    g_backlight_pct = g_dimmed ? std::min<int>(g_cfg.brightness_pct, kLowBatteryBacklight) : g_cfg.brightness_pct;
+    if (g_lcd) g_lcd->set_backlight(g_backlight_pct);
+    set_perf_visible(g_cfg.debug_mode);
+    rebuild_active();
+}
+
+// Mit csinál: a beállítások képernyőjéről kilépve elmenti az értékeket és érvényesíti őket.
+// Miért:      a paletta és a zene (BLE) csak újraindítással cserélhető: az előbbi a képernyők építésekor
+//             áll be, az utóbbi a BLE-indítást érinti; ezért ezek változásakor a kijelző újraindul.
+void on_settings_exit(const Settings& s) {
+    const bool restart = s.palette != g_cfg.palette || s.music_enabled != g_cfg.music_enabled;
+    g_cfg = s;
+    if (!settings_save(g_cfg)) ESP_LOGW(TAG, "A beállítások mentése nem sikerült");
+    if (restart) {
+        ESP_LOGI(TAG, "A beállítás újraindítást kér");
+        esp_restart();
+    }
+    apply_live();
+    g_pause_until = now_ms() + kTouchPauseMs;
+    lv_screen_load_anim(g_screens[g_active[g_pos]], LV_SCREEN_LOAD_ANIM_MOVE_RIGHT, kSwitchAnimMs, 0, false);
+}
+
+// Mit csinál: balra húzás: következő képernyő, jobbra húzás: előző, felfelé húzás: beállítások ikonja;
+//             utána szünetel az automatikus váltás, hogy a kézzel választott képernyő ne tűnjön el azonnal.
 void on_gesture(lv_event_t*) {
     lv_indev_t* in = lv_indev_active();
     if (!in) return;
     const lv_dir_t d = lv_indev_get_gesture_dir(in);
+    if (d == LV_DIR_TOP) {
+        show_cog();
+        return;
+    }
     if (d != LV_DIR_LEFT && d != LV_DIR_RIGHT) return;
+    hide_cog();
     show_next(d == LV_DIR_LEFT ? +1 : -1);
     g_pause_until = now_ms() + kTouchPauseMs;
     lv_timer_reset(g_switch_timer);
@@ -480,7 +594,6 @@ void on_gesture(lv_event_t*) {
 // Miért:      a kijelzőegység leírása szerint 3,5 V alatt USB kihúzásakor már újraindulás várható,
 //             ezért a szintet kezelni kell. Becsült töltés közben nincs alacsony-akku hiba.
 void battery_tick(PersistFilter& power_fault, uint32_t second) {
-    static bool dimmed = false;
     uint16_t mv = 0;
     if (!g_adc_ok || !g_adc.read_mv(mv)) return;
     g_gauge.feed(mv, now_ms());
@@ -491,10 +604,9 @@ void battery_tick(PersistFilter& power_fault, uint32_t second) {
     }
     const bool low = b.level == BatteryLevel::Low || b.level == BatteryLevel::Critical;
     g_led->set_fault(Fault::Power, power_fault.update(low && !b.charging, now_ms()));
-    if (low != dimmed) {
-        dimmed = low;
-        g_backlight_pct = low ? std::min(CONFIG_OG_LCD_BACKLIGHT_PERCENT, kLowBatteryBacklight)
-                              : CONFIG_OG_LCD_BACKLIGHT_PERCENT;
+    if (low != g_dimmed) {
+        g_dimmed = low;
+        g_backlight_pct = low ? std::min<int>(g_cfg.brightness_pct, kLowBatteryBacklight) : g_cfg.brightness_pct;
         g_lcd->set_backlight(g_backlight_pct);
     }
     if (second % kBatteryLogPeriodS == 0)
@@ -705,6 +817,7 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
     led.set_link(LinkLed::Waiting);
     const bool cfg_loaded = settings_load(g_cfg);  // az ESP-NOW indítása már előkészítette az NVS-t
     apply_palette(g_cfg);
+    g_backlight_pct = g_cfg.brightness_pct;
     ESP_LOGI(TAG, "Beállítások: %s, paletta: %s", cfg_loaded ? "mentett" : "alapértelmezett", palette_get(g_cfg.palette).name);
     g_adc_ok = g_adc.init(board::kPinBattery);
     lv_display_t* disp = lvgl_start(lcd, swap_bytes);
@@ -720,22 +833,40 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
         g_screens[2] = g_linkv.scr;
 #if defined(CONFIG_OG_DISP_MUSIC)
         g_music.build();
-        g_screens[3] = g_music.scr;
+        g_screens[kMusicId] = g_music.scr;
 #endif
-        for (lv_obj_t* scr : g_screens) lv_obj_add_event_cb(scr, on_gesture, LV_EVENT_GESTURE, nullptr);
+        for (lv_obj_t* scr : g_screens)
+            if (scr) lv_obj_add_event_cb(scr, on_gesture, LV_EVENT_GESTURE, nullptr);
+        g_settings_view.build(UiColors{g_bg, g_track, g_text, g_dim, g_accent, g_warn}, on_settings_exit);
+
+        g_cog = lv_button_create(lv_layer_top());
+        lv_obj_set_size(g_cog, 56, 56);
+        lv_obj_set_style_radius(g_cog, LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_bg_color(g_cog, g_track, 0);
+        lv_obj_set_style_border_color(g_cog, g_accent, 0);
+        lv_obj_set_style_border_width(g_cog, 2, 0);
+        lv_obj_set_style_shadow_width(g_cog, 0, 0);
+        lv_obj_align(g_cog, LV_ALIGN_BOTTOM_MID, 0, -14);
+        make_label(g_cog, &og_font_montserrat_28, g_text, LV_ALIGN_CENTER, 0, 0, LV_SYMBOL_SETTINGS);
+        lv_obj_add_flag(g_cog, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_event_cb(g_cog, open_settings, LV_EVENT_CLICKED, nullptr);
+
+        g_main.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
+        rebuild_active();
+        set_perf_visible(g_cfg.debug_mode);
 #if defined(CONFIG_OG_DISP_BOOT_LOGO)
         if (!g_cfg.skip_logo) show_boot_logo(); else lv_screen_load(g_main.scr);
 #else
         lv_screen_load(g_main.scr);
 #endif
         lv_timer_create(ui_tick, kUiPeriodMs, nullptr);
-        if (g_cfg.auto_switch) g_switch_timer = lv_timer_create(switch_tick, g_cfg.switch_period_s * 1000u, nullptr);
+        g_switch_timer = lv_timer_create(switch_tick, g_cfg.switch_period_s * 1000u, nullptr);
         lvgl_port_unlock();
     }
 
 #if defined(CONFIG_OG_DISP_MUSIC)
     // A BLE (iOS zene) mindig kész: a NimBLE host a PSRAM-ban fut (H-34), így belefér a belső RAM-ba.
-    if (!ble_ams_start("OpenGauge")) ESP_LOGE(TAG, "A BLE nem indult el");
+    if (g_cfg.music_enabled && !ble_ams_start("OpenGauge")) ESP_LOGE(TAG, "A BLE nem indult el");
 #endif
 
     // A kapcsolatfeladat a 0. magon (az LVGL az 1. magon fut).
