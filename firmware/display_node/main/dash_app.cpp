@@ -699,6 +699,15 @@ void enter_sleep() {
 }
 #endif
 
+#if defined(CONFIG_OG_DISP_BENCH)
+void log_prof(const char* what, const LvglProf& p);
+}  // namespace
+extern "C" void og_prof_enable(bool on);
+extern "C" void og_prof_dump(const char* what);
+namespace {
+std::atomic<bool> g_bench_busy{false};  // átmenet-mérés közben a másodpercenkénti kiírás nem nullázhatja a mérőt
+#endif
+
 // Mit csinál: fogadja a csomagokat, frissíti a modellt, másodpercenként életjelet küld, méri az
 //             akkumulátort, frissíti a LED-állapotot és naplóz.
 // Hogyan:     a 0. magon fut; a zárat csak a modell frissítésének idejére veszi fel.
@@ -779,6 +788,9 @@ void link_task(void*) {
         }
 #endif
 
+#if defined(CONFIG_OG_DISP_BENCH)
+        if (!g_bench_busy.load()) log_prof("1 s", lvgl_take_prof());
+#endif
         const EspNowLink::Stats ls = g_link.stats();
         ESP_LOGI(TAG,
                  "%lu csomag/s, RSSI %d dBm | összes %lu, elveszett %lu (%.2f %%, 60 s: %.2f %%), elavult %lu, újraindulás %lu, "
@@ -790,13 +802,90 @@ void link_task(void*) {
     }
 }
 
+#if defined(CONFIG_OG_DISP_BENCH)
+// Mit csinál: a mért időket egy sorban kiírja (képkockák, átlag/max, várakozás, flush, rajzolás, tényleges FPS).
+void log_prof(const char* what, const LvglProf& p) {
+    if (!p.frames) {
+        ESP_LOGI(TAG, "BENCH %s: nem volt rajzolás", what);
+        return;
+    }
+    const double n = p.frames;
+    const double frame = p.frame_us / n / 1000.0, wait = p.wait_us / n / 1000.0, flush = p.flush_us / n / 1000.0;
+    const double period = p.frames > 1 ? p.period_us / (n - 1) / 1000.0 : 0.0;
+    ESP_LOGI(TAG,
+             "BENCH %s: %lu kép, %.1f sáv/kép | idő/kép átl %.1f ms (max %.1f) | várakozás %.1f ms, flush-hívás %.1f ms, rajzolás %.1f ms | "
+             "periódus %.1f ms = %.0f FPS | lassú(>33ms) %lu",
+             what, (unsigned long)p.frames, p.chunks / n, frame, p.max_frame_us / 1000.0, wait, flush, frame - wait - flush, period,
+             period > 0 ? 1000.0 / period : 0.0, (unsigned long)p.slow_frames);
+}
+
+// Mit csinál: a logó lejárta után körbe lapozza a képernyőket, és minden átmenetnél méri a rajzolást.
+// Hogyan:     az átmenet 400 ms; a mérés a váltás előtt nullázódik, 900 ms múlva olvassa le (üresjárat is benne van, ezért
+//             a periódus és a kép-adatok az animáció alatti képkockákra vonatkoznak: csak rajzolt képkockákat számol).
+void bench_task(void*) {
+    vTaskDelay(pdMS_TO_TICKS(9000));
+#if defined(CONFIG_LV_USE_PROFILER)
+    constexpr int kRounds = 4;  // az utolsó kör az LVGL-profilozóval (a mért idők ilyenkor torzultak)
+#else
+    constexpr int kRounds = 3;
+#endif
+    for (int round = 0; round < kRounds; ++round) {
+        const bool prof = round == 3;
+        for (int i = 0; i < g_active_n; ++i) {
+            const int from = g_active[g_pos];
+            g_bench_busy = true;
+            lvgl_take_prof();
+            if (prof) og_prof_enable(true);
+            if (lvgl_port_lock(1000)) {
+                show_next(+1);
+                lvgl_port_unlock();
+            }
+            vTaskDelay(pdMS_TO_TICKS(kSwitchAnimMs + 500));
+            char name[24];
+            snprintf(name, sizeof name, "%d->%d", from, g_active[g_pos]);
+            log_prof(name, lvgl_take_prof());
+            if (prof) og_prof_dump(name);
+            g_bench_busy = false;
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+    }
+    lv_mem_monitor_t mon;
+    if (lvgl_port_lock(1000)) {
+        lv_mem_monitor(&mon);
+        lvgl_port_unlock();
+        ESP_LOGI(TAG, "BENCH LVGL-kupac: %lu B összesen, szabad %lu B, legnagyobb használat %lu %%, töredezettség %u %%",
+                 (unsigned long)mon.total_size, (unsigned long)mon.free_size, (unsigned long)(mon.max_used * 100ull / mon.total_size), (unsigned)mon.frag_pct);
+    }
+    ESP_LOGI(TAG, "BENCH belső RAM szabad: %u B, legnagyobb blokk %u B", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL), (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+    ESP_LOGI(TAG, "BENCH kész");
+    vTaskDelete(nullptr);
+}
+#endif
+
 #if defined(CONFIG_OG_DISP_BOOT_LOGO)
 lv_obj_t* g_logo_scr = nullptr;
 
-// Mit csinál: a logó időzítőjének lejártakor áttűnik a műszerfalra, és törli a logó képernyőt.
+lv_obj_t* g_logo_img = nullptr;
+
+// Mit csinál: a logó átlátszóságát állítja az animációból (a képre közvetlenül, nem külön rétegre).
+// Miért:      a teljes képernyő áttűnése (FADE_ON) két teljes képernyőt számol pixelenként; a fekete háttéren
+//             a logó átlátszósága ugyanazt a látványt adja a kép kis területén.
+void logo_opa_cb(void* img, int32_t v) { lv_obj_set_style_opa(static_cast<lv_obj_t*>(img), static_cast<lv_opa_t>(v), 0); }
+
+// Mit csinál: a logó eltűnése után azonnal betölti a műszerfalat, és törli a logó képernyőt.
+void logo_faded_out(lv_anim_t*) { lv_screen_load_anim(g_main.scr, LV_SCREEN_LOAD_ANIM_NONE, 0, 0, true); }
+
+// Mit csinál: a logó időzítőjének lejártakor elhalványítja a logót, majd a műszerfalra vált.
 // Miért:      a logó csak indulásnál kell; a felszabadított képernyő nem foglal memóriát.
 void logo_done(lv_timer_t* t) {
-    lv_screen_load_anim(g_main.scr, LV_SCREEN_LOAD_ANIM_FADE_ON, kLogoFadeOutMs, 0, true);
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, g_logo_img);
+    lv_anim_set_exec_cb(&a, logo_opa_cb);
+    lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
+    lv_anim_set_duration(&a, kLogoFadeOutMs);
+    lv_anim_set_completed_cb(&a, logo_faded_out);
+    lv_anim_start(&a);
     lv_timer_delete(t);
 }
 
@@ -809,11 +898,20 @@ void show_boot_logo(const lv_image_dsc_t* logo) {
     lv_obj_set_style_bg_color(g_logo_scr, g_bg, 0);
     lv_obj_set_style_bg_opa(g_logo_scr, LV_OPA_COVER, 0);
     lv_obj_t* img = lv_image_create(g_logo_scr);
+    g_logo_img = img;
     lv_image_set_src(img, logo);
     lv_obj_set_style_image_recolor(img, g_text, 0);
     lv_obj_set_style_image_recolor_opa(img, LV_OPA_COVER, 0);
     lv_obj_center(img);
-    lv_screen_load_anim(g_logo_scr, LV_SCREEN_LOAD_ANIM_FADE_ON, kLogoFadeInMs, 0, false);
+    lv_obj_set_style_opa(img, LV_OPA_TRANSP, 0);
+    lv_screen_load(g_logo_scr);
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, img);
+    lv_anim_set_exec_cb(&a, logo_opa_cb);
+    lv_anim_set_values(&a, LV_OPA_TRANSP, LV_OPA_COVER);
+    lv_anim_set_duration(&a, kLogoFadeInMs);
+    lv_anim_start(&a);
     lv_timer_create(logo_done, kLogoFadeInMs + kLogoHoldMs, nullptr);
     g_pause_until = now_ms() + kLogoFadeInMs + kLogoHoldMs + kLogoFadeOutMs + g_cfg.switch_period_s * 1000u;
 }
@@ -896,6 +994,9 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
 
     // A kapcsolatfeladat a 0. magon (az LVGL az 1. magon fut).
     xTaskCreatePinnedToCore(link_task, "og_link", 4096, nullptr, 5, nullptr, 0);
+#if defined(CONFIG_OG_DISP_BENCH)
+    xTaskCreatePinnedToCore(bench_task, "og_bench", 4096, nullptr, 3, nullptr, 0);
+#endif
     ESP_LOGI(TAG, "Műszerfal fut: 3 képernyő, váltás %lu ms-onként", (unsigned long)(g_cfg.switch_period_s * 1000u));
 }
 

@@ -4,6 +4,7 @@
 
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "esp_lvgl_port.h"
 #include "sdkconfig.h"
 
@@ -21,6 +22,51 @@ std::atomic<uint32_t> g_frames{0};
 // Miért:      az LV_EVENT_RENDER_READY csak akkor jön, ha ténylegesen volt mit rajzolni, így a
 //             számláló a valódi képfrissítési sebességet adja.
 void on_render_ready(lv_event_t*) { g_frames.fetch_add(1, std::memory_order_relaxed); }
+
+// Rajzolási idők mérése: az LVGL-feladat eseményeiből gyűlik, a lekérdezés az LVGL-zár alatt történik.
+LvglProf g_prof;
+int64_t g_t_refr = 0, g_t_flush = 0, g_t_wait = 0, g_last_refr = 0;
+uint64_t g_cur_wait = 0, g_cur_flush = 0;
+uint32_t g_cur_chunks = 0;
+bool g_rendered = false;
+
+// Mit csinál: az LVGL frissítési ciklusának eseményeit időbélyegezi, és képkockánként összegzi.
+// Hogyan:     REFR_START/READY zárja a képkockát, FLUSH_START/FINISH a DMA-indítást, FLUSH_WAIT_* a várakozást;
+//             a rajzolás ideje ezek különbsége. Csak a RENDER_START-ot kapott képkockákat számolja.
+void on_prof_event(lv_event_t* e) {
+    const int64_t now = esp_timer_get_time();
+    switch (lv_event_get_code(e)) {
+        case LV_EVENT_REFR_START:
+            g_t_refr = now;
+            g_rendered = false;
+            g_cur_wait = g_cur_flush = 0;
+            g_cur_chunks = 0;
+            break;
+        case LV_EVENT_RENDER_START: g_rendered = true; break;
+        case LV_EVENT_FLUSH_START: g_t_flush = now; break;
+        case LV_EVENT_FLUSH_FINISH:
+            g_cur_flush += now - g_t_flush;
+            ++g_cur_chunks;
+            break;
+        case LV_EVENT_FLUSH_WAIT_START: g_t_wait = now; break;
+        case LV_EVENT_FLUSH_WAIT_FINISH: g_cur_wait += now - g_t_wait; break;
+        case LV_EVENT_REFR_READY: {
+            if (!g_rendered) break;
+            const uint32_t dt = static_cast<uint32_t>(now - g_t_refr);
+            ++g_prof.frames;
+            g_prof.chunks += g_cur_chunks;
+            g_prof.frame_us += dt;
+            g_prof.wait_us += g_cur_wait;
+            g_prof.flush_us += g_cur_flush;
+            if (g_last_refr) g_prof.period_us += g_t_refr - g_last_refr;
+            g_last_refr = g_t_refr;
+            if (dt > g_prof.max_frame_us) g_prof.max_frame_us = dt;
+            if (dt > 33000) ++g_prof.slow_frames;
+            break;
+        }
+        default: break;
+    }
+}
 
 }  // namespace
 
@@ -54,6 +100,7 @@ lv_display_t* lvgl_start(LcdPanel& lcd, bool swap_bytes) {
     }
     if (lvgl_port_lock(0)) {
         lv_display_add_event_cb(disp, on_render_ready, LV_EVENT_RENDER_READY, nullptr);
+        lv_display_add_event_cb(disp, on_prof_event, LV_EVENT_ALL, nullptr);
         lvgl_port_unlock();
     }
     ESP_LOGI(TAG, "LVGL %d.%d.%d fut: részleges frissítés, 2 x %d soros DMA-puffer, frissítési periódus %d ms",
@@ -71,6 +118,17 @@ lv_indev_t* lvgl_add_touch(lv_display_t* disp, TouchPanel& touch) {
     lv_indev_t* in = lvgl_port_add_touch(&tc);
     if (!in) ESP_LOGE(TAG, "lvgl_port_add_touch sikertelen");
     return in;
+}
+
+LvglProf lvgl_take_prof() {
+    LvglProf p;
+    if (lvgl_port_lock(100)) {
+        p = g_prof;
+        g_prof = LvglProf{};
+        g_last_refr = 0;
+        lvgl_port_unlock();
+    }
+    return p;
 }
 
 uint32_t lvgl_take_frames() { return g_frames.exchange(0, std::memory_order_relaxed); }
