@@ -45,7 +45,7 @@
 #include "led_pattern.h"
 #include "music_model.h"
 #include "og_fonts.h"
-#include "og_logo.h"
+#include "og_logos.h"
 #include "og_vin.h"
 #include "settings.h"
 #include "settings_store.h"
@@ -804,12 +804,12 @@ void logo_done(lv_timer_t* t) {
 // Hogyan:     a kép A8 maszk, a színét az image_recolor adja; a műszerfalra váltást egyszeri időzítő indítja.
 // Miért:      a 4 másodperc alatt a két egység párosodik és a BLE is elindul; az automatikus lapozás
 //             addig nem kezd el váltani.
-void show_boot_logo() {
+void show_boot_logo(const lv_image_dsc_t* logo) {
     g_logo_scr = lv_obj_create(nullptr);
     lv_obj_set_style_bg_color(g_logo_scr, g_bg, 0);
     lv_obj_set_style_bg_opa(g_logo_scr, LV_OPA_COVER, 0);
     lv_obj_t* img = lv_image_create(g_logo_scr);
-    lv_image_set_src(img, &og_logo);
+    lv_image_set_src(img, logo);
     lv_obj_set_style_image_recolor(img, g_text, 0);
     lv_obj_set_style_image_recolor_opa(img, LV_OPA_COVER, 0);
     lv_obj_center(img);
@@ -839,6 +839,16 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
     if (!disp) return;
     if (touch && !lvgl_add_touch(disp, *touch)) ESP_LOGW(TAG, "Érintő nélkül fut: csak automatikus váltás");
 
+#if defined(CONFIG_OG_DISP_BOOT_LOGO)
+    // Az indító logó az utoljára látott VIN márkájáé: a VIN a CAN-oldalról később érkezik, mint a kijelző indulása,
+    // ezért nem várjuk meg. Ha nincs mentett VIN vagy a márkához nincs logó, a logó lépés kimarad.
+    const lv_image_dsc_t* boot_logo = nullptr;
+    {
+        char saved[18];
+        if (last_vin_load(saved)) boot_logo = logo_for_brand(vin_brand_id(saved));
+        ESP_LOGI(TAG, "Indító logó: %s", boot_logo ? vin_brand_name(vin_brand_id(saved)) : "nincs (kimarad)");
+    }
+#endif
     if (lvgl_port_lock(0)) {
         g_main.build();
         g_detail.build();
@@ -870,7 +880,7 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
         rebuild_active();
         set_perf_visible(g_cfg.debug_mode);
 #if defined(CONFIG_OG_DISP_BOOT_LOGO)
-        if (!g_cfg.skip_logo) show_boot_logo(); else lv_screen_load(g_main.scr);
+        if (boot_logo && !g_cfg.skip_logo) show_boot_logo(boot_logo); else lv_screen_load(g_main.scr);
 #else
         lv_screen_load(g_main.scr);
 #endif

@@ -3,19 +3,24 @@
 //             a kontrasztot kissé növeli, és a kimenetet `lv_image_dsc_t`-ként írja ki. A kép színét
 //             a kijelzőn az LVGL színezi (lv_obj_set_style_image_recolor), tehát fehér, vagy bármely paletta-szín lehet.
 // Miért:      az LVGL nem rajzol SVG-t, a színes/színátmenetes logók pedig egyszínű alakzattá egyszerűsödnek.
-// Használat:  node convert_logo.cjs src/opel.svg og_logo.c 200   (a harmadik argumentum a kép szélessége pixelben)
+// Használat:  node convert_logo.cjs src/opel.svg og_logo_opel.c 200 160
+//             (a harmadik és negyedik argumentum a legnagyobb szélesség és magasság pixelben; a kép ebbe a dobozba
+//             fér bele, arányosan. A C szimbólum neve a kimeneti fájl neve kiterjesztés nélkül.)
 const fs = require('fs');
 const { Resvg } = require('@resvg/resvg-js');
 
-const [, , input, output, widthArg] = process.argv;
+const [, , input, output, widthArg, heightArg] = process.argv;
 if (!input || !output) {
     console.error('Használat: node convert_logo.cjs <be.svg> <ki.c> [szélesség]');
     process.exit(1);
 }
-const width = parseInt(widthArg || '200', 10);
+const maxW = parseInt(widthArg || '200', 10);
+const maxH = parseInt(heightArg || '160', 10);
 
 const svg = fs.readFileSync(input);
-const img = new Resvg(svg, { fitTo: { mode: 'width', value: width }, background: '#ffffff' }).render();
+const render = fitTo => new Resvg(svg, { fitTo, background: '#ffffff' }).render();
+let img = render({ mode: 'width', value: maxW });
+if (img.height > maxH) img = render({ mode: 'height', value: maxH });
 const w = img.width, h = img.height, px = img.pixels;  // RGBA, sorfolytonos
 
 const a8 = Buffer.alloc(w * h);
