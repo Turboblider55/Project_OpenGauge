@@ -46,6 +46,7 @@
 #include "music_model.h"
 #include "og_fonts.h"
 #include "og_logo.h"
+#include "og_vin.h"
 #include "settings.h"
 #include "settings_store.h"
 #include "settings_view.h"
@@ -243,6 +244,7 @@ struct Row {
 struct DetailView {
     lv_obj_t* scr;
     Row coolant, throttle, vbat, mil, cell;
+    lv_obj_t* vin;
     bool mil_red = false;
 
     void build() {
@@ -253,9 +255,11 @@ struct DetailView {
         vbat.build(scr, 0, "JARMU");
         mil.build(scr, 45, "MIL");
         cell.build(scr, 90, "CELLA");
+        vin = make_label(scr, &og_font_montserrat_20, g_dim, LV_ALIGN_CENTER, 0, 124, "");
     }
 
-    void update(const DashValues& v, const BatteryStatus& bat) {
+    void update(const DashValues& v, const BatteryStatus& bat, const char* vin_text) {
+        set_text(vin, vin_text);
         char b[24];
         if (battery_shown(bat)) fmt_dec(b, sizeof b, "%.2f V", bat.mv / 1000.0);
         else std::snprintf(b, sizeof b, "--");
@@ -444,14 +448,16 @@ void ui_tick(lv_timer_t*) {
     DashValues v;
     DashLink l;
     BatteryStatus bat;
+    char vin[18];
     {
         std::lock_guard<std::mutex> lock(g_mx);
         v = g_model.values(now_ms());
         l = g_model.link();
         bat = g_battery;
+        std::memcpy(vin, g_model.vin(), sizeof vin);
     }
     g_main.update(v, bat, g_sleep_in_s.load(std::memory_order_relaxed));
-    g_detail.update(v, bat);
+    g_detail.update(v, bat, vin);
     g_linkv.update(v, l);
 #if defined(CONFIG_OG_DISP_MUSIC)
     g_music.update(ble_ams_info(), now_ms());
@@ -706,13 +712,20 @@ void link_task(void*) {
         const int32_t rem = static_cast<int32_t>(next - now_ms());
         EspNowLink::Packet p;
         if (rem > 0 && g_link.recv(p, static_cast<uint32_t>(rem))) {
-            bool fresh, stopped;
+            bool fresh, stopped, new_vin;
             uint32_t stopped_ms;
+            char vin[18];
             {
                 std::lock_guard<std::mutex> lock(g_mx);
                 fresh = g_model.on_packet(p.data, p.len, p.rssi, p.rx_ms);
                 stopped = g_model.engine_stopped();
                 stopped_ms = g_model.stopped_ms();
+                new_vin = g_model.take_new_vin(vin);
+            }
+            if (new_vin) {  // új vagy megváltozott VIN: mentjük a következő indítás logójához (a logót most nem cseréljük)
+                const int brand = vin_brand_id(vin);
+                ESP_LOGI(TAG, "VIN: %s (%s)", vin, brand >= 0 ? vin_brand_name(brand) : "ismeretlen márka");
+                last_vin_save(vin);
             }
 #if defined(CONFIG_OG_DISP_SLEEP)
             if (fresh) g_power.on_data(p.rx_ms);
@@ -725,11 +738,13 @@ void link_task(void*) {
         next += 1000;
         DashLink l;
         DashValues v;
+        char cur_vin[18];
         {
             std::lock_guard<std::mutex> lock(g_mx);
             g_model.on_second();
             l = g_model.link();
             v = g_model.values(now_ms());
+            std::memcpy(cur_vin, g_model.vin(), sizeof cur_vin);
         }
         ++second;
         const uint32_t now = now_ms();
@@ -767,11 +782,11 @@ void link_task(void*) {
         const EspNowLink::Stats ls = g_link.stats();
         ESP_LOGI(TAG,
                  "%lu csomag/s, RSSI %d dBm | összes %lu, elveszett %lu (%.2f %%, 60 s: %.2f %%), elavult %lu, újraindulás %lu, "
-                 "érvénytelen %lu, sor tele %lu, seq %u | adat %s, %lu 1/perc | FPS %lu, belső RAM %u kB",
+                 "érvénytelen %lu, sor tele %lu, seq %u | adat %s, %lu 1/perc | FPS %lu, belső RAM %u kB | VIN %s",
                  (unsigned long)l.per_sec, l.rssi_dbm, (unsigned long)l.received, (unsigned long)l.lost,
                  l.loss_ratio * 100.0, l.loss_ratio_window * 100.0, (unsigned long)l.stale, (unsigned long)l.resyncs, (unsigned long)l.invalid,
                  (unsigned long)ls.rx_dropped, l.last_seq, v.fresh ? "friss" : "NINCS", (unsigned long)(v.rpm + 0.5f),
-                 (unsigned long)lvgl_take_frames(), (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024));
+                 (unsigned long)lvgl_take_frames(), (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024), cur_vin[0] ? cur_vin : "--");
     }
 }
 

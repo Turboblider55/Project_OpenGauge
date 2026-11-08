@@ -1,6 +1,9 @@
 #include "dash_model.h"
 
+#include <cstring>
+
 #include "og_codec.h"
+#include "og_vin.h"
 
 namespace og {
 
@@ -19,6 +22,17 @@ bool DashModel::on_packet(const uint8_t* data, size_t len, int8_t rssi, uint32_t
         if (sl.reason == static_cast<uint8_t>(SleepReason::EngineStopped)) {
             engine_stopped_ = true;
             stopped_ms_ = now_ms;
+        }
+        return false;
+    }
+    VinMsg vm;
+    if (decode(data, len, vm)) {  // a VIN nem telemetria: a csomagstatisztikába nem számít
+        heard_ = true;
+        last_heard_ms_ = now_ms;
+        vm.vin[kVinLen] = 0;
+        if (vin_chars_valid(vm.vin) && std::strcmp(vm.vin, vin_) != 0) {
+            std::memcpy(vin_, vm.vin, sizeof vin_);
+            vin_dirty_ = true;
         }
         return false;
     }

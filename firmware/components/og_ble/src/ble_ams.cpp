@@ -233,7 +233,7 @@ void next_step() {
              kStepNames[static_cast<int>(g_step)], g_attempt + 1);
     switch (g_step) {
         case Step::DiscSvc:
-            memset(&g_h, 0, sizeof g_h);
+            g_h = Handles{};  // a kezelők nullázása (a struktúra nem triviális, memset helyett értékadás)
             rc = ble_gattc_disc_svc_by_uuid(c, &kAmsSvc.u, svc_cb, nullptr);
             break;
         case Step::DiscChrs:

@@ -4,6 +4,7 @@
 #include "dash_model.h"
 #include "mini_test.h"
 #include "og_codec.h"
+#include "og_vin.h"
 
 using namespace og;
 
@@ -104,6 +105,39 @@ static void rolling_loss_window() {
     CHECK(d.link().loss_ratio_window < 0.11f);
 }
 
+static VinMsg vin_msg(uint16_t seq, const char* vin) {
+    VinMsg m = {};
+    m.h = make_header(MsgType::Vin, seq);
+    for (size_t i = 0; i < sizeof m.vin - 1 && vin[i]; ++i) m.vin[i] = vin[i];
+    return m;
+}
+
+static bool feed_vin(DashModel& d, const VinMsg& m, uint32_t t) {
+    uint8_t buf[sizeof(VinMsg)];
+    std::memcpy(buf, &m, sizeof m);
+    return d.on_packet(buf, sizeof buf, -40, t);
+}
+
+// A VIN nem telemetria: nem számít csomagnak, a veszteségstatisztikát nem zavarja, de a kapcsolatot élőnek jelzi.
+// Az ismétlődő azonos VIN nem új; a megváltozott igen; az érvénytelen karakterű eldobódik.
+static void vin_is_stored_once_and_not_counted() {
+    DashModel d;
+    char out[18];
+    CHECK(d.vin()[0] == 0);
+    CHECK(!d.take_new_vin(out));
+    CHECK(!feed_vin(d, vin_msg(1, "W0LJD6EC8SB123456"), 1000));
+    CHECK(d.peer_alive(1000));
+    CHECK(d.take_new_vin(out) && std::strcmp(out, "W0LJD6EC8SB123456") == 0);
+    CHECK(!d.take_new_vin(out));  // már átvettük
+    feed_vin(d, vin_msg(2, "W0LJD6EC8SB123456"), 3000);
+    CHECK(!d.take_new_vin(out));  // ismétlés: nem új
+    feed_vin(d, vin_msg(3, "TMBAG7NE1G0123456"), 5000);
+    CHECK(d.take_new_vin(out) && std::strcmp(d.vin(), "TMBAG7NE1G0123456") == 0);
+    feed_vin(d, vin_msg(4, "BAD"), 6000);
+    CHECK(!d.take_new_vin(out) && std::strcmp(d.vin(), "TMBAG7NE1G0123456") == 0);
+    CHECK(d.link().received == 0 && d.link().invalid == 0);
+}
+
 static void per_second_and_rssi() {
     DashModel d;
     feed(d, telemetry(1, 0, 0.f), 0, -30);
@@ -155,6 +189,7 @@ int main() {
     RUN(values_and_freshness);
     RUN(invalid_and_duplicate);
     RUN(rolling_loss_window);
+    RUN(vin_is_stored_once_and_not_counted);
     RUN(per_second_and_rssi);
     TEST_MAIN_END();
 }

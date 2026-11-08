@@ -29,6 +29,8 @@
 #include "freertos/task.h"
 #include "og_codec.h"
 #include "og_protocol.h"
+#include "og_vin.h"
+#include "esp_random.h"
 #include "sim_command.h"
 #include "sdkconfig.h"
 #include "twai_bus.h"
@@ -206,6 +208,8 @@ extern "C" void app_main(void) {
 #endif
     ec.latency_ms = CONFIG_OG_SIM_LATENCY_MS;
     og::EcuModel ecu(ec);
+    // Minden (újra)indításkor véletlen márkájú, érvényes mintaszámú VIN; a CAN-kapcsolat megszakadása nem változtatja.
+    og::vin_make_sample(static_cast<int>(esp_random() % og::kBrandCount), esp_random(), ecu.state.vin);
     ecu.state.dtc_count = CONFIG_OG_SIM_DTC_COUNT;
     ecu.state.mil_on = CONFIG_OG_SIM_DTC_COUNT > 0;
 
@@ -213,6 +217,7 @@ extern "C" void app_main(void) {
              ec.protocol == og::EcuProtocol::UdsOnly ? "OBDonUDS" : "klasszikus J1979",
              ec.ext_ids ? "29 bites" : "11 bites", (unsigned long)ecu.request_id(),
              (unsigned long)ecu.response_id(), (unsigned long)ec.latency_ms, ecu.state.vin);
+    ESP_LOGI(TAG, "Szimulált márka: %s", og::vin_brand_name(og::vin_brand_id(ecu.state.vin)));
 
     g_cmd_queue = xQueueCreate(8, sizeof(og::SimCommand));
     xTaskCreate(console_task, "og_console", 4096, nullptr, 2, nullptr);

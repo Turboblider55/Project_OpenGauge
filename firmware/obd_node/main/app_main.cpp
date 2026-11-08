@@ -28,6 +28,7 @@
 #include "led_pattern.h"
 #include "obd_detect.h"
 #include "og_codec.h"
+#include "og_vin.h"
 #include "pid_scheduler.h"
 #include "power_fsm.h"
 #include "pid_table.h"
@@ -89,6 +90,20 @@ void send_sleep_msg(og::SleepReason reason) {
         g_link.send(&m, sizeof m);
         vTaskDelay(pdMS_TO_TICKS(30));
     }
+}
+
+// A VIN ismétlésének periódusa. A szórásnak nincs nyugtája, ezért a VIN-t időnként újra elküldjük,
+// így a később induló vagy a csomagot elvesztő kijelző is megkapja.
+constexpr uint32_t kVinPeriodMs = 2000;
+
+// Mit csinál: elküldi a kijelzőnek a VIN-t.
+void send_vin(const char vin[18]) {
+    if (!g_link_ok) return;
+    static uint16_t vin_seq = 0;
+    og::VinMsg m = {};
+    m.h = og::make_header(og::MsgType::Vin, vin_seq++);
+    std::memcpy(m.vin, vin, sizeof m.vin);
+    g_link.send(&m, sizeof m);
 }
 
 // Mit csinál: a CAN-adó-vevőt nagy sebességű (normál) üzemmódba kapcsolja, ha van RS lába.
@@ -308,12 +323,16 @@ void run_session(og::TwaiBus& bus, const og::ProtocolInfo& info) {
     og::ObdClient cl(tp);
     cl.set_target(info.primary_request_id);
 
+    // A VIN-t minden munkamenet elején újra olvassuk (újracsatlakozáskor is): másik autóra is rácsatlakozhatunk.
     char vin[18];
     og::Err e = cl.read_vin(vin);
-    if (e == og::Err::Ok)
-        ESP_LOGI(TAG, "VIN: %s", vin);
-    else
+    const bool vin_ok = e == og::Err::Ok;
+    if (vin_ok) {
+        ESP_LOGI(TAG, "VIN: %s (%s)", vin, og::vin_brand_id(vin) >= 0 ? og::vin_brand_name(og::vin_brand_id(vin)) : "ismeretlen márka");
+        send_vin(vin);
+    } else {
         ESP_LOGW(TAG, "VIN nem olvasható: %s", og::err_name(e));
+    }
 
     uint8_t dtc = 0;
     e = cl.read_dtc_count(dtc);
@@ -342,6 +361,7 @@ void run_session(og::TwaiBus& bus, const og::ProtocolInfo& info) {
     g_led.set_searching(false);
     uint32_t next_log = start + 1000;
     uint32_t next_tx = start + kTelemetryPeriodMs;
+    uint32_t next_vin = start + kVinPeriodMs;
     for (;;) {
         og::Err err;
         if (!s.step(cl, err)) {
@@ -358,6 +378,10 @@ void run_session(og::TwaiBus& bus, const og::ProtocolInfo& info) {
             }
             next_tx += kTelemetryPeriodMs;
             if (static_cast<int32_t>(now - next_tx) >= 0) next_tx = now + kTelemetryPeriodMs;  // ne pótolja a kimaradtakat
+        }
+        if (vin_ok && static_cast<int32_t>(now - next_vin) >= 0) {
+            send_vin(vin);
+            next_vin = now + kVinPeriodMs;
         }
         if (static_cast<int32_t>(now - next_log) >= 0) {
             log_values(s, now);
