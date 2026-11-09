@@ -61,6 +61,62 @@ namespace {
 
 const char* TAG = "og_dash";
 
+#if defined(CONFIG_OG_DISP_MEMPROF)
+// Mit csinál: egy sorban kiírja a memória állapotát a megadott lépés után, és az előző méréshez viszonyított változást.
+// Hogyan:     a belső RAM és a PSRAM szabad és eddigi legkisebb szabad mérete, a legnagyobb összefüggő blokk, az LVGL
+//             kupacának szabad/használt mérete és csúcshasználata. Az LVGL-adatokhoz az LVGL-zár (vagy az LVGL-feladat) kell.
+// Miért:      a RAM-hiány okát csak mérés mutatja meg: lépésenként látszik, melyik képernyő mennyit visz el.
+void mem_probe(const char* step) {
+    static size_t prev_int = 0, prev_lv = 0, prev_ps = 0;
+    lv_mem_monitor_t mon;
+    lv_mem_monitor(&mon);
+    const size_t fi = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    const size_t fp = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    const size_t lv_used = mon.total_size - mon.free_size;
+    ESP_LOGI(TAG,
+             "MEMPROF %-26s | belső: szabad %6u B (min %6u, blokk %6u, d %+d) | PSRAM: szabad %7u B (d %+d) | LVGL: használt %6u / %u B "
+             "(csúcs %lu %%, töredezettség %u %%, d %+d)",
+             step, (unsigned)fi, (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), prev_int ? (int)fi - (int)prev_int : 0, (unsigned)fp,
+             prev_ps ? (int)fp - (int)prev_ps : 0, (unsigned)lv_used, (unsigned)mon.total_size,
+             (unsigned long)(mon.max_used * 100ull / mon.total_size), (unsigned)mon.frag_pct, prev_lv ? (int)lv_used - (int)prev_lv : 0);
+    prev_int = fi;
+    prev_ps = fp;
+    prev_lv = lv_used;
+}
+
+// Mit csinál: kilistázza a feladatokat és azt, mennyi vermük maradt soha nem használatlanul (a legkisebb szabad érték).
+void mem_probe_tasks() {
+#if defined(CONFIG_FREERTOS_USE_TRACE_FACILITY)
+    TaskStatus_t st[24];
+    const UBaseType_t n = uxTaskGetSystemState(st, 24, nullptr);
+    for (UBaseType_t i = 0; i < n; ++i)
+        ESP_LOGI(TAG, "MEMPROF feladat %-12s | verem szabad min. %5u B | prioritás %u", st[i].pcTaskName,
+                 (unsigned)st[i].usStackHighWaterMark * (unsigned)sizeof(StackType_t), (unsigned)st[i].uxCurrentPriority);
+#else
+    ESP_LOGI(TAG, "MEMPROF feladat-lista: a CONFIG_FREERTOS_USE_TRACE_FACILITY ki van kapcsolva");
+#endif
+}
+
+// Mit csinál: időnként újra mér (a váltogató képernyők használata közben), így az eddigi legkisebb szabad érték a csúcsot is mutatja.
+void mem_probe_timer(lv_timer_t*) {
+    mem_probe("periodikus");
+    mem_probe_tasks();
+}
+
+// Mit csinál: ugyanaz, mint a mem_probe, de az LVGL-zárat is felveszi (az LVGL-en kívüli szálakból hívható).
+void mem_probe_locked(const char* step) {
+    if (lvgl_port_lock(1000)) {
+        mem_probe(step);
+        lvgl_port_unlock();
+    }
+}
+#else
+inline void mem_probe(const char*) {}
+inline void mem_probe_locked(const char*) {}
+#endif
+
+
 constexpr uint32_t kUiPeriodMs = 16;       // a nézetek frissítése (~60 Hz)
 constexpr uint32_t kSwitchAnimMs = 400;
 constexpr uint32_t kTouchPauseMs = 15000;  // érintés után ennyi ideig nincs automatikus váltás
@@ -963,8 +1019,9 @@ void show_cog() {
 // Mit csinál: az ikonra koppintva megnyitja a beállítások képernyőjét.
 void open_settings(lv_event_t*) {
     hide_cog();
-    g_settings_view.open(g_cfg);
+    g_settings_view.open(g_cfg);  // a képernyő itt épül fel (lusta felépítés: nyitva tartása nélkül nem foglal LVGL-memóriát)
     lv_screen_load_anim(g_settings_view.scr, LV_SCREEN_LOAD_ANIM_MOVE_TOP, kSwitchAnimMs, 0, false);
+    mem_probe("beállítások megnyitva");
 }
 
 // Mit csinál: a módosított beállításokat azonnal érvényesíti (skála, fényerő, lapozás, debug kijelzés, lista).
@@ -992,7 +1049,8 @@ void on_settings_exit(const Settings& s) {
     }
     apply_live();
     g_pause_until = now_ms() + kTouchPauseMs;
-    lv_screen_load_anim(g_screens[g_active[g_pos]], LV_SCREEN_LOAD_ANIM_MOVE_RIGHT, kSwitchAnimMs, 0, false);
+    // auto_del: az átmenet végén az LVGL törli a beállítások képernyőjét (a kupac felszabadul, a következő megnyitás újraépíti).
+    lv_screen_load_anim(g_screens[g_active[g_pos]], LV_SCREEN_LOAD_ANIM_MOVE_RIGHT, kSwitchAnimMs, 0, true);
 }
 
 // Mit csinál: balra húzás: következő képernyő, jobbra húzás: előző, felfelé húzás: beállítások ikonja;
@@ -1357,8 +1415,14 @@ void show_boot_logo(const lv_image_dsc_t* logo) {
 // Mit csinál: az indulás utáni első LVGL-ütemben előállítja a mutatós fordulatszámmérő skálájának képét.
 // Miért:      a rajzolást az LVGL-feladat végzi (a main feladat verme kicsi a képrajzoláshoz).
 void initial_scale_tick(lv_timer_t*) {
+    mem_probe("skálarajzolás előtt");
     g_needle_tach.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
+    mem_probe("mutatós fordulatszám skála");
     g_needle_speed.set_scale(g_cfg.max_speed_kmh, g_cfg.speed_unit == SpeedUnit::Mph);
+    mem_probe("mutatós sebesség skála");
+#if defined(CONFIG_OG_DISP_MEMPROF)
+    lv_timer_create(mem_probe_timer, 20000, nullptr);
+#endif
 }
 
 }  // namespace
@@ -1379,6 +1443,9 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
     g_adc_ok = g_adc.init(board::kPinBattery);
     lv_display_t* disp = lvgl_start(lcd, swap_bytes);
     if (!disp) return;
+#if defined(CONFIG_OG_DISP_MEMPROF)
+    if (lvgl_port_lock(0)) { mem_probe("LVGL indult"); lvgl_port_unlock(); }
+#endif
     if (touch && !lvgl_add_touch(disp, *touch)) ESP_LOGW(TAG, "Érintő nélkül fut: csak automatikus váltás");
 
 #if defined(CONFIG_OG_DISP_BOOT_LOGO)
@@ -1392,23 +1459,31 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
     }
 #endif
     if (lvgl_port_lock(0)) {
+        mem_probe("build előtt");
         g_main.build();
+        mem_probe("fő képernyő");
         g_detail.build();
+        mem_probe("részletek képernyő");
         g_linkv.build();
+        mem_probe("kapcsolat képernyő");
         g_screens[0] = g_main.scr;
         g_screens[1] = g_detail.scr;
         g_screens[2] = g_linkv.scr;
         g_needle_tach.build();
         g_screens[kNeedleTachId] = g_needle_tach.scr;
+        mem_probe("mutatós fordulatszám (váz)");
         g_needle_speed.build();
         g_screens[kNeedleSpeedId] = g_needle_speed.scr;
+        mem_probe("mutatós sebesség (váz)");
 #if defined(CONFIG_OG_DISP_MUSIC)
         g_music.build();
         g_screens[kMusicId] = g_music.scr;
+        mem_probe("zene képernyő");
 #endif
         for (lv_obj_t* scr : g_screens)
             if (scr) lv_obj_add_event_cb(scr, on_gesture, LV_EVENT_GESTURE, nullptr);
-        g_settings_view.build(UiColors{g_bg, g_track, g_text, g_dim, g_accent, g_warn}, on_settings_exit);
+        g_settings_view.init(UiColors{g_bg, g_track, g_text, g_dim, g_accent, g_warn}, on_settings_exit);
+        mem_probe("beállítások (init, nincs képernyő)");
 
         g_cog = lv_button_create(lv_layer_top());
         lv_obj_set_size(g_cog, 56, 56);
@@ -1423,6 +1498,7 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
         lv_obj_add_event_cb(g_cog, open_settings, LV_EVENT_CLICKED, nullptr);
 
         g_main.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
+        mem_probe("fő skála (set_scale)");
         // A skála képét az LVGL-feladat rajzolja (a main feladat verme kicsi hozzá): egyszeri időzítő az első ütemben.
         lv_timer_set_repeat_count(lv_timer_create(initial_scale_tick, 1, nullptr), 1);
         rebuild_active();
@@ -1432,6 +1508,7 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
 #else
         lv_screen_load(g_main.scr);
 #endif
+        mem_probe("képernyő betöltve");
         lv_timer_create(ui_tick, kUiPeriodMs, nullptr);
         g_switch_timer = lv_timer_create(switch_tick, g_cfg.switch_period_s * 1000u, nullptr);
         lvgl_port_unlock();
@@ -1439,11 +1516,14 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
 
 #if defined(CONFIG_OG_DISP_MUSIC)
     // A BLE (iOS zene) mindig kész: a NimBLE host a PSRAM-ban fut (H-34), így belefér a belső RAM-ba.
+    mem_probe_locked("BLE indítás előtt");
     if (g_cfg.music_enabled && !ble_ams_start("OpenGauge")) ESP_LOGE(TAG, "A BLE nem indult el");
+    mem_probe_locked("BLE elindult");
 #endif
 
     // A kapcsolatfeladat a 0. magon (az LVGL az 1. magon fut).
     xTaskCreatePinnedToCore(link_task, "og_link", 4096, nullptr, 5, nullptr, 0);
+    mem_probe_locked("kapcsolatfeladat indult");
 #if defined(CONFIG_OG_DISP_BENCH)
     xTaskCreatePinnedToCore(bench_task, "og_bench", 4096, nullptr, 3, nullptr, 0);
 #endif

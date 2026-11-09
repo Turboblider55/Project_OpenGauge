@@ -55,6 +55,15 @@ menu "OpenGauge: kijelzőegység"
             Az indító logó lejárta után körbe lapoz a képernyőkön, és minden átmenetre kiírja a képkockák
             számát, átlagos és legnagyobb idejét, valamint a flush-ra várakozás és a rajzolás arányát.
 
+    config OG_DISP_MEMPROF
+        bool "Memóriaprofil: a belső RAM, a PSRAM, az LVGL-kupac és a feladatok vermének naplózása az indulás lépései szerint (MEMPROF sorok)"
+        default n
+        depends on OG_DISP_TEST_DASH
+        help
+            Az indulás lépései (LVGL indítása, képernyők felépítése, skálarajzolás) után, majd 20 s-onként
+            kiírja a szabad és a valaha mért legkisebb szabad memóriát, az LVGL-kupac állapotát, és ha a
+            FreeRTOS nyomkövetés be van kapcsolva, a feladatok verméből még soha nem használt részt.
+
     config OG_DISP_SLEEP
         bool "Alvás a műszerfalban: tétlenség után light sleep, ébredés érintésre vagy az OBD-egység BLE-hirdetésére"
         default n

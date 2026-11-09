@@ -213,6 +213,14 @@ struct SettingsViewImpl {
         return o;
     }
 
+    // Mit csinál: a képernyő törlése után nullázza a törölt objektumokra mutató állapotot.
+    static void reset(SettingsView* v) {
+        v->list_ = nullptr;
+        v->back_label_ = nullptr;
+        ctx_n = 0;
+        for (lv_obj_t*& w : widgets) w = nullptr;
+    }
+
     static Ctx* new_ctx(SettingsView* v, Field f, lv_obj_t* w, int dir) {
         Ctx* c = &ctx[ctx_n++];
         *c = {v, f, w, dir};
@@ -262,12 +270,24 @@ struct SettingsViewImpl {
     }
 };
 
-void SettingsView::build(const UiColors& c, ExitFn on_exit) {
-    using I = SettingsViewImpl;
-    I::colors = c;
-    I::ctx_n = 0;
+void SettingsView::init(const UiColors& c, ExitFn on_exit) {
+    SettingsViewImpl::colors = c;
     on_exit_ = on_exit;
+}
+
+// Mit csinál: a képernyő törlésekor (LV_EVENT_DELETE) nullázza a mutatókat, hogy a következő megnyitás újraépítsen.
+static void on_scr_deleted(lv_event_t* e) {
+    SettingsView* v = static_cast<SettingsView*>(lv_event_get_user_data(e));
+    v->scr = nullptr;
+    SettingsViewImpl::reset(v);
+}
+
+void SettingsView::build() {
+    using I = SettingsViewImpl;
+    const UiColors& c = I::colors;
+    I::ctx_n = 0;
     scr = lv_obj_create(nullptr);
+    lv_obj_add_event_cb(scr, on_scr_deleted, LV_EVENT_DELETE, this);
     lv_obj_set_style_bg_color(scr, c.bg, 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
     lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
@@ -295,6 +315,7 @@ void SettingsView::build(const UiColors& c, ExitFn on_exit) {
 }
 
 void SettingsView::open(const Settings& current) {
+    if (!scr) build();
     edit_ = current;
     orig_ = current;
     SettingsViewImpl::refresh_labels(this);

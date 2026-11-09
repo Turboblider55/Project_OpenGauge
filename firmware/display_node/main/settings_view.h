@@ -14,12 +14,15 @@ class SettingsView {
 public:
     using ExitFn = void (*)(const Settings& edited);
 
+    // A képernyő csak megnyitás és az azt követő törlés között létezik (nullptr, ha nincs felépítve).
     lv_obj_t* scr = nullptr;
 
-    // Felépíti a képernyőt (egyszer, az LVGL zárja alatt). Kilépéskor (VISSZA gomb vagy jobbra húzás) hívja on_exit-et.
-    void build(const UiColors& colors, ExitFn on_exit);
+    // Elmenti a színeket és a kilépési visszahívást; a képernyőt még nem építi fel (az LVGL-kupacot nem terheli).
+    // Kilépéskor (VISSZA gomb vagy jobbra húzás) hívja on_exit-et.
+    void init(const UiColors& colors, ExitFn on_exit);
 
-    // Betölti a jelenlegi beállításokat a vezérlőkbe; megnyitás előtt kell hívni.
+    // Felépíti a képernyőt (az LVGL zárja alatt), és betölti a jelenlegi beállításokat a vezérlőkbe.
+    // Megnyitás előtt kell hívni; utána a scr betölthető. Az LVGL az átlépés után törölheti (auto_del), a scr ilyenkor nullázódik.
     void open(const Settings& current);
 
 private:
@@ -29,6 +32,8 @@ private:
     lv_obj_t* back_label_ = nullptr;  // a VISSZA / ALKALMAZ gomb felirata
     ExitFn on_exit_ = nullptr;
     lv_obj_t* list_ = nullptr;
+
+    void build();  // felépíti a képernyő objektumait
 };
 
 }  // namespace og
