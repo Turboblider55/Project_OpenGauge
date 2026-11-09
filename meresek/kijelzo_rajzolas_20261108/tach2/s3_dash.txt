@@ -1,0 +1,301 @@
+[2026-11-08 23:04:48.598] === Naplózás indul: COM9, 2 perc ===
+[2026-11-08 23:04:48.641] === Port megnyitva ===
+[2026-11-08 23:04:49.038] I (182) esp_image: segment 1: paddr=000a69b4 vaddr=3fca2900 sizeI (1609) touch: Érintővezérlő kész (0x15); 500 ms múlva is válaszol: igen; időzített lekérdezés; tengelycsere 0, tükrözés x 0, y 0
+[2026-11-08 23:04:49.039] I (1611) st77916: version: 2.0.2
+[2026-11-08 23:04:49.279] I (1613) st77916_spi: LCD panel create success, version: 2.0.2
+[2026-11-08 23:04:49.280] I (1877) lcd: ST77916 kész: 360x360, QSPI 40 MHz, bájtcsere be, RGB, init: Waveshare 1,85"
+[2026-11-08 23:04:49.347] I (1896) og_disp: Háttérvilágítás: 80 %
+[2026-11-08 23:04:49.347] I (1896) og_disp: Érintő a kijelző indítása után: válaszol
+[2026-11-08 23:04:49.353] I (1905) pp: pp rom version: e7ae62f
+[2026-11-08 23:04:49.354] I (1906) net80211: net80211 rom version: e7ae62f
+[2026-11-08 23:04:49.355] I (1907) wifi:wifi driver task: 3fceea0c, prio:23, stack:6656, core=0
+[2026-11-08 23:04:49.355] I (1911) wifi:wifi firmware version: 4df78f2
+[2026-11-08 23:04:49.355] I (1912) wifi:wifi certification version: v7.0
+[2026-11-08 23:04:49.356] I (1916) wifi:config NVS flash: enabled
+[2026-11-08 23:04:49.356] I (1920) wifi:config nano formatting: disabled
+[2026-11-08 23:04:49.356] I (1924) wifi:Init data frame dynamic rx buffer num: 32
+[2026-11-08 23:04:49.356] I (1929) wifi:Init static rx mgmt buffer num: 5
+[2026-11-08 23:04:49.357] I (1933) wifi:Init management short buffer num: 32
+[2026-11-08 23:04:49.357] I (1938) wifi:Init dynamic tx buffer num: 32
+[2026-11-08 23:04:49.357] I (1942) wifi:Init static tx FG buffer num: 2
+[2026-11-08 23:04:49.425] I (1946) wifi:Init static rx buffer size: 1600
+[2026-11-08 23:04:49.425] I (1950) wifi:Init static rx buffer num: 10
+[2026-11-08 23:04:49.426] I (1954) wifi:Init dynamic rx buffer num: 32
+[2026-11-08 23:04:49.426] I (1958) wifi_init: rx ba win: 6
+[2026-11-08 23:04:49.426] I (1961) wifi_init: accept mbox: 6
+[2026-11-08 23:04:49.426] I (1964) wifi_init: tcpip mbox: 32
+[2026-11-08 23:04:49.427] I (1967) wifi_init: udp mbox: 6
+[2026-11-08 23:04:49.427] I (1970) wifi_init: tcp mbox: 6
+[2026-11-08 23:04:49.427] I (1973) wifi_init: tcp tx win: 5760
+[2026-11-08 23:04:49.427] I (1976) wifi_init: tcp rx win: 5760
+[2026-11-08 23:04:49.427] I (1979) wifi_init: tcp mss: 1440
+[2026-11-08 23:04:49.428] I (1982) wifi_init: WiFi IRAM OP enabled
+[2026-11-08 23:04:49.428] I (1986) wifi_init: WiFi RX IRAM OP enabled
+[2026-11-08 23:04:49.428] I (1990) phy_init: phy_version 711,97bcf0a2,Aug 25 2025,19:04:10
+[2026-11-08 23:04:49.487] I (2027) wifi:mode : sta (b8:1f:3f:a8:16:7c)
+[2026-11-08 23:04:49.488] I (2028) wifi:enable tsf
+[2026-11-08 23:04:49.489] I (2029) wifi:Set ps type: 0, coexist: 0
+[2026-11-08 23:04:49.489] I (2030) ESPNOW: espnow [version: 2.0] init
+[2026-11-08 23:04:49.489] I (2031) espnow: ESP-NOW kész: csatorna 1, saját MAC b8:1f:3f:a8:16:7c, társ ff:ff:ff:ff:ff:ff (szórás: nincs nyugta)
+[2026-11-08 23:04:49.490] I (2042) led: Állapot: piros kód 0 (hibamaszk 0x00), kék villog, zöld normál
+[2026-11-08 23:04:49.490] I (2049) og_dash: Beállítások: mentett, paletta: Piros-kék
+[2026-11-08 23:04:49.490] I (2055) LVGL: Starting LVGL task
+[2026-11-08 23:04:49.505] W (2058) lcd_panel.io.spi: Callback on_color_trans_done was already set and now it was overwritten!
+[2026-11-08 23:04:49.505] I (2085) og_lvgl: LVGL 9.6.0 fut: részleges frissítés, 2 x 40 soros DMA-puffer, frissítési periódus 16 ms
+[2026-11-08 23:04:49.505] I (2086) og_dash: Indító logó: Škoda
+[2026-11-08 23:04:49.693] I (2255) BLE_INIT: BT controller compile version [1bb2f50]
+[2026-11-08 23:04:49.694] I (2255) BLE_INIT: Using main XTAL as clock source
+[2026-11-08 23:04:49.696] I (2255) BLE_INIT: Feature Config, ADV:1, BLE_50:1, DTM:1, SCAN:1, CCA:0, SMP:1, CONNECT:1
+[2026-11-08 23:04:49.697] I (2262) BLE_INIT: Bluetooth MAC: b8:1f:3f:a8:16:7e
+[2026-11-08 23:04:49.698] I (2267) wifi:Coexist!!! Wi-Fi station would only keep waked when available
+[2026-11-08 23:04:49.699] I (2289) NimBLE: GAP procedure initiated: stop advertising.
+[2026-11-08 23:04:49.700] I (2290) NimBLE: GAP procedure initiated: stop advertising.
+[2026-11-08 23:04:49.702] I (2292) NimBLE: GAP procedure initiated: advertise; 
+[2026-11-08 23:04:49.764] I (2293) NimBLE: disc_mode=2
+[2026-11-08 23:04:49.764] I (2296) NimBLE:  adv_channel_map=0 own_addr_type=0 adv_filter_policy=0 adv_itvl_min=160 adv_itvl_max=160
+[2026-11-08 23:04:49.764] I (2305) NimBLE: 
+[2026-11-08 23:04:49.764] I (2308) og_ams: AMS-hirdetés indul: "OpenGauge"
+[2026-11-08 23:04:49.765] I (2312) og_dash: Műszerfal fut: 3 képernyő, váltás 5000 ms-onként
+[2026-11-08 23:04:49.765] I (2318) main_task: Returned from app_main()
+[2026-11-08 23:04:50.726] I (3315) og_dash: BENCH 1 s: 51 kép, 2.2 sáv/kép | idő/kép átl 6.7 ms (max 32.2) | várakozás 0.1 ms, flush-hívás 1.0 ms, rajzolás 5.6 ms | periódus 20.3 ms = 49 FPS | lassú(>33ms) 0
+[2026-11-08 23:04:50.786] I (3321) og_dash: 12 csomag/s, RSSI -13 dBm | összes 12, elveszett 1 (7.69 %, 60 s: 7.69 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28828 | adat friss, 1588 1/perc | FPS 51, belső RAM 13 kB | VIN --
+[2026-11-08 23:04:50.786] I (3322) led: Állapot: piros kód 0 (hibamaszk 0x00), kék folyamatos, zöld normál
+[2026-11-08 23:04:51.042] I (3636) og_dash: VIN: TMBWGFZD7TT965567 (Škoda)
+[2026-11-08 23:04:51.727] I (4315) og_dash: BENCH 1 s: 3 kép, 1.0 sáv/kép | idő/kép átl 4.1 ms (max 4.3) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.7 ms | periódus 300.0 ms = 3 FPS | lassú(>33ms) 0
+[2026-11-08 23:04:51.779] I (4321) og_dash: 9 csomag/s, RSSI -13 dBm | összes 21, elveszett 2 (8.70 %, 60 s: 8.70 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28838 | adat friss, 1268 1/perc | FPS 3, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:04:52.726] I (5319) og_dash: BENCH 1 s: 7 kép, 1.6 sáv/kép | idő/kép átl 4.8 ms (max 6.4) | várakozás 0.0 ms, flush-hívás 0.7 ms, rajzolás 4.1 ms | periódus 140.2 ms = 7 FPS | lassú(>33ms) 0
+[2026-11-08 23:04:52.778] I (5325) og_dash: 10 csomag/s, RSSI -13 dBm | összes 31, elveszett 2 (6.06 %, 60 s: 6.06 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28848 | adat friss, 1015 1/perc | FPS 7, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:04:53.738] I (6323) og_dash: BENCH 1 s: 49 kép, 2.2 sáv/kép | idő/kép átl 6.8 ms (max 37.5) | várakozás 0.0 ms, flush-hívás 1.0 ms, rajzolás 5.7 ms | periódus 20.5 ms = 49 FPS | lassú(>33ms) 1
+[2026-11-08 23:04:53.807] I (6329) og_dash: 9 csomag/s, RSSI -13 dBm | összes 40, elveszett 3 (6.98 %, 60 s: 6.98 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28858 | adat friss, 876 1/perc | FPS 49, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:04:54.744] I (7316) og_dash: BENCH 1 s: 27 kép, 1.1 sáv/kép | idő/kép átl 3.6 ms (max 7.8) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.3 ms | periódus 37.0 ms = 27 FPS | lassú(>33ms) 0
+[2026-11-08 23:04:54.745] I (7322) og_dash: 9 csomag/s, RSSI -13 dBm | összes 49, elveszett 4 (7.55 %, 60 s: 7.55 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28868 | adat friss, 857 1/perc | FPS 27, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:04:55.737] I (8323) og_dash: BENCH 1 s: 47 kép, 1.4 sáv/kép | idő/kép átl 4.5 ms (max 11.6) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 4.1 ms | periódus 21.4 ms = 47 FPS | lassú(>33ms) 0
+[2026-11-08 23:04:55.809] I (8330) og_dash: 10 csomag/s, RSSI -13 dBm | összes 59, elveszett 4 (6.35 %, 60 s: 6.35 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28878 | adat friss, 960 1/perc | FPS 47, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:04:56.750] I (9323) og_dash: BENCH 1 s: 46 kép, 1.7 sáv/kép | idő/kép átl 6.0 ms (max 11.6) | várakozás 0.0 ms, flush-hívás 0.5 ms, rajzolás 5.5 ms | periódus 21.8 ms = 46 FPS | lassú(>33ms) 0
+[2026-11-08 23:04:56.750] I (9329) og_dash: 9 csomag/s, RSSI -13 dBm | összes 68, elveszett 5 (6.85 %, 60 s: 6.85 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28888 | adat friss, 1174 1/perc | FPS 46, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:04:57.761] I (10318) og_dash: BENCH 1 s: 50 kép, 1.9 sáv/kép | idő/kép átl 7.0 ms (max 15.9) | várakozás 0.0 ms, flush-hívás 0.6 ms, rajzolás 6.3 ms | periódus 20.0 ms = 50 FPS | lassú(>33ms) 0
+[2026-11-08 23:04:57.762] I (10324) og_dash: 10 csomag/s, RSSI -13 dBm | összes 78, elveszett 5 (6.02 %, 60 s: 6.02 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28898 | adat friss, 1479 1/perc | FPS 50, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:04:58.763] I (11323) og_dash: BENCH 1 s: 49 kép, 2.1 sáv/kép | idő/kép átl 8.0 ms (max 16.4) | várakozás 0.0 ms, flush-hívás 0.7 ms, rajzolás 7.3 ms | periódus 20.4 ms = 49 FPS | lassú(>33ms) 0
+[2026-11-08 23:04:58.763] I (11330) og_dash: 10 csomag/s, RSSI -13 dBm | összes 88, elveszett 5 (5.38 %, 60 s: 5.38 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28908 | adat friss, 1844 1/perc | FPS 49, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:04:59.724] I (12256) og_dash: BENCH 0->2: 12 kép, 7.7 sáv/kép | idő/kép átl 35.0 ms (max 48.0) | várakozás 0.1 ms, flush-hívás 3.7 ms, rajzolás 31.2 ms | periódus 56.9 ms = 18 FPS | lassú(>33ms) 9
+[2026-11-08 23:04:59.725] I (12316) og_dash: Akkumulátor: nyers 4242 mV, szűrt 4230 mV, 100 %, szint 1, töltés (becslés) 0
+[2026-11-08 23:04:59.793] I (12334) og_dash: BENCH 1 s: 2 kép, 9.0 sáv/kép | idő/kép átl 36.8 ms (max 37.2) | várakozás 0.1 ms, flush-hívás 4.4 ms, rajzolás 32.3 ms | periódus 40.2 ms = 25 FPS | lassú(>33ms) 2
+[2026-11-08 23:04:59.793] I (12340) og_dash: 9 csomag/s, RSSI -13 dBm | összes 97, elveszett 5 (4.90 %, 60 s: 4.90 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28917 | adat friss, 2205 1/perc | FPS 16, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:00.779] I (13317) og_dash: 10 csomag/s, RSSI -13 dBm | összes 107, elveszett 6 (5.31 %, 60 s: 5.31 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28928 | adat friss, 2612 1/perc | FPS 39, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:01.598] I (14168) og_dash: BENCH 2->3: 13 kép, 7.8 sáv/kép | idő/kép átl 32.0 ms (max 41.2) | várakozás 0.1 ms, flush-hívás 3.8 ms, rajzolás 28.1 ms | periódus 71.8 ms = 14 FPS | lassú(>33ms) 10
+[2026-11-08 23:05:01.724] I (14315) og_dash: BENCH 1 s: nem volt rajzolás
+[2026-11-08 23:05:01.779] I (14315) og_dash: 10 csomag/s, RSSI -13 dBm | összes 117, elveszett 6 (4.88 %, 60 s: 4.88 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28938 | adat friss, 2940 1/perc | FPS 12, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:02.780] I (15317) og_dash: 9 csomag/s, RSSI -13 dBm | összes 126, elveszett 7 (5.26 %, 60 s: 5.26 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28948 | adat friss, 3185 1/perc | FPS 4, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:03.544] I (16089) og_dash: BENCH 3->4: 22 kép, 5.1 sáv/kép | idő/kép átl 37.2 ms (max 71.9) | várakozás 0.1 ms, flush-hívás 2.3 ms, rajzolás 34.8 ms | periódus 41.5 ms = 24 FPS | lassú(>33ms) 7
+[2026-11-08 23:05:03.739] I (16317) og_dash: BENCH 1 s: 9 kép, 3.1 sáv/kép | idő/kép átl 21.8 ms (max 26.7) | várakozás 0.0 ms, flush-hívás 1.3 ms, rajzolás 20.5 ms | periódus 25.2 ms = 40 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:03.795] I (16324) og_dash: 10 csomag/s, RSSI -13 dBm | összes 136, elveszett 7 (4.90 %, 60 s: 4.90 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28958 | adat friss, 3323 1/perc | FPS 30, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:04.760] I (17316) og_dash: 10 csomag/s, RSSI -13 dBm | összes 146, elveszett 7 (4.58 %, 60 s: 4.58 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28968 | adat friss, 3342 1/perc | FPS 29, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:05.439] I (17998) og_dash: BENCH 4->1: 15 kép, 7.4 sáv/kép | idő/kép átl 38.2 ms (max 78.6) | várakozás 0.1 ms, flush-hívás 3.6 ms, rajzolás 34.5 ms | periódus 56.9 ms = 18 FPS | lassú(>33ms) 11
+[2026-11-08 23:05:05.762] I (18315) og_dash: BENCH 1 s: 2 kép, 1.0 sáv/kép | idő/kép átl 3.9 ms (max 4.3) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.5 ms | periódus 59.2 ms = 17 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:05.762] I (18322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 156, elveszett 7 (4.29 %, 60 s: 4.29 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28978 | adat friss, 3240 1/perc | FPS 13, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:06.764] I (19317) og_dash: 10 csomag/s, RSSI -13 dBm | összes 166, elveszett 7 (4.05 %, 60 s: 4.05 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28988 | adat friss, 3026 1/perc | FPS 10, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:07.348] I (19904) og_dash: BENCH 1->2: 34 kép, 3.6 sáv/kép | idő/kép átl 14.0 ms (max 43.9) | várakozás 0.1 ms, flush-hívás 1.6 ms, rajzolás 12.3 ms | periódus 26.1 ms = 38 FPS | lassú(>33ms) 9
+[2026-11-08 23:05:07.727] I (20315) og_dash: BENCH 1 s: 20 kép, 1.2 sáv/kép | idő/kép átl 4.2 ms (max 7.6) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 3.8 ms | periódus 20.0 ms = 50 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:07.792] I (20322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 176, elveszett 7 (3.83 %, 60 s: 3.83 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 28998 | adat friss, 2721 1/perc | FPS 49, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:08.779] I (21316) og_dash: 10 csomag/s, RSSI -13 dBm | összes 186, elveszett 7 (3.63 %, 60 s: 3.63 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29008 | adat friss, 2355 1/perc | FPS 39, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:09.226] I (21813) og_dash: BENCH 2->3: 13 kép, 7.8 sáv/kép | idő/kép átl 31.6 ms (max 41.0) | várakozás 0.1 ms, flush-hívás 3.8 ms, rajzolás 27.7 ms | periódus 54.5 ms = 18 FPS | lassú(>33ms) 10
+[2026-11-08 23:05:09.725] I (22315) og_dash: Akkumulátor: nyers 4206 mV, szűrt 4230 mV, 100 %, szint 1, töltés (becslés) 0
+[2026-11-08 23:05:09.779] I (22316) og_dash: BENCH 1 s: 2 kép, 1.0 sáv/kép | idő/kép átl 3.8 ms (max 4.2) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.5 ms | periódus 301.1 ms = 3 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:09.779] I (22331) og_dash: 10 csomag/s, RSSI -13 dBm | összes 196, elveszett 7 (3.45 %, 60 s: 3.45 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29018 | adat friss, 1965 1/perc | FPS 5, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:10.737] I (23317) og_dash: 10 csomag/s, RSSI -13 dBm | összes 206, elveszett 7 (3.29 %, 60 s: 3.29 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29028 | adat friss, 1588 1/perc | FPS 8, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:11.175] I (23726) og_dash: BENCH 3->4: 22 kép, 5.2 sáv/kép | idő/kép átl 37.2 ms (max 70.1) | várakozás 0.1 ms, flush-hívás 2.4 ms, rajzolás 34.8 ms | periódus 41.3 ms = 24 FPS | lassú(>33ms) 7
+[2026-11-08 23:05:11.740] I (24327) og_dash: BENCH 1 s: 23 kép, 3.3 sáv/kép | idő/kép átl 22.5 ms (max 32.5) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 21.0 ms | periódus 26.2 ms = 38 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:11.799] I (24334) og_dash: 10 csomag/s, RSSI -13 dBm | összes 216, elveszett 7 (3.14 %, 60 s: 3.14 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29038 | adat friss, 1261 1/perc | FPS 39, belső RAM 13 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:12.741] I (25316) og_dash: 9 csomag/s, RSSI -13 dBm | összes 225, elveszett 8 (3.43 %, 60 s: 3.43 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29048 | adat friss, 1015 1/perc | FPS 28, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:13.058] I (25644) og_dash: BENCH 4->0: 29 kép, 3.2 sáv/kép | idő/kép átl 19.4 ms (max 81.3) | várakozás 0.0 ms, flush-hívás 1.3 ms, rajzolás 18.0 ms | periódus 31.5 ms = 32 FPS | lassú(>33ms) 6
+[2026-11-08 23:05:13.760] I (26316) og_dash: BENCH 1 s: 33 kép, 1.4 sáv/kép | idő/kép átl 4.7 ms (max 11.4) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 4.2 ms | periódus 20.6 ms = 48 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:13.760] I (26322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 235, elveszett 8 (3.29 %, 60 s: 3.29 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29058 | adat friss, 877 1/perc | FPS 50, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:14.752] I (27316) og_dash: 10 csomag/s, RSSI -13 dBm | összes 245, elveszett 8 (3.16 %, 60 s: 3.16 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29068 | adat friss, 857 1/perc | FPS 26, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:15.020] I (27581) og_dash: BENCH 0->2: 19 kép, 8.2 sáv/kép | idő/kép átl 35.5 ms (max 44.6) | várakozás 0.1 ms, flush-hívás 4.0 ms, rajzolás 31.3 ms | periódus 49.3 ms = 20 FPS | lassú(>33ms) 16
+[2026-11-08 23:05:15.765] I (28318) og_dash: BENCH 1 s: 34 kép, 2.2 sáv/kép | idő/kép átl 7.9 ms (max 41.0) | várakozás 0.0 ms, flush-hívás 0.9 ms, rajzolás 7.0 ms | periódus 22.1 ms = 45 FPS | lassú(>33ms) 3
+[2026-11-08 23:05:15.765] I (28325) og_dash: 10 csomag/s, RSSI -13 dBm | összes 255, elveszett 8 (3.04 %, 60 s: 3.04 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29078 | adat friss, 960 1/perc | FPS 41, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:16.765] I (29315) og_dash: 9 csomag/s, RSSI -13 dBm | összes 264, elveszett 9 (3.30 %, 60 s: 3.30 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29088 | adat friss, 1174 1/perc | FPS 25, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:16.904] I (29488) og_dash: BENCH 2->3: 13 kép, 7.8 sáv/kép | idő/kép átl 31.8 ms (max 40.7) | várakozás 0.1 ms, flush-hívás 3.8 ms, rajzolás 27.9 ms | periódus 61.3 ms = 16 FPS | lassú(>33ms) 9
+[2026-11-08 23:05:17.741] I (30315) og_dash: BENCH 1 s: 3 kép, 1.0 sáv/kép | idő/kép átl 4.4 ms (max 4.5) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 4.1 ms | periódus 299.6 ms = 3 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:17.741] I (30321) og_dash: 10 csomag/s, RSSI -13 dBm | összes 274, elveszett 9 (3.18 %, 60 s: 3.18 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29098 | adat friss, 1479 1/perc | FPS 4, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:18.752] I (31317) og_dash: 10 csomag/s, RSSI -13 dBm | összes 284, elveszett 9 (3.07 %, 60 s: 3.07 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29108 | adat friss, 1844 1/perc | FPS 18, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:18.813] I (31398) og_dash: BENCH 3->4: 22 kép, 5.2 sáv/kép | idő/kép átl 37.1 ms (max 70.2) | várakozás 0.1 ms, flush-hívás 2.4 ms, rajzolás 34.7 ms | periódus 41.4 ms = 24 FPS | lassú(>33ms) 8
+[2026-11-08 23:05:19.758] I (32317) og_dash: Akkumulátor: nyers 4230 mV, szűrt 4232 mV, 100 %, szint 1, töltés (becslés) 0
+[2026-11-08 23:05:19.820] I (32388) og_dash: BENCH 1 s: 34 kép, 3.7 sáv/kép | idő/kép átl 25.6 ms (max 83.1) | várakozás 0.1 ms, flush-hívás 1.5 ms, rajzolás 24.0 ms | periódus 27.4 ms = 37 FPS | lassú(>33ms) 2
+[2026-11-08 23:05:19.820] I (32395) og_dash: 10 csomag/s, RSSI -13 dBm | összes 294, elveszett 9 (2.97 %, 60 s: 2.97 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29118 | adat friss, 2235 1/perc | FPS 38, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:20.725] I (33315) og_dash: 10 csomag/s, RSSI -13 dBm | összes 304, elveszett 9 (2.88 %, 60 s: 2.88 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29128 | adat friss, 2612 1/perc | FPS 13, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:20.786] I (33371) og_dash: BENCH 0->1: 12 kép, 7.7 sáv/kép | idő/kép átl 34.5 ms (max 46.0) | várakozás 0.1 ms, flush-hívás 3.7 ms, rajzolás 30.7 ms | periódus 70.8 ms = 14 FPS | lassú(>33ms) 9
+[2026-11-08 23:05:21.731] I (34315) og_dash: BENCH 1 s: 6 kép, 1.0 sáv/kép | idő/kép átl 3.7 ms (max 4.6) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.4 ms | periódus 164.0 ms = 6 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:21.795] I (34322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 314, elveszett 9 (2.79 %, 60 s: 2.79 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29138 | adat friss, 2940 1/perc | FPS 6, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:22.747] I (35277) og_dash: BENCH 1->2: 34 kép, 3.8 sáv/kép | idő/kép átl 14.7 ms (max 42.9) | várakozás 0.1 ms, flush-hívás 1.7 ms, rajzolás 12.9 ms | periódus 26.4 ms = 38 FPS | lassú(>33ms) 10
+[2026-11-08 23:05:22.748] I (35316) og_dash: BENCH 1 s: 2 kép, 1.5 sáv/kép | idő/kép átl 5.2 ms (max 7.1) | várakozás 0.0 ms, flush-hívás 0.5 ms, rajzolás 4.6 ms | periódus 19.1 ms = 52 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:22.748] I (35322) og_dash: 9 csomag/s, RSSI -13 dBm | összes 323, elveszett 10 (3.00 %, 60 s: 3.00 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29148 | adat friss, 3185 1/perc | FPS 37, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:23.748] I (36316) og_dash: 10 csomag/s, RSSI -13 dBm | összes 333, elveszett 10 (2.92 %, 60 s: 2.92 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29158 | adat friss, 3323 1/perc | FPS 49, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:24.638] I (37187) og_dash: BENCH 2->3: 13 kép, 7.8 sáv/kép | idő/kép átl 31.7 ms (max 40.3) | várakozás 0.1 ms, flush-hívás 3.8 ms, rajzolás 27.8 ms | periódus 68.1 ms = 15 FPS | lassú(>33ms) 10
+[2026-11-08 23:05:24.776] I (37318) og_dash: BENCH 1 s: nem volt rajzolás
+[2026-11-08 23:05:24.776] I (37318) og_dash: 10 csomag/s, RSSI -13 dBm | összes 343, elveszett 10 (2.83 %, 60 s: 2.83 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29168 | adat friss, 3342 1/perc | FPS 13, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:25.774] I (38316) og_dash: 10 csomag/s, RSSI -13 dBm | összes 353, elveszett 10 (2.75 %, 60 s: 2.75 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29178 | adat friss, 3240 1/perc | FPS 4, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:26.522] I (39108) og_dash: BENCH 3->4: 22 kép, 5.1 sáv/kép | idő/kép átl 37.2 ms (max 71.6) | várakozás 0.1 ms, flush-hívás 2.4 ms, rajzolás 34.8 ms | periódus 41.5 ms = 24 FPS | lassú(>33ms) 7
+[2026-11-08 23:05:26.775] I (39321) og_dash: BENCH 1 s: 8 kép, 3.2 sáv/kép | idő/kép átl 22.9 ms (max 27.4) | várakozás 0.0 ms, flush-hívás 1.3 ms, rajzolás 21.5 ms | periódus 26.5 ms = 38 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:26.776] I (39328) og_dash: 10 csomag/s, RSSI -13 dBm | összes 363, elveszett 10 (2.68 %, 60 s: 2.68 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29188 | adat friss, 3026 1/perc | FPS 29, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:27.776] I (40317) og_dash: 10 csomag/s, RSSI -13 dBm | összes 373, elveszett 10 (2.61 %, 60 s: 2.61 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29198 | adat friss, 2721 1/perc | FPS 33, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:28.768] I (41316) og_dash: 10 csomag/s, RSSI -13 dBm | összes 383, elveszett 10 (2.54 %, 60 s: 2.54 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29208 | adat friss, 2355 1/perc | FPS 42, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:29.779] I (42317) og_dash: Akkumulátor: nyers 4260 mV, szűrt 4237 mV, 100 %, szint 1, töltés (becslés) 0
+[2026-11-08 23:05:29.779] I (42317) og_dash: 10 csomag/s, RSSI -13 dBm | összes 393, elveszett 10 (2.48 %, 60 s: 2.48 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29218 | adat friss, 1965 1/perc | FPS 49, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:30.747] I (43316) og_dash: 10 csomag/s, RSSI -12 dBm | összes 403, elveszett 10 (2.42 %, 60 s: 2.42 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29228 | adat friss, 1588 1/perc | FPS 14, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:31.768] I (44315) og_dash: 10 csomag/s, RSSI -12 dBm | összes 413, elveszett 10 (2.36 %, 60 s: 2.36 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29238 | adat friss, 1261 1/perc | FPS 7, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:32.731] I (45316) og_dash: 10 csomag/s, RSSI -12 dBm | összes 423, elveszett 10 (2.31 %, 60 s: 2.31 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29248 | adat friss, 1015 1/perc | FPS 6, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:33.725] I (46315) og_dash: 10 csomag/s, RSSI -12 dBm | összes 433, elveszett 10 (2.26 %, 60 s: 2.26 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29258 | adat friss, 877 1/perc | FPS 6, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:34.781] I (47316) og_dash: 10 csomag/s, RSSI -13 dBm | összes 443, elveszett 10 (2.21 %, 60 s: 2.21 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29268 | adat friss, 857 1/perc | FPS 5, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:35.093] I (47625) og_dash: BENCH all 0: 79 kép, 3.3 sáv/kép | idő/kép átl 13.9 ms (max 46.4) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 12.4 ms | periódus 76.2 ms = 13 FPS | lassú(>33ms) 17
+[2026-11-08 23:05:35.732] I (48316) og_dash: 10 csomag/s, RSSI -13 dBm | összes 453, elveszett 10 (2.16 %, 60 s: 2.16 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29278 | adat friss, 960 1/perc | FPS 27, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:36.744] I (49317) og_dash: 9 csomag/s, RSSI -13 dBm | összes 462, elveszett 11 (2.33 %, 60 s: 2.33 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29288 | adat friss, 1174 1/perc | FPS 39, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:37.738] I (50316) og_dash: 9 csomag/s, RSSI -13 dBm | összes 471, elveszett 12 (2.48 %, 60 s: 2.48 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29298 | adat friss, 1476 1/perc | FPS 39, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:38.737] I (51316) og_dash: 10 csomag/s, RSSI -12 dBm | összes 481, elveszett 12 (2.43 %, 60 s: 2.43 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29308 | adat friss, 1841 1/perc | FPS 37, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:39.762] I (52316) og_dash: Akkumulátor: nyers 4278 mV, szűrt 4240 mV, 100 %, szint 1, töltés (becslés) 0
+[2026-11-08 23:05:39.763] I (52316) og_dash: 9 csomag/s, RSSI -13 dBm | összes 490, elveszett 13 (2.58 %, 60 s: 2.58 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29318 | adat friss, 2225 1/perc | FPS 37, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:40.764] I (53315) og_dash: 10 csomag/s, RSSI -13 dBm | összes 500, elveszett 13 (2.53 %, 60 s: 2.53 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29328 | adat friss, 2609 1/perc | FPS 32, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:41.775] I (54315) og_dash: 10 csomag/s, RSSI -13 dBm | összes 510, elveszett 13 (2.49 %, 60 s: 2.49 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29338 | adat friss, 2937 1/perc | FPS 48, belső RAM 12 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:42.606] I (55176) og_dash: BENCH all 4: 239 kép, 2.9 sáv/kép | idő/kép átl 16.8 ms (max 83.2) | várakozás 0.0 ms, flush-hívás 1.1 ms, rajzolás 15.7 ms | periódus 25.0 ms = 40 FPS | lassú(>33ms) 7
+[2026-11-08 23:05:42.607] I (55188) og_dash: BENCH LVGL-kupac: 59636 B összesen, szabad 15764 B, legnagyobb használat 85 %, töredezettség 13 %
+[2026-11-08 23:05:42.607] I (55193) og_dash: BENCH belső RAM szabad: 13283 B, legnagyobb blokk 7680 B
+[2026-11-08 23:05:42.608] I (55200) og_dash: BENCH kész
+[2026-11-08 23:05:42.740] I (55316) og_dash: BENCH 1 s: 7 kép, 1.9 sáv/kép | idő/kép átl 7.0 ms (max 12.6) | várakozás 0.0 ms, flush-hívás 0.6 ms, rajzolás 6.3 ms | periódus 19.9 ms = 50 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:42.803] I (55323) og_dash: 10 csomag/s, RSSI -13 dBm | összes 520, elveszett 13 (2.44 %, 60 s: 2.44 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29348 | adat friss, 3183 1/perc | FPS 48, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:43.735] I (56316) og_dash: BENCH 1 s: 47 kép, 1.5 sáv/kép | idő/kép átl 5.2 ms (max 12.9) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 4.8 ms | periódus 21.3 ms = 47 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:43.795] I (56323) og_dash: 10 csomag/s, RSSI -13 dBm | összes 530, elveszett 13 (2.39 %, 60 s: 2.39 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29358 | adat friss, 3323 1/perc | FPS 48, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:44.753] I (57315) og_dash: BENCH 1 s: 31 kép, 1.2 sáv/kép | idő/kép átl 3.9 ms (max 8.5) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.5 ms | periódus 32.7 ms = 31 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:44.753] I (57321) og_dash: 10 csomag/s, RSSI -13 dBm | összes 540, elveszett 13 (2.35 %, 60 s: 2.35 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29368 | adat friss, 3343 1/perc | FPS 30, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:45.760] I (58316) og_dash: BENCH 1 s: 12 kép, 7.7 sáv/kép | idő/kép átl 34.7 ms (max 46.2) | várakozás 0.1 ms, flush-hívás 3.8 ms, rajzolás 30.8 ms | periódus 78.0 ms = 13 FPS | lassú(>33ms) 9
+[2026-11-08 23:05:45.761] I (58323) og_dash: 9 csomag/s, RSSI -13 dBm | összes 549, elveszett 14 (2.49 %, 60 s: 2.49 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29378 | adat friss, 3241 1/perc | FPS 12, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:46.774] I (59316) og_dash: BENCH 1 s: 7 kép, 1.0 sáv/kép | idő/kép átl 3.6 ms (max 4.3) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.3 ms | periódus 150.0 ms = 7 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:46.775] I (59322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 559, elveszett 14 (2.44 %, 60 s: 2.44 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29388 | adat friss, 3028 1/perc | FPS 7, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:47.772] I (60316) og_dash: BENCH 1 s: 6 kép, 1.0 sáv/kép | idő/kép átl 3.6 ms (max 4.3) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.3 ms | periódus 128.0 ms = 8 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:47.773] I (60322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 569, elveszett 14 (2.40 %, 60 s: 2.40 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29398 | adat friss, 2723 1/perc | FPS 6, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:48.741] I (61316) og_dash: BENCH 1 s: 6 kép, 1.0 sáv/kép | idő/kép átl 3.8 ms (max 4.4) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.4 ms | periódus 148.0 ms = 7 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:48.803] I (61322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 579, elveszett 14 (2.36 %, 60 s: 2.36 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29408 | adat friss, 2358 1/perc | FPS 6, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:49.758] I (62317) og_dash: Akkumulátor: nyers 4260 mV, szűrt 4240 mV, 100 %, szint 1, töltés (becslés) 0
+[2026-11-08 23:05:49.819] I (62353) og_dash: BENCH 1 s: 8 kép, 2.0 sáv/kép | idő/kép átl 7.7 ms (max 35.9) | várakozás 0.0 ms, flush-hívás 0.8 ms, rajzolás 6.9 ms | periódus 140.0 ms = 7 FPS | lassú(>33ms) 1
+[2026-11-08 23:05:49.820] I (62359) og_dash: 10 csomag/s, RSSI -13 dBm | összes 589, elveszett 14 (2.32 %, 60 s: 2.32 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29418 | adat friss, 1967 1/perc | FPS 8, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:50.774] I (63319) og_dash: BENCH 1 s: 39 kép, 3.2 sáv/kép | idő/kép átl 12.5 ms (max 43.4) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 11.0 ms | periódus 25.3 ms = 40 FPS | lassú(>33ms) 9
+[2026-11-08 23:05:50.775] I (63326) og_dash: 10 csomag/s, RSSI -13 dBm | összes 599, elveszett 14 (2.28 %, 60 s: 2.17 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29428 | adat friss, 1590 1/perc | FPS 39, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:51.784] I (64319) og_dash: BENCH 1 s: 50 kép, 1.1 sáv/kép | idő/kép átl 3.9 ms (max 10.7) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 3.5 ms | periódus 20.0 ms = 50 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:51.785] I (64326) og_dash: 10 csomag/s, RSSI -13 dBm | összes 609, elveszett 14 (2.25 %, 60 s: 2.00 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29438 | adat friss, 1263 1/perc | FPS 50, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:52.739] I (65316) og_dash: BENCH 1 s: 49 kép, 1.2 sáv/kép | idő/kép átl 4.0 ms (max 11.6) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 3.6 ms | periódus 20.0 ms = 50 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:52.800] I (65323) og_dash: 10 csomag/s, RSSI -13 dBm | összes 619, elveszett 14 (2.21 %, 60 s: 2.00 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29448 | adat friss, 1016 1/perc | FPS 50, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:53.748] I (66319) og_dash: BENCH 1 s: 51 kép, 1.1 sáv/kép | idő/kép átl 3.8 ms (max 7.9) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 3.4 ms | periódus 20.0 ms = 50 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:53.749] I (66325) og_dash: 10 csomag/s, RSSI -13 dBm | összes 629, elveszett 14 (2.18 %, 60 s: 1.83 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29458 | adat friss, 877 1/perc | FPS 50, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:54.821] I (67380) og_dash: BENCH 1 s: 50 kép, 1.3 sáv/kép | idő/kép átl 5.1 ms (max 64.8) | várakozás 0.0 ms, flush-hívás 0.5 ms, rajzolás 4.6 ms | periódus 20.0 ms = 50 FPS | lassú(>33ms) 1
+[2026-11-08 23:05:54.822] I (67387) og_dash: 10 csomag/s, RSSI -13 dBm | összes 639, elveszett 14 (2.14 %, 60 s: 1.67 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29468 | adat friss, 857 1/perc | FPS 50, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:55.778] I (68320) og_dash: BENCH 1 s: 25 kép, 4.6 sáv/kép | idő/kép átl 33.5 ms (max 72.7) | várakozás 0.1 ms, flush-hívás 2.1 ms, rajzolás 31.3 ms | periódus 38.1 ms = 26 FPS | lassú(>33ms) 6
+[2026-11-08 23:05:55.779] I (68327) og_dash: 9 csomag/s, RSSI -13 dBm | összes 648, elveszett 15 (2.26 %, 60 s: 1.83 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29478 | adat friss, 958 1/perc | FPS 25, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:56.782] I (69321) og_dash: BENCH 1 s: 39 kép, 3.3 sáv/kép | idő/kép átl 22.1 ms (max 32.9) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 20.7 ms | periódus 25.7 ms = 39 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:56.783] I (69328) og_dash: 10 csomag/s, RSSI -13 dBm | összes 658, elveszett 15 (2.23 %, 60 s: 1.67 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29488 | adat friss, 1172 1/perc | FPS 39, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:57.783] I (70334) og_dash: BENCH 1 s: 39 kép, 3.4 sáv/kép | idő/kép átl 22.4 ms (max 33.3) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 21.0 ms | periódus 26.0 ms = 38 FPS | lassú(>33ms) 1
+[2026-11-08 23:05:57.784] I (70341) og_dash: 9 csomag/s, RSSI -13 dBm | összes 667, elveszett 15 (2.20 %, 60 s: 1.67 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29497 | adat friss, 1453 1/perc | FPS 39, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:58.784] I (71321) og_dash: BENCH 1 s: 37 kép, 3.4 sáv/kép | idő/kép átl 23.1 ms (max 28.6) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 21.6 ms | periódus 26.5 ms = 38 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:58.784] I (71328) og_dash: 10 csomag/s, RSSI -13 dBm | összes 677, elveszett 16 (2.31 %, 60 s: 1.83 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29508 | adat friss, 1842 1/perc | FPS 37, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:05:59.741] I (72317) og_dash: Akkumulátor: nyers 4250 mV, szűrt 4245 mV, 100 %, szint 1, töltés (becslés) 0
+[2026-11-08 23:05:59.743] I (72319) og_dash: BENCH 1 s: 37 kép, 3.5 sáv/kép | idő/kép átl 23.5 ms (max 32.3) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 22.0 ms | periódus 26.8 ms = 37 FPS | lassú(>33ms) 0
+[2026-11-08 23:05:59.806] I (72333) og_dash: 10 csomag/s, RSSI -13 dBm | összes 687, elveszett 16 (2.28 %, 60 s: 1.83 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29518 | adat friss, 2233 1/perc | FPS 37, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:00.756] I (73315) og_dash: BENCH 1 s: 32 kép, 3.4 sáv/kép | idő/kép átl 20.4 ms (max 82.3) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 19.0 ms | periódus 31.5 ms = 32 FPS | lassú(>33ms) 6
+[2026-11-08 23:06:00.757] I (73322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 697, elveszett 16 (2.24 %, 60 s: 1.67 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29528 | adat friss, 2610 1/perc | FPS 32, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:01.776] I (74316) og_dash: BENCH 1 s: 49 kép, 2.0 sáv/kép | idő/kép átl 8.0 ms (max 17.3) | várakozás 0.0 ms, flush-hívás 0.6 ms, rajzolás 7.3 ms | periódus 20.4 ms = 49 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:01.777] I (74323) og_dash: 10 csomag/s, RSSI -13 dBm | összes 707, elveszett 16 (2.21 %, 60 s: 1.67 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29538 | adat friss, 2938 1/perc | FPS 49, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:02.728] I (75315) og_dash: BENCH 1 s: 49 kép, 1.8 sáv/kép | idő/kép átl 6.7 ms (max 12.9) | várakozás 0.0 ms, flush-hívás 0.6 ms, rajzolás 6.2 ms | periódus 20.4 ms = 49 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:02.793] I (75322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 717, elveszett 16 (2.18 %, 60 s: 1.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29548 | adat friss, 3183 1/perc | FPS 49, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:03.732] I (76316) og_dash: BENCH 1 s: 47 kép, 1.5 sáv/kép | idő/kép átl 5.1 ms (max 13.1) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 4.7 ms | periódus 21.3 ms = 47 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:03.809] I (76323) og_dash: 10 csomag/s, RSSI -13 dBm | összes 727, elveszett 16 (2.15 %, 60 s: 1.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29558 | adat friss, 3323 1/perc | FPS 47, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:04.726] I (77316) og_dash: BENCH 1 s: 32 kép, 1.2 sáv/kép | idő/kép átl 3.9 ms (max 8.9) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.6 ms | periódus 31.6 ms = 32 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:04.791] I (77322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 737, elveszett 16 (2.12 %, 60 s: 1.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29568 | adat friss, 3343 1/perc | FPS 32, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:05.728] I (78316) og_dash: BENCH 1 s: 13 kép, 7.2 sáv/kép | idő/kép átl 32.2 ms (max 45.7) | várakozás 0.1 ms, flush-hívás 3.5 ms, rajzolás 28.6 ms | periódus 71.0 ms = 14 FPS | lassú(>33ms) 9
+[2026-11-08 23:06:05.789] I (78322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 747, elveszett 16 (2.10 %, 60 s: 1.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29578 | adat friss, 3241 1/perc | FPS 13, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:06.743] I (79317) og_dash: BENCH 1 s: 6 kép, 1.0 sáv/kép | idő/kép átl 3.6 ms (max 4.3) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.3 ms | periódus 139.8 ms = 7 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:06.804] I (79323) og_dash: 10 csomag/s, RSSI -13 dBm | összes 757, elveszett 16 (2.07 %, 60 s: 1.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29588 | adat friss, 3028 1/perc | FPS 6, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:07.748] I (80316) og_dash: BENCH 1 s: 7 kép, 1.0 sáv/kép | idő/kép átl 3.8 ms (max 4.4) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.5 ms | periódus 149.8 ms = 7 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:07.749] I (80323) og_dash: 9 csomag/s, RSSI -13 dBm | összes 766, elveszett 17 (2.17 %, 60 s: 1.67 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29598 | adat friss, 2723 1/perc | FPS 7, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:08.792] I (81316) og_dash: BENCH 1 s: 5 kép, 1.2 sáv/kép | idő/kép átl 4.2 ms (max 6.4) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 3.8 ms | periódus 150.2 ms = 7 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:08.793] I (81322) og_dash: 9 csomag/s, RSSI -13 dBm | összes 775, elveszett 18 (2.27 %, 60 s: 1.83 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29608 | adat friss, 2358 1/perc | FPS 5, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:09.730] I (82316) og_dash: Akkumulátor: nyers 4228 mV, szűrt 4242 mV, 100 %, szint 1, töltés (becslés) 0
+[2026-11-08 23:06:09.730] I (82316) og_dash: BENCH 1 s: 6 kép, 1.0 sáv/kép | idő/kép átl 3.6 ms (max 4.4) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.3 ms | periódus 140.2 ms = 7 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:09.793] I (82331) og_dash: 10 csomag/s, RSSI -13 dBm | összes 785, elveszett 18 (2.24 %, 60 s: 1.83 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29618 | adat friss, 1968 1/perc | FPS 6, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:10.792] I (83317) og_dash: BENCH 1 s: 39 kép, 3.4 sáv/kép | idő/kép átl 13.1 ms (max 42.1) | várakozás 0.0 ms, flush-hívás 1.5 ms, rajzolás 11.5 ms | periódus 25.6 ms = 39 FPS | lassú(>33ms) 9
+[2026-11-08 23:06:10.794] I (83324) og_dash: 8 csomag/s, RSSI -13 dBm | összes 793, elveszett 20 (2.46 %, 60 s: 2.17 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29628 | adat friss, 1589 1/perc | FPS 39, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:11.743] I (84316) og_dash: BENCH 1 s: 50 kép, 1.2 sáv/kép | idő/kép átl 3.9 ms (max 7.5) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 3.5 ms | periódus 20.0 ms = 50 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:11.743] I (84323) og_dash: 10 csomag/s, RSSI -13 dBm | összes 803, elveszett 20 (2.43 %, 60 s: 2.17 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29638 | adat friss, 1262 1/perc | FPS 50, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:12.746] I (85315) og_dash: BENCH 1 s: 50 kép, 1.1 sáv/kép | idő/kép átl 3.9 ms (max 7.6) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 3.5 ms | periódus 20.0 ms = 50 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:12.746] I (85321) og_dash: 10 csomag/s, RSSI -13 dBm | összes 813, elveszett 20 (2.40 %, 60 s: 2.00 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29648 | adat friss, 1017 1/perc | FPS 50, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:13.734] I (86316) og_dash: BENCH 1 s: 50 kép, 1.1 sáv/kép | idő/kép átl 3.9 ms (max 7.5) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 3.5 ms | periódus 20.0 ms = 50 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:13.798] I (86322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 823, elveszett 20 (2.37 %, 60 s: 2.00 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29658 | adat friss, 877 1/perc | FPS 50, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:14.734] I (87316) og_dash: BENCH 1 s: 50 kép, 1.1 sáv/kép | idő/kép átl 3.7 ms (max 7.5) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 3.4 ms | periódus 20.0 ms = 50 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:14.803] I (87322) og_dash: 9 csomag/s, RSSI -13 dBm | összes 832, elveszett 20 (2.35 %, 60 s: 2.00 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29667 | adat friss, 855 1/perc | FPS 50, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:15.757] I (88336) og_dash: BENCH 1 s: 27 kép, 4.7 sáv/kép | idő/kép átl 33.8 ms (max 71.5) | várakozás 0.1 ms, flush-hívás 2.2 ms, rajzolás 31.5 ms | periódus 38.0 ms = 26 FPS | lassú(>33ms) 7
+[2026-11-08 23:06:15.822] I (88343) og_dash: 10 csomag/s, RSSI -13 dBm | összes 842, elveszett 21 (2.43 %, 60 s: 2.17 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29678 | adat friss, 959 1/perc | FPS 27, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:16.750] I (89330) og_dash: BENCH 1 s: 39 kép, 3.3 sáv/kép | idő/kép átl 21.9 ms (max 32.6) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 20.5 ms | periódus 25.5 ms = 39 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:16.810] I (89337) og_dash: 10 csomag/s, RSSI -13 dBm | összes 852, elveszett 21 (2.41 %, 60 s: 2.00 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29688 | adat friss, 1173 1/perc | FPS 39, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:17.794] I (90325) og_dash: BENCH 1 s: 38 kép, 3.4 sáv/kép | idő/kép átl 22.5 ms (max 33.1) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 21.1 ms | periódus 26.0 ms = 38 FPS | lassú(>33ms) 1
+[2026-11-08 23:06:17.794] I (90332) og_dash: 10 csomag/s, RSSI -13 dBm | összes 862, elveszett 21 (2.38 %, 60 s: 2.00 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29698 | adat friss, 1477 1/perc | FPS 38, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:18.752] I (91342) og_dash: BENCH 1 s: 38 kép, 3.4 sáv/kép | idő/kép átl 23.2 ms (max 32.4) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 21.7 ms | periódus 26.7 ms = 37 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:18.819] I (91349) og_dash: 10 csomag/s, RSSI -13 dBm | összes 872, elveszett 21 (2.35 %, 60 s: 2.00 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29708 | adat friss, 1842 1/perc | FPS 38, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:19.752] I (92316) og_dash: Akkumulátor: nyers 4234 mV, szűrt 4243 mV, 100 %, szint 1, töltés (becslés) 0
+[2026-11-08 23:06:19.753] I (92319) og_dash: BENCH 1 s: 36 kép, 3.5 sáv/kép | idő/kép átl 23.6 ms (max 29.2) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 22.2 ms | periódus 27.0 ms = 37 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:19.753] I (92332) og_dash: 9 csomag/s, RSSI -13 dBm | összes 881, elveszett 22 (2.44 %, 60 s: 2.17 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29718 | adat friss, 2232 1/perc | FPS 36, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:20.778] I (93316) og_dash: BENCH 1 s: 32 kép, 3.4 sáv/kép | idő/kép átl 20.5 ms (max 82.4) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 19.1 ms | periódus 31.5 ms = 32 FPS | lassú(>33ms) 6
+[2026-11-08 23:06:20.779] I (93323) og_dash: 9 csomag/s, RSSI -13 dBm | összes 890, elveszett 23 (2.52 %, 60 s: 2.33 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29728 | adat friss, 2610 1/perc | FPS 32, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:21.741] I (94315) og_dash: BENCH 1 s: 43 kép, 2.1 sáv/kép | idő/kép átl 8.5 ms (max 13.1) | várakozás 0.0 ms, flush-hívás 0.7 ms, rajzolás 7.8 ms | periódus 23.3 ms = 43 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:21.804] I (94322) og_dash: 9 csomag/s, RSSI -13 dBm | összes 899, elveszett 24 (2.60 %, 60 s: 2.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29738 | adat friss, 2938 1/perc | FPS 44, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:22.736] I (95315) og_dash: BENCH 1 s: 48 kép, 1.8 sáv/kép | idő/kép átl 6.8 ms (max 13.0) | várakozás 0.0 ms, flush-hívás 0.6 ms, rajzolás 6.2 ms | periódus 20.9 ms = 48 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:22.798] I (95322) og_dash: 10 csomag/s, RSSI -12 dBm | összes 909, elveszett 24 (2.57 %, 60 s: 2.33 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29748 | adat friss, 3183 1/perc | FPS 47, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:23.746] I (96316) og_dash: BENCH 1 s: 48 kép, 1.5 sáv/kép | idő/kép átl 5.2 ms (max 12.8) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 4.8 ms | periódus 20.9 ms = 48 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:23.746] I (96323) og_dash: 10 csomag/s, RSSI -13 dBm | összes 919, elveszett 24 (2.55 %, 60 s: 2.33 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29758 | adat friss, 3323 1/perc | FPS 49, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:24.739] I (97316) og_dash: BENCH 1 s: 29 kép, 1.2 sáv/kép | idő/kép átl 3.9 ms (max 8.7) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.6 ms | periódus 34.3 ms = 29 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:24.801] I (97322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 929, elveszett 24 (2.52 %, 60 s: 2.33 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29768 | adat friss, 3343 1/perc | FPS 29, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:25.742] I (98316) og_dash: BENCH 1 s: 13 kép, 7.2 sáv/kép | idő/kép átl 32.7 ms (max 45.4) | várakozás 0.1 ms, flush-hívás 3.5 ms, rajzolás 29.1 ms | periódus 72.0 ms = 14 FPS | lassú(>33ms) 9
+[2026-11-08 23:06:25.798] I (98323) og_dash: 10 csomag/s, RSSI -13 dBm | összes 939, elveszett 24 (2.49 %, 60 s: 2.33 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29778 | adat friss, 3241 1/perc | FPS 12, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:26.738] I (99316) og_dash: BENCH 1 s: 7 kép, 1.0 sáv/kép | idő/kép átl 3.7 ms (max 4.4) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.4 ms | periódus 149.8 ms = 7 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:26.794] I (99322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 949, elveszett 24 (2.47 %, 60 s: 2.33 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29788 | adat friss, 3027 1/perc | FPS 7, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:27.742] I (100316) og_dash: BENCH 1 s: 6 kép, 1.0 sáv/kép | idő/kép átl 3.7 ms (max 4.6) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.4 ms | periódus 140.2 ms = 7 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:27.796] I (100322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 959, elveszett 24 (2.44 %, 60 s: 2.33 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29798 | adat friss, 2723 1/perc | FPS 6, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:28.744] I (101316) og_dash: BENCH 1 s: 6 kép, 1.0 sáv/kép | idő/kép átl 3.6 ms (max 4.4) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.3 ms | periódus 143.9 ms = 7 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:28.744] I (101322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 969, elveszett 24 (2.42 %, 60 s: 2.33 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29808 | adat friss, 2358 1/perc | FPS 6, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:29.740] I (102316) og_dash: Akkumulátor: nyers 4258 mV, szűrt 4241 mV, 100 %, szint 1, töltés (becslés) 0
+[2026-11-08 23:06:29.741] I (102316) og_dash: BENCH 1 s: 7 kép, 1.0 sáv/kép | idő/kép átl 3.6 ms (max 4.3) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.3 ms | periódus 150.0 ms = 7 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:29.795] I (102331) og_dash: 10 csomag/s, RSSI -13 dBm | összes 979, elveszett 24 (2.39 %, 60 s: 2.33 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29818 | adat friss, 1967 1/perc | FPS 7, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:30.732] I (103315) og_dash: BENCH 1 s: 38 kép, 3.4 sáv/kép | idő/kép átl 13.4 ms (max 43.6) | várakozás 0.0 ms, flush-hívás 1.6 ms, rajzolás 11.8 ms | periódus 25.9 ms = 39 FPS | lassú(>33ms) 10
+[2026-11-08 23:06:30.794] I (103322) og_dash: 9 csomag/s, RSSI -13 dBm | összes 988, elveszett 25 (2.47 %, 60 s: 2.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29828 | adat friss, 1590 1/perc | FPS 38, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:31.735] I (104315) og_dash: BENCH 1 s: 50 kép, 1.2 sáv/kép | idő/kép átl 4.1 ms (max 7.8) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 3.7 ms | periódus 20.0 ms = 50 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:31.807] I (104321) og_dash: 10 csomag/s, RSSI -13 dBm | összes 998, elveszett 25 (2.44 %, 60 s: 2.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29838 | adat friss, 1263 1/perc | FPS 50, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:32.742] I (105316) og_dash: BENCH 1 s: 50 kép, 1.2 sáv/kép | idő/kép átl 4.1 ms (max 8.8) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 3.7 ms | periódus 20.0 ms = 50 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:32.802] I (105323) og_dash: 9 csomag/s, RSSI -12 dBm | összes 1007, elveszett 26 (2.52 %, 60 s: 2.67 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29848 | adat friss, 1020 1/perc | FPS 50, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:33.740] I (106327) og_dash: BENCH 1 s: 51 kép, 1.3 sáv/kép | idő/kép átl 4.2 ms (max 9.9) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 3.8 ms | periódus 20.0 ms = 50 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:33.806] I (106333) og_dash: 10 csomag/s, RSSI -13 dBm | összes 1017, elveszett 26 (2.49 %, 60 s: 2.67 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29858 | adat friss, 877 1/perc | FPS 51, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:34.741] I (107315) og_dash: BENCH 1 s: 49 kép, 1.2 sáv/kép | idő/kép átl 3.9 ms (max 8.8) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 3.5 ms | periódus 20.0 ms = 50 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:34.810] I (107322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 1027, elveszett 26 (2.47 %, 60 s: 2.67 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29868 | adat friss, 857 1/perc | FPS 50, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:35.757] I (108319) og_dash: BENCH 1 s: 27 kép, 4.6 sáv/kép | idő/kép átl 33.3 ms (max 71.9) | várakozás 0.1 ms, flush-hívás 2.1 ms, rajzolás 31.1 ms | periódus 37.6 ms = 27 FPS | lassú(>33ms) 7
+[2026-11-08 23:06:35.757] I (108326) og_dash: 9 csomag/s, RSSI -13 dBm | összes 1036, elveszett 27 (2.54 %, 60 s: 2.83 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29878 | adat friss, 959 1/perc | FPS 26, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:36.757] I (109316) og_dash: BENCH 1 s: 39 kép, 3.3 sáv/kép | idő/kép átl 22.1 ms (max 28.6) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 20.7 ms | periódus 25.4 ms = 39 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:36.758] I (109323) og_dash: 10 csomag/s, RSSI -13 dBm | összes 1046, elveszett 27 (2.52 %, 60 s: 2.67 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29888 | adat friss, 1172 1/perc | FPS 39, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:37.783] I (110331) og_dash: BENCH 1 s: 39 kép, 3.4 sáv/kép | idő/kép átl 22.4 ms (max 33.8) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 21.0 ms | periódus 26.0 ms = 38 FPS | lassú(>33ms) 1
+[2026-11-08 23:06:37.784] I (110337) og_dash: 10 csomag/s, RSSI -13 dBm | összes 1056, elveszett 27 (2.49 %, 60 s: 2.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29898 | adat friss, 1477 1/perc | FPS 39, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:38.729] I (111319) og_dash: BENCH 1 s: 37 kép, 3.4 sáv/kép | idő/kép átl 23.2 ms (max 29.4) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 21.7 ms | periódus 26.6 ms = 38 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:38.790] I (111326) og_dash: 10 csomag/s, RSSI -13 dBm | összes 1066, elveszett 27 (2.47 %, 60 s: 2.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29908 | adat friss, 1842 1/perc | FPS 37, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:39.721] I (112317) og_dash: Akkumulátor: nyers 4252 mV, szűrt 4244 mV, 100 %, szint 1, töltés (becslés) 0
+[2026-11-08 23:06:39.782] I (112320) og_dash: BENCH 1 s: 37 kép, 3.5 sáv/kép | idő/kép átl 23.5 ms (max 33.3) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 22.0 ms | periódus 26.9 ms = 37 FPS | lassú(>33ms) 1
+[2026-11-08 23:06:39.782] I (112333) og_dash: 10 csomag/s, RSSI -13 dBm | összes 1076, elveszett 27 (2.45 %, 60 s: 2.33 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29918 | adat friss, 2233 1/perc | FPS 37, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:40.795] I (113317) og_dash: BENCH 1 s: 32 kép, 3.4 sáv/kép | idő/kép átl 20.3 ms (max 81.6) | várakozás 0.0 ms, flush-hívás 1.4 ms, rajzolás 18.9 ms | periódus 31.5 ms = 32 FPS | lassú(>33ms) 6
+[2026-11-08 23:06:40.795] I (113324) og_dash: 10 csomag/s, RSSI -13 dBm | összes 1086, elveszett 27 (2.43 %, 60 s: 2.33 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29928 | adat friss, 2610 1/perc | FPS 32, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:41.758] I (114316) og_dash: BENCH 1 s: 46 kép, 2.0 sáv/kép | idő/kép átl 8.1 ms (max 16.0) | várakozás 0.0 ms, flush-hívás 0.7 ms, rajzolás 7.4 ms | periódus 21.8 ms = 46 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:41.759] I (114323) og_dash: 9 csomag/s, RSSI -13 dBm | összes 1095, elveszett 28 (2.49 %, 60 s: 2.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29938 | adat friss, 2938 1/perc | FPS 46, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:42.764] I (115316) og_dash: BENCH 1 s: 49 kép, 1.8 sáv/kép | idő/kép átl 6.7 ms (max 12.7) | várakozás 0.0 ms, flush-hívás 0.5 ms, rajzolás 6.1 ms | periódus 20.4 ms = 49 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:42.765] I (115323) og_dash: 10 csomag/s, RSSI -13 dBm | összes 1105, elveszett 28 (2.47 %, 60 s: 2.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29948 | adat friss, 3183 1/perc | FPS 49, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:43.727] I (116316) og_dash: BENCH 1 s: 44 kép, 1.5 sáv/kép | idő/kép átl 5.2 ms (max 12.6) | várakozás 0.0 ms, flush-hívás 0.4 ms, rajzolás 4.7 ms | periódus 22.8 ms = 44 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:43.792] I (116323) og_dash: 9 csomag/s, RSSI -13 dBm | összes 1114, elveszett 29 (2.54 %, 60 s: 2.67 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29958 | adat friss, 3322 1/perc | FPS 44, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:44.728] I (117316) og_dash: BENCH 1 s: 32 kép, 1.2 sáv/kép | idő/kép átl 3.9 ms (max 8.4) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.6 ms | periódus 31.6 ms = 32 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:44.793] I (117322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 1124, elveszett 29 (2.52 %, 60 s: 2.67 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29968 | adat friss, 3343 1/perc | FPS 32, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:45.733] I (118316) og_dash: BENCH 1 s: 13 kép, 7.2 sáv/kép | idő/kép átl 32.1 ms (max 45.4) | várakozás 0.1 ms, flush-hívás 3.5 ms, rajzolás 28.5 ms | periódus 70.8 ms = 14 FPS | lassú(>33ms) 9
+[2026-11-08 23:06:45.805] I (118323) og_dash: 10 csomag/s, RSSI -13 dBm | összes 1134, elveszett 29 (2.49 %, 60 s: 2.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29978 | adat friss, 3241 1/perc | FPS 13, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:46.744] I (119316) og_dash: BENCH 1 s: 6 kép, 1.0 sáv/kép | idő/kép átl 3.6 ms (max 4.3) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.3 ms | periódus 140.1 ms = 7 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:46.744] I (119322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 1144, elveszett 29 (2.47 %, 60 s: 2.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29988 | adat friss, 3027 1/perc | FPS 6, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:47.757] I (120316) og_dash: BENCH 1 s: 7 kép, 1.0 sáv/kép | idő/kép átl 3.6 ms (max 4.4) | várakozás 0.0 ms, flush-hívás 0.3 ms, rajzolás 3.3 ms | periódus 150.2 ms = 7 FPS | lassú(>33ms) 0
+[2026-11-08 23:06:47.758] I (120322) og_dash: 10 csomag/s, RSSI -13 dBm | összes 1154, elveszett 29 (2.45 %, 60 s: 2.50 %), elavult 0, újraindulás 0, érvénytelen 0, sor tele 0, seq 29998 | adat friss, 2723 1/perc | FPS 7, belső RAM 17 kB | VIN TMBWGFZD7TT965567
+[2026-11-08 23:06:48.626] === Naplózás vége ===

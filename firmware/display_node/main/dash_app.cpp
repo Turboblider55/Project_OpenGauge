@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <mutex>
@@ -326,6 +327,170 @@ struct LinkView {
     }
 };
 
+// (5) Mutatós fordulatszámmérő: 270°-os skála ezres számokkal, a redline-tól piros sávval, tű és alatta a sebesség.
+// Hogyan:     a skála (lv_scale) osztásai és számai nem változnak, ezért egyszer képbe rajzoljuk (lv_snapshot, PSRAM),
+//             és a képernyőn ez a kép látszik; így a tű mozgatásakor és a képernyő csúsztatásakor csak másolás kell,
+//             nem a ~40 osztás és szám újrarajzolása. A tű egy lv_line, a pontjait mi számoljuk; mozgásakor csak a
+//             befoglaló téglalapja érvénytelenedik. A tű a mért érték felé simítva mozog, és csak akkor írjuk át,
+//             ha a kerekített érték változott. A skála beállítás módosításakor újragenerálódik (set_scale).
+struct NeedleTachView {
+    static constexpr int32_t kDiameter = 336;
+    static constexpr int32_t kStepRpm = 500;  // két kis osztás közti fordulatszám; a nagy osztás (felirat) 2 kis osztásonként van
+    static constexpr int32_t kNeedleLen = 118;
+    static constexpr int32_t kCenter = 180;   // a képernyő közepe (360 x 360)
+    static constexpr float kSmooth = 0.35f;   // a tű képkockánként ennyivel közelít a célhoz
+
+    lv_obj_t* scr;
+    lv_obj_t* face = nullptr;                 // a kész skála képe
+    lv_obj_t* live_scale = nullptr;           // csak ha a képpuffer nem foglalható le: az élő skála marad
+    lv_obj_t* needle;
+    lv_obj_t* speed;
+    lv_obj_t* nodata;
+    lv_draw_buf_t face_buf;
+    void* face_mem = nullptr;
+    lv_point_precise_t needle_pts[2];
+    lv_style_t red_main, red_major, red_minor;
+    float shown = 0;
+    int32_t drawn = -1;
+    int32_t rpm_max = 8000;
+    int32_t rpm_red = 6500;
+
+    // Mit csinál: a skála kész képét előállítja a jelenlegi skálavéggel és redline-nal.
+    // Hogyan:     ideiglenes lv_scale-t épít, képbe rajzolja (snapshot), majd törli; a kép a PSRAM-ban van.
+    void render_face() {
+        static const char* kThousands[] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", nullptr};
+        if (live_scale) {
+            lv_obj_delete(live_scale);
+            live_scale = nullptr;
+        }
+        // A skála a rajzterületét 100 px-szel túlnyújtja; a pontosan kDiameter méretű tartóról készül a kép.
+        lv_obj_t* host = lv_obj_create(scr);
+        lv_obj_remove_style_all(host);
+        lv_obj_set_size(host, kDiameter, kDiameter);
+        lv_obj_center(host);
+        lv_obj_set_style_bg_color(host, g_bg, 0);
+        lv_obj_set_style_bg_opa(host, LV_OPA_COVER, 0);
+        lv_obj_t* sc = lv_scale_create(host);
+        lv_obj_set_size(sc, kDiameter, kDiameter);
+        lv_obj_center(sc);
+        lv_scale_set_mode(sc, LV_SCALE_MODE_ROUND_INNER);
+        lv_scale_set_angle_range(sc, 270);
+        lv_scale_set_rotation(sc, 135);
+        lv_scale_set_total_tick_count(sc, static_cast<uint32_t>(rpm_max / kStepRpm + 1));
+        lv_scale_set_major_tick_every(sc, 1000 / kStepRpm);
+        lv_scale_set_range(sc, 0, rpm_max);
+        lv_scale_set_label_show(sc, true);
+        lv_scale_set_text_src(sc, kThousands);
+        lv_obj_set_style_arc_width(sc, 6, LV_PART_MAIN);
+        lv_obj_set_style_arc_color(sc, g_accent, LV_PART_MAIN);
+        lv_obj_set_style_line_width(sc, 4, LV_PART_INDICATOR);
+        lv_obj_set_style_line_color(sc, g_accent, LV_PART_INDICATOR);
+        lv_obj_set_style_length(sc, 18, LV_PART_INDICATOR);
+        lv_obj_set_style_line_width(sc, 2, LV_PART_ITEMS);
+        lv_obj_set_style_line_color(sc, g_dim, LV_PART_ITEMS);
+        lv_obj_set_style_length(sc, 9, LV_PART_ITEMS);
+        lv_obj_set_style_text_font(sc, &og_font_montserrat_20, LV_PART_INDICATOR);
+        lv_obj_set_style_text_color(sc, g_text, LV_PART_INDICATOR);
+        lv_scale_section_t* red_zone = lv_scale_add_section(sc);
+        lv_scale_set_section_range(sc, red_zone, rpm_red, rpm_max);
+        lv_scale_set_section_style_main(sc, red_zone, &red_main);
+        lv_scale_set_section_style_indicator(sc, red_zone, &red_major);
+        lv_scale_set_section_style_items(sc, red_zone, &red_minor);
+        lv_obj_update_layout(sc);
+
+        if (face_mem && lv_snapshot_take_to_draw_buf(host, LV_COLOR_FORMAT_RGB565, &face_buf) == LV_RESULT_OK) {
+            lv_image_set_src(face, &face_buf);
+            lv_obj_invalidate(face);
+            lv_obj_delete(host);
+        } else {
+            ESP_LOGW(TAG, "A skála képe nem készült el, az élő skála marad");
+            live_scale = host;
+            lv_obj_move_to_index(host, 0);
+        }
+    }
+
+    // Mit csinál: új skálavég és redline (beállítás módosításakor): újragenerálja a skálát.
+    void set_scale(int32_t max, int32_t redline) {
+        rpm_max = (max / kStepRpm) * kStepRpm;
+        rpm_red = std::min(redline, rpm_max);
+        render_face();
+        drawn = -1;  // a tűt az új skálán újra ki kell számolni
+    }
+
+    // Mit csinál: a tűt a megadott fordulatszámhoz állítja (a skála 135°-nál kezdődik, 270° nyílású).
+    void place_needle(int32_t rpm) {
+        const int32_t ang = 135 + 270 * rpm / rpm_max;
+        needle_pts[0].x = kCenter;
+        needle_pts[0].y = kCenter;
+        needle_pts[1].x = kCenter + ((kNeedleLen * lv_trigo_cos(static_cast<int16_t>(ang))) >> LV_TRIGO_SHIFT);
+        needle_pts[1].y = kCenter + ((kNeedleLen * lv_trigo_sin(static_cast<int16_t>(ang))) >> LV_TRIGO_SHIFT);
+        lv_line_set_points_mutable(needle, needle_pts, 2);
+    }
+
+    void build() {
+        scr = make_screen();
+        lv_obj_set_style_pad_all(scr, 0, 0);
+        lv_obj_set_style_border_width(scr, 0, 0);
+
+        lv_style_init(&red_main);
+        lv_style_set_arc_color(&red_main, g_warn);
+        lv_style_set_arc_width(&red_main, 6);
+        lv_style_init(&red_major);
+        lv_style_set_line_color(&red_major, g_warn);
+        lv_style_set_line_width(&red_major, 4);
+        lv_style_set_text_color(&red_major, g_warn);
+        lv_style_init(&red_minor);
+        lv_style_set_line_color(&red_minor, g_warn);
+        lv_style_set_line_width(&red_minor, 2);
+
+        const uint32_t bytes = kDiameter * kDiameter * 2;
+        face_mem = heap_caps_aligned_alloc(64, bytes, MALLOC_CAP_SPIRAM);
+        if (face_mem) lv_draw_buf_init(&face_buf, kDiameter, kDiameter, LV_COLOR_FORMAT_RGB565, kDiameter * 2, face_mem, bytes);
+        else ESP_LOGE(TAG, "A skála képének memóriája nem foglalható le");
+        face = lv_image_create(scr);
+        lv_obj_center(face);
+
+        needle = lv_line_create(scr);
+        lv_obj_set_pos(needle, 0, 0);
+        lv_obj_set_style_line_width(needle, 6, 0);
+        lv_obj_set_style_line_color(needle, g_text, 0);
+        lv_obj_set_style_line_rounded(needle, true, 0);
+        place_needle(0);
+        lv_obj_t* hub = lv_obj_create(scr);
+        lv_obj_remove_style_all(hub);
+        lv_obj_set_size(hub, 34, 34);
+        lv_obj_center(hub);
+        lv_obj_set_style_radius(hub, LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_bg_opa(hub, LV_OPA_COVER, 0);
+        lv_obj_set_style_bg_color(hub, g_track, 0);
+        lv_obj_set_style_border_width(hub, 3, 0);
+        lv_obj_set_style_border_color(hub, g_accent, 0);
+
+        speed = make_label(scr, &og_font_montserrat_28, g_text, LV_ALIGN_CENTER, 0, 85, "-- km/h");
+        nodata = make_label(scr, &og_font_montserrat_20, g_warn, LV_ALIGN_CENTER, 0, 128, "NINCS ADAT");
+    }
+
+    void update(const DashValues& v) {
+        const bool ok_rpm = v.fresh && (v.flags & kFlagRpm);
+        const float target = ok_rpm ? std::min<float>(v.rpm, static_cast<float>(rpm_max)) : 0.f;
+        shown += (target - shown) * kSmooth;
+        if (std::abs(target - shown) < 1.f) shown = target;
+        const int32_t r = static_cast<int32_t>(shown + 0.5f);
+        if (r != drawn) {
+            place_needle(r);
+            drawn = r;
+        }
+        char b[24];
+        const bool mph = g_cfg.speed_unit == SpeedUnit::Mph;
+        if (v.fresh && (v.flags & kFlagSpeed))
+            std::snprintf(b, sizeof b, mph ? "%d mph" : "%d km/h", static_cast<int>((mph ? v.speed_kmh * 0.621371f : v.speed_kmh) + 0.5f));
+        else
+            std::snprintf(b, sizeof b, mph ? "-- mph" : "-- km/h");
+        set_text(speed, b);
+        if (lv_obj_is_hidden(nodata) != v.fresh) lv_obj_set_hidden(nodata, v.fresh);
+    }
+};
+
 #if defined(CONFIG_OG_DISP_MUSIC)
 // Mit csinál: a képernyő gombjai (előző, lejátszás/szünet, következő) lejátszásvezérlő parancsot küldenek az iPhone-nak.
 void on_music_button(lv_event_t* e) {
@@ -424,11 +589,13 @@ struct MusicView {
 MusicView g_music;
 #endif
 constexpr int kMusicId = 3;  // a zene képernyőre csak kézzel lépünk; az automatikus váltás kihagyja
+constexpr int kNeedleTachId = 4;
 
 MainView g_main;
 DetailView g_detail;
 LinkView g_linkv;
-lv_obj_t* g_screens[kScreenIds] = {};  // képernyőazonosító szerint: 0 fő, 1 részletek, 2 kapcsolat, 3 zene
+NeedleTachView g_needle_tach;
+lv_obj_t* g_screens[kScreenIds] = {};  // képernyőazonosító szerint: 0 fő, 1 részletek, 2 kapcsolat, 3 zene, 4 mutatós fordulatszámmérő
 int g_active[kScreenIds];               // a lapozásban részt vevő képernyők, a beállított sorrendben
 int g_active_n = 0;
 int g_pos = 0;                          // a jelenlegi képernyő helye a g_active-ban
@@ -459,6 +626,7 @@ void ui_tick(lv_timer_t*) {
     g_main.update(v, bat, g_sleep_in_s.load(std::memory_order_relaxed));
     g_detail.update(v, bat, vin);
     g_linkv.update(v, l);
+    g_needle_tach.update(v);
 #if defined(CONFIG_OG_DISP_MUSIC)
     g_music.update(ble_ams_info(), now_ms());
 #endif
@@ -553,6 +721,7 @@ void open_settings(lv_event_t*) {
 // Mit csinál: a módosított beállításokat azonnal érvényesíti (skála, fényerő, lapozás, debug kijelzés, lista).
 void apply_live() {
     g_main.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
+    g_needle_tach.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
     if (g_switch_timer) lv_timer_set_period(g_switch_timer, g_cfg.switch_period_s * 1000u);
     g_backlight_pct = g_dimmed ? std::min<int>(g_cfg.brightness_pct, kLowBatteryBacklight) : g_cfg.brightness_pct;
     if (g_lcd) g_lcd->set_backlight(g_backlight_pct);
@@ -849,6 +1018,24 @@ void bench_task(void*) {
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
     }
+    // Álló képernyők: 6 s-ig egy helyben, hogy a mozgó tű/ív idleje is látsszon (az átmenetek már lecsengtek).
+    for (const int id : {0, kNeedleTachId}) {
+        for (int k = 0; k < g_active_n; ++k) {
+            if (g_active[k] != id) continue;
+            g_bench_busy = true;
+            if (lvgl_port_lock(1000)) {
+                load_pos(k, LV_SCREEN_LOAD_ANIM_NONE);
+                lvgl_port_unlock();
+            }
+            vTaskDelay(pdMS_TO_TICKS(1500));
+            lvgl_take_prof();
+            vTaskDelay(pdMS_TO_TICKS(6000));
+            char name[24];
+            snprintf(name, sizeof name, "all %d", id);
+            log_prof(name, lvgl_take_prof());
+            g_bench_busy = false;
+        }
+    }
     lv_mem_monitor_t mon;
     if (lvgl_port_lock(1000)) {
         lv_mem_monitor(&mon);
@@ -917,6 +1104,10 @@ void show_boot_logo(const lv_image_dsc_t* logo) {
 }
 #endif
 
+// Mit csinál: az indulás utáni első LVGL-ütemben előállítja a mutatós fordulatszámmérő skálájának képét.
+// Miért:      a rajzolást az LVGL-feladat végzi (a main feladat verme kicsi a képrajzoláshoz).
+void initial_scale_tick(lv_timer_t*) { g_needle_tach.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm); }
+
 }  // namespace
 
 void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& led) {
@@ -954,6 +1145,8 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
         g_screens[0] = g_main.scr;
         g_screens[1] = g_detail.scr;
         g_screens[2] = g_linkv.scr;
+        g_needle_tach.build();
+        g_screens[kNeedleTachId] = g_needle_tach.scr;
 #if defined(CONFIG_OG_DISP_MUSIC)
         g_music.build();
         g_screens[kMusicId] = g_music.scr;
@@ -975,6 +1168,8 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
         lv_obj_add_event_cb(g_cog, open_settings, LV_EVENT_CLICKED, nullptr);
 
         g_main.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
+        // A skála képét az LVGL-feladat rajzolja (a main feladat verme kicsi hozzá): egyszeri időzítő az első ütemben.
+        lv_timer_set_repeat_count(lv_timer_create(initial_scale_tick, 1, nullptr), 1);
         rebuild_active();
         set_perf_visible(g_cfg.debug_mode);
 #if defined(CONFIG_OG_DISP_BOOT_LOGO)
