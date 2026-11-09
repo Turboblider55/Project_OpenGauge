@@ -327,38 +327,68 @@ struct LinkView {
     }
 };
 
-// (5) Mutatós fordulatszámmérő: 270°-os skála ezres számokkal, a redline-tól piros sávval, tű és alatta a sebesség.
-// Hogyan:     a skála (lv_scale) osztásai és számai nem változnak, ezért egyszer képbe rajzoljuk (lv_snapshot, PSRAM),
+// (5) Mutatós fordulatszámmérő: 270°-os skála ezres számokkal, a redline-tól piros sávval, elvékonyodó tű és alatta a sebesség.
+// Hogyan:     a skála osztásai és számai nem változnak, ezért egyszer képbe rajzoljuk (lv_snapshot, PSRAM),
 //             és a képernyőn ez a kép látszik; így a tű mozgatásakor és a képernyő csúsztatásakor csak másolás kell,
-//             nem a ~40 osztás és szám újrarajzolása. A tű egy lv_line, a pontjait mi számoljuk; mozgásakor csak a
-//             befoglaló téglalapja érvénytelenedik. A tű a mért érték felé simítva mozog, és csak akkor írjuk át,
-//             ha a kerekített érték változott. A skála beállítás módosításakor újragenerálódik (set_scale).
+//             nem a ~100 osztás és szám újrarajzolása. A skála három egymásra tett lv_scale: a sűrű kis osztások
+//             (100 vagy 200 1/perc), az 500-as közepes osztások és az ezres nagy osztások a számokkal.
+//             A tű egy előre kiszámolt (élsimított, szimmetrikus) kép, amelyet az LVGL forgat; mozgásakor csak az érintett
+//             terület rajzolódik újra. A tű a mért érték felé simítva mozog, és csak akkor rajzoljuk újra, ha a kerekített
+//             érték változott. A skála beállítás módosításakor újragenerálódik (set_scale).
 struct NeedleTachView {
     static constexpr int32_t kDiameter = 336;
-    static constexpr int32_t kStepRpm = 500;  // két kis osztás közti fordulatszám; a nagy osztás (felirat) 2 kis osztásonként van
-    static constexpr int32_t kNeedleLen = 118;
-    static constexpr int32_t kCenter = 180;   // a képernyő közepe (360 x 360)
-    static constexpr float kSmooth = 0.35f;   // a tű képkockánként ennyivel közelít a célhoz
+    static constexpr int32_t kNeedleLen = 126;  // a tű hossza a középponttól a csúcsig
+    static constexpr int32_t kNeedleHalfW = 6;  // a tű fél szélessége a tövénél (a csúcs felé egyenletesen szűkül)
+    static constexpr int32_t kTipHalfW = 2;     // a tű fél szélessége a csúcsnál (tompa vég)
+    static constexpr int32_t kTailLen = 30;     // a tű farka az agyon túl
+    static constexpr int32_t kTailW = 9;        // a farok vastagsága
+    static constexpr int32_t kImgW = 16;        // a tű képének szélessége
+    static constexpr int32_t kImgPivotY = kNeedleLen + 2;  // a forgáspont magassága a képben (a csúcs fölött 2 képpont ráhagyás)
+    static constexpr int32_t kImgH = kImgPivotY + kTailLen + 2;
+    static constexpr int32_t kCenter = 180;     // a képernyő közepe (360 x 360)
+    static constexpr float kSmooth = 0.35f;     // a tű képkockánként ennyivel közelít a célhoz
 
     lv_obj_t* scr;
-    lv_obj_t* face = nullptr;                 // a kész skála képe
-    lv_obj_t* live_scale = nullptr;           // csak ha a képpuffer nem foglalható le: az élő skála marad
+    lv_obj_t* face = nullptr;                   // a kész skála képe
+    lv_obj_t* live_scale = nullptr;             // csak ha a képpuffer nem foglalható le: az élő skála marad
     lv_obj_t* needle;
     lv_obj_t* speed;
     lv_obj_t* nodata;
     lv_draw_buf_t face_buf;
     void* face_mem = nullptr;
-    lv_point_precise_t needle_pts[2];
-    lv_style_t red_main, red_major, red_minor;
+    lv_style_t red_main, red_major, red_med, red_minor;
     float shown = 0;
     int32_t drawn = -1;
     int32_t rpm_max = 8000;
     int32_t rpm_red = 6500;
+    lv_draw_buf_t* needle_buf = nullptr;        // a tű képe (A8)
+
+    // Mit csinál: egy skálaréteget hoz létre a tartón (átlátszó háttér, 270°-os körív 135°-tól).
+    // Hogyan:     a skála végét az osztásköz többszörösére kerekíti lefelé, a szögtartományt arányosan csökkenti,
+    //             így az osztások pontosan a fordulatszám-értékekre esnek.
+    lv_obj_t* add_scale(lv_obj_t* host, int32_t step) {
+        const int32_t top = rpm_max / step * step;
+        lv_obj_t* sc = lv_scale_create(host);
+        lv_obj_set_size(sc, kDiameter, kDiameter);
+        lv_obj_center(sc);
+        lv_obj_set_style_bg_opa(sc, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(sc, 0, 0);
+        lv_scale_set_mode(sc, LV_SCALE_MODE_ROUND_INNER);
+        lv_scale_set_angle_range(sc, static_cast<uint32_t>(270 * top / rpm_max));
+        lv_scale_set_rotation(sc, 135);
+        lv_scale_set_total_tick_count(sc, static_cast<uint32_t>(top / step + 1));
+        lv_scale_set_range(sc, 0, top);
+        lv_obj_set_style_arc_width(sc, 0, LV_PART_MAIN);
+        return sc;
+    }
 
     // Mit csinál: a skála kész képét előállítja a jelenlegi skálavéggel és redline-nal.
-    // Hogyan:     ideiglenes lv_scale-t épít, képbe rajzolja (snapshot), majd törli; a kép a PSRAM-ban van.
+    // Hogyan:     ideiglenes skálákat épít, képbe rajzolja (snapshot), majd törli; a kép a PSRAM-ban van.
     void render_face() {
         static const char* kThousands[] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", nullptr};
+        // Az 500-as osztások feliratai: csak a félezreseké (500, 1500, ...); az egész ezreseknél a nagy skála száma áll.
+        static const char* kHalves[] = {"",     "500", "",     "1500", "",     "2500", "",     "3500", "",     "4500", "",     "5500", "",
+                                        "6500", "",    "7500", "",     "8500", "",     "9500", "",     "10500", "",    "11500", "",    nullptr};
         if (live_scale) {
             lv_obj_delete(live_scale);
             live_scale = nullptr;
@@ -370,33 +400,58 @@ struct NeedleTachView {
         lv_obj_center(host);
         lv_obj_set_style_bg_color(host, g_bg, 0);
         lv_obj_set_style_bg_opa(host, LV_OPA_COVER, 0);
-        lv_obj_t* sc = lv_scale_create(host);
-        lv_obj_set_size(sc, kDiameter, kDiameter);
-        lv_obj_center(sc);
-        lv_scale_set_mode(sc, LV_SCALE_MODE_ROUND_INNER);
-        lv_scale_set_angle_range(sc, 270);
-        lv_scale_set_rotation(sc, 135);
-        lv_scale_set_total_tick_count(sc, static_cast<uint32_t>(rpm_max / kStepRpm + 1));
-        lv_scale_set_major_tick_every(sc, 1000 / kStepRpm);
-        lv_scale_set_range(sc, 0, rpm_max);
-        lv_scale_set_label_show(sc, true);
-        lv_scale_set_text_src(sc, kThousands);
-        lv_obj_set_style_arc_width(sc, 6, LV_PART_MAIN);
-        lv_obj_set_style_arc_color(sc, g_accent, LV_PART_MAIN);
-        lv_obj_set_style_line_width(sc, 4, LV_PART_INDICATOR);
-        lv_obj_set_style_line_color(sc, g_accent, LV_PART_INDICATOR);
-        lv_obj_set_style_length(sc, 18, LV_PART_INDICATOR);
-        lv_obj_set_style_line_width(sc, 2, LV_PART_ITEMS);
-        lv_obj_set_style_line_color(sc, g_dim, LV_PART_ITEMS);
-        lv_obj_set_style_length(sc, 9, LV_PART_ITEMS);
-        lv_obj_set_style_text_font(sc, &og_font_montserrat_20, LV_PART_INDICATOR);
-        lv_obj_set_style_text_color(sc, g_text, LV_PART_INDICATOR);
-        lv_scale_section_t* red_zone = lv_scale_add_section(sc);
-        lv_scale_set_section_range(sc, red_zone, rpm_red, rpm_max);
-        lv_scale_set_section_style_main(sc, red_zone, &red_main);
-        lv_scale_set_section_style_indicator(sc, red_zone, &red_major);
-        lv_scale_set_section_style_items(sc, red_zone, &red_minor);
-        lv_obj_update_layout(sc);
+
+        // 1. réteg: sűrű kis osztások és a vékony szürke körív (270°-os, nem teljes kör); 7000 1/perc fölött 200-as osztásköz.
+        const bool dense = rpm_max <= 7000;
+        const int32_t fine_step = dense ? 100 : 200;
+        lv_obj_t* fine = add_scale(host, fine_step);
+        const int32_t fine_top = rpm_max / fine_step * fine_step;
+        lv_scale_set_major_tick_every(fine, static_cast<uint32_t>(fine_top / fine_step + 1));  // csak a 0. osztás "nagy"
+        lv_obj_set_style_arc_width(fine, 2, LV_PART_MAIN);
+        lv_obj_set_style_arc_color(fine, g_accent, LV_PART_MAIN);
+        lv_obj_set_style_line_width(fine, 2, LV_PART_ITEMS);
+        lv_obj_set_style_line_color(fine, g_dim, LV_PART_ITEMS);
+        lv_obj_set_style_length(fine, 8, LV_PART_ITEMS);
+        lv_obj_set_style_line_width(fine, 2, LV_PART_INDICATOR);
+        lv_obj_set_style_line_color(fine, g_dim, LV_PART_INDICATOR);
+        lv_obj_set_style_length(fine, 8, LV_PART_INDICATOR);
+        lv_scale_section_t* z_fine = lv_scale_add_section(fine);
+        lv_scale_set_section_range(fine, z_fine, std::min(rpm_red, fine_top), fine_top);
+        lv_scale_set_section_style_main(fine, z_fine, &red_main);
+        lv_scale_set_section_style_indicator(fine, z_fine, &red_minor);
+        lv_scale_set_section_style_items(fine, z_fine, &red_minor);
+
+        // 2. réteg: az 500-as osztások, kicsit hosszabbak a kicsiknél (csak a 100-as osztásköznél, mert a 200-as nem illeszkedik).
+        if (dense) {
+            lv_obj_t* med = add_scale(host, 500);
+            lv_scale_set_major_tick_every(med, 1);
+            lv_obj_set_style_line_width(med, 2, LV_PART_INDICATOR);
+            lv_obj_set_style_line_color(med, g_accent, LV_PART_INDICATOR);
+            lv_obj_set_style_length(med, 12, LV_PART_INDICATOR);
+            lv_scale_set_label_show(med, true);
+            lv_scale_set_text_src(med, kHalves);
+            lv_obj_set_style_pad_radial(med, 6, LV_PART_INDICATOR);  // a felirat messzebb az osztástól, a nagy számok sávja felé
+            lv_scale_section_t* z_med = lv_scale_add_section(med);
+            lv_scale_set_section_range(med, z_med, std::min(rpm_red, rpm_max / 500 * 500), rpm_max / 500 * 500);
+            lv_scale_set_section_style_indicator(med, z_med, &red_med);
+        }
+
+        // 3. réteg: az ezres nagy osztások a számokkal.
+        lv_obj_t* big = add_scale(host, 1000);
+        lv_scale_set_major_tick_every(big, 1);
+        lv_scale_set_label_show(big, true);
+        lv_scale_set_text_src(big, kThousands);
+        lv_obj_set_style_line_width(big, 3, LV_PART_INDICATOR);
+        lv_obj_set_style_line_color(big, g_text, LV_PART_INDICATOR);
+        lv_obj_set_style_length(big, 16, LV_PART_INDICATOR);
+        lv_obj_set_style_text_font(big, &og_font_montserrat_20, LV_PART_INDICATOR);
+        lv_obj_set_style_text_color(big, g_text, LV_PART_INDICATOR);
+        lv_scale_section_t* z_big = lv_scale_add_section(big);
+        lv_scale_set_section_range(big, z_big, std::min(rpm_red, rpm_max / 1000 * 1000), rpm_max / 1000 * 1000);
+        lv_scale_set_section_style_indicator(big, z_big, &red_major);
+
+        make_label(host, &og_font_montserrat_20, g_dim, LV_ALIGN_CENTER, 0, 50, "X1000 1/perc");
+        lv_obj_update_layout(host);
 
         if (face_mem && lv_snapshot_take_to_draw_buf(host, LV_COLOR_FORMAT_RGB565, &face_buf) == LV_RESULT_OK) {
             lv_image_set_src(face, &face_buf);
@@ -411,21 +466,54 @@ struct NeedleTachView {
 
     // Mit csinál: új skálavég és redline (beállítás módosításakor): újragenerálja a skálát.
     void set_scale(int32_t max, int32_t redline) {
-        rpm_max = (max / kStepRpm) * kStepRpm;
+        rpm_max = std::max<int32_t>(1000, max / 100 * 100);
         rpm_red = std::min(redline, rpm_max);
         render_face();
         drawn = -1;  // a tűt az új skálán újra ki kell számolni
     }
 
-    // Mit csinál: a tűt a megadott fordulatszámhoz állítja (a skála 135°-nál kezdődik, 270° nyílású).
-    void place_needle(int32_t rpm) {
-        const int32_t ang = 135 + 270 * rpm / rpm_max;
-        needle_pts[0].x = kCenter;
-        needle_pts[0].y = kCenter;
-        needle_pts[1].x = kCenter + ((kNeedleLen * lv_trigo_cos(static_cast<int16_t>(ang))) >> LV_TRIGO_SHIFT);
-        needle_pts[1].y = kCenter + ((kNeedleLen * lv_trigo_sin(static_cast<int16_t>(ang))) >> LV_TRIGO_SHIFT);
-        lv_line_set_points_mutable(needle, needle_pts, 2);
+    // Mit csinál: a tű képét (A8 átlátszósági maszk, függőleges, a csúcs felül) előállítja egyszer.
+    // Hogyan:     minden képpontot 4x4 mintavétellel (supersampling) számol az alakzatból: a törzs a tövétől (kNeedleHalfW)
+    //             a csúcsig (kTipHalfW) egyenletesen keskenyedik, a farok állandó vastagságú és lekerekített végű.
+    //             A kép a tű tengelyére szimmetrikus, mert az alakzatot a tengelyhez képest számoljuk.
+    // Miért:      a kész képet az LVGL egyetlen forgatással, törtképpont-pontosan (élsimítva) rajzolja; így nincs külön
+    //             szár, hegy és farok, amelyek különbözően kerekednének egész képpontra.
+    void make_needle_image() {
+        needle_buf = lv_draw_buf_create(kImgW, kImgH, LV_COLOR_FORMAT_A8, 0);
+        if (!needle_buf) {
+            ESP_LOGE(TAG, "A tű képének memóriája nem foglalható le");
+            return;
+        }
+        const float cx = kImgW / 2.0f, py = static_cast<float>(kImgPivotY);
+        const float tail_r = kTailW / 2.0f, tail_end = kTailLen - tail_r;  // a farok félkör-végének középpontja
+        for (int y = 0; y < kImgH; ++y) {
+            uint8_t* row = static_cast<uint8_t*>(needle_buf->data) + static_cast<size_t>(y) * needle_buf->header.stride;
+            for (int x = 0; x < kImgW; ++x) {
+                int hit = 0;
+                for (int sy = 0; sy < 4; ++sy) {
+                    for (int sx = 0; sx < 4; ++sx) {
+                        const float u = std::abs(x + (sx + 0.5f) / 4 - cx);   // a tengelytől mért távolság
+                        const float v = py - (y + (sy + 0.5f) / 4);          // a középponttól a csúcs felé mért hosszanti hely
+                        bool in;
+                        if (v >= 0) {
+                            in = v <= kNeedleLen && u <= kNeedleHalfW + (kTipHalfW - kNeedleHalfW) * v / kNeedleLen;
+                        } else if (-v <= tail_end) {
+                            in = u <= tail_r;
+                        } else {
+                            const float dv = -v - tail_end;
+                            in = u * u + dv * dv <= tail_r * tail_r;
+                        }
+                        hit += in;
+                    }
+                }
+                row[x] = static_cast<uint8_t>(hit * 255 / 16);
+            }
+        }
     }
+
+    // Mit csinál: a tű forgatását a megadott fordulatszámhoz állítja (tized fokban; a skála 135°-nál kezdődik, 270° nyílású).
+    // Hogyan:     a kép csúcsa felfelé néz (-90°), ezért a forgatás az irányszög + 90°.
+    int32_t needle_rotation(int32_t rpm) const { return (1350 + 900 + 2700 * rpm / rpm_max) % 3600; }
 
     void build() {
         scr = make_screen();
@@ -434,11 +522,14 @@ struct NeedleTachView {
 
         lv_style_init(&red_main);
         lv_style_set_arc_color(&red_main, g_warn);
-        lv_style_set_arc_width(&red_main, 6);
+        lv_style_set_arc_width(&red_main, 8);
         lv_style_init(&red_major);
         lv_style_set_line_color(&red_major, g_warn);
-        lv_style_set_line_width(&red_major, 4);
+        lv_style_set_line_width(&red_major, 3);
         lv_style_set_text_color(&red_major, g_warn);
+        lv_style_init(&red_med);
+        lv_style_set_line_color(&red_med, g_warn);
+        lv_style_set_line_width(&red_med, 2);
         lv_style_init(&red_minor);
         lv_style_set_line_color(&red_minor, g_warn);
         lv_style_set_line_width(&red_minor, 2);
@@ -450,15 +541,19 @@ struct NeedleTachView {
         face = lv_image_create(scr);
         lv_obj_center(face);
 
-        needle = lv_line_create(scr);
-        lv_obj_set_pos(needle, 0, 0);
-        lv_obj_set_style_line_width(needle, 6, 0);
-        lv_obj_set_style_line_color(needle, g_text, 0);
-        lv_obj_set_style_line_rounded(needle, true, 0);
-        place_needle(0);
+        // A tű egy előre kiszámolt, forgatott A8 kép; a középpontja a képernyő közepén van, a színét a paletta adja.
+        make_needle_image();
+        needle = lv_image_create(scr);
+        if (needle_buf) lv_image_set_src(needle, needle_buf);
+        lv_obj_set_pos(needle, kCenter - kImgW / 2, kCenter - kImgPivotY);
+        lv_image_set_pivot(needle, kImgW / 2, kImgPivotY);
+        lv_obj_set_style_image_recolor(needle, g_accent, 0);
+        lv_obj_set_style_image_recolor_opa(needle, LV_OPA_COVER, 0);
+        lv_obj_remove_flag(needle, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE));
+        lv_image_set_rotation(needle, needle_rotation(0));
         lv_obj_t* hub = lv_obj_create(scr);
         lv_obj_remove_style_all(hub);
-        lv_obj_set_size(hub, 34, 34);
+        lv_obj_set_size(hub, 30, 30);
         lv_obj_center(hub);
         lv_obj_set_style_radius(hub, LV_RADIUS_CIRCLE, 0);
         lv_obj_set_style_bg_opa(hub, LV_OPA_COVER, 0);
@@ -466,8 +561,15 @@ struct NeedleTachView {
         lv_obj_set_style_border_width(hub, 3, 0);
         lv_obj_set_style_border_color(hub, g_accent, 0);
 
+        // Fix szélességű, középre igazított feliratok: a tartalomhoz igazodó szélesség eltolta a sebességet.
         speed = make_label(scr, &og_font_montserrat_28, g_text, LV_ALIGN_CENTER, 0, 85, "-- km/h");
         nodata = make_label(scr, &og_font_montserrat_20, g_warn, LV_ALIGN_CENTER, 0, 128, "NINCS ADAT");
+        for (lv_obj_t* l : {speed, nodata}) {
+            lv_obj_set_width(l, 200);
+            lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
+        }
+        lv_obj_align(speed, LV_ALIGN_CENTER, 0, 85);
+        lv_obj_align(nodata, LV_ALIGN_CENTER, 0, 128);
     }
 
     void update(const DashValues& v) {
@@ -475,10 +577,10 @@ struct NeedleTachView {
         const float target = ok_rpm ? std::min<float>(v.rpm, static_cast<float>(rpm_max)) : 0.f;
         shown += (target - shown) * kSmooth;
         if (std::abs(target - shown) < 1.f) shown = target;
-        const int32_t r = static_cast<int32_t>(shown + 0.5f);
-        if (r != drawn) {
-            place_needle(r);
-            drawn = r;
+        const int32_t rot = needle_rotation(static_cast<int32_t>(shown + 0.5f));
+        if (rot != drawn) {
+            lv_image_set_rotation(needle, rot);
+            drawn = rot;
         }
         char b[24];
         const bool mph = g_cfg.speed_unit == SpeedUnit::Mph;
