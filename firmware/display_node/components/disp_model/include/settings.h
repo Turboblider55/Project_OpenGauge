@@ -14,7 +14,7 @@ enum class SpeedUnit : uint8_t { Kmh = 0, Mph = 1 };
 enum class TempUnit : uint8_t { Celsius = 0, Fahrenheit = 1 };
 
 constexpr int kMaxScreens = 8;  // a képernyő-sorrend tömbjének mérete
-constexpr int kScreenIds = 5;   // jelenleg ismert képernyők: 0 fő, 1 részletek, 2 kapcsolat, 3 zene, 4 mutatós fordulatszámmérő
+constexpr int kScreenIds = 6;   // jelenleg ismert képernyők: 0 fő, 1 részletek, 2 kapcsolat, 3 zene, 4 mutatós fordulatszámmérő, 5 mutatós sebességmérő
 
 struct Settings {
     bool music_enabled = true;        // zene képernyő (BLE); kikapcsolva a BLE csak az ébresztéshez kell
@@ -30,7 +30,7 @@ struct Settings {
     TempUnit temp_unit = TempUnit::Celsius;
     bool auto_switch = true;          // automatikus lapozás a képernyők között
     uint16_t switch_period_s = 5;     // lapozás sebessége (másodperc)
-    uint8_t screen_order[kMaxScreens] = {0, 1, 2, 3, 4, 0, 0, 0};  // az első kScreenIds elem számít
+    uint8_t screen_order[kMaxScreens] = {0, 1, 2, 3, 4, 5, 0, 0};  // az első kScreenIds elem számít
 };
 
 // Mit csinál: az értékeket érvényes tartományba hozza (a tárolt vagy a felhasználó által beírt adat hibás is lehet).

@@ -34,13 +34,13 @@ static void sanitize_clamps_values() {
 
 static void screen_order_must_be_a_permutation() {
     Settings s;
-    s.screen_order[0] = 2; s.screen_order[1] = 0; s.screen_order[2] = 3; s.screen_order[3] = 1; s.screen_order[4] = 4;
+    s.screen_order[0] = 2; s.screen_order[1] = 0; s.screen_order[2] = 3; s.screen_order[3] = 1; s.screen_order[4] = 4; s.screen_order[5] = 5;
     sanitize(s);
     CHECK(s.screen_order[0] == 2 && s.screen_order[3] == 1);  // érvényes sorrend megmarad
     s.screen_order[1] = 2;  // kétszer szerepel
     sanitize(s);
     CHECK(s.screen_order[0] == 0 && s.screen_order[1] == 1 && s.screen_order[2] == 2 && s.screen_order[3] == 3 &&
-          s.screen_order[4] == 4);
+          s.screen_order[4] == 4 && s.screen_order[5] == 5);
     s.screen_order[2] = 9;  // ismeretlen képernyő
     sanitize(s);
     CHECK(s.screen_order[2] == 2);
@@ -51,7 +51,7 @@ static void encode_decode_round_trip() {
     s.music_enabled = false; s.debug_mode = false; s.max_rpm = 7000; s.redline_rpm = 6200; s.max_speed_kmh = 260;
     s.sleep_s = 120; s.palette = 2; s.skip_logo = true; s.brightness_pct = 60; s.speed_unit = SpeedUnit::Mph;
     s.temp_unit = TempUnit::Fahrenheit; s.auto_switch = false; s.switch_period_s = 45;
-    s.screen_order[0] = 3; s.screen_order[1] = 2; s.screen_order[2] = 1; s.screen_order[3] = 0; s.screen_order[4] = 4;
+    s.screen_order[0] = 3; s.screen_order[1] = 2; s.screen_order[2] = 1; s.screen_order[3] = 0; s.screen_order[4] = 4; s.screen_order[5] = 5;
     uint8_t buf[kSettingsBlobSize];
     CHECK(settings_encode(s, buf, sizeof buf) == kSettingsBlobSize);
     Settings r;

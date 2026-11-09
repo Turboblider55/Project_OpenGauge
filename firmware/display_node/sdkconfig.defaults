@@ -44,3 +44,6 @@ CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
 CONFIG_BT_NIMBLE_MAX_BONDS=1
 # A párosítási kulcsok NVS-ben maradnak (az iOS AMS kötött kapcsolatot kér).
 CONFIG_BT_NIMBLE_NVS_PERSIST=y
+# LVGL kupac: a mutatós műszerek skálaképének rajzolásakor (pillanatkép) a rajzolási feladatok sok memóriát kérnek;
+# 64 kB-nál elfogyott a hely, és a körívek csendben elmaradtak. 72 kB-tal marad ~9 kB belső RAM szabadon.
+CONFIG_LV_MEM_SIZE=73728

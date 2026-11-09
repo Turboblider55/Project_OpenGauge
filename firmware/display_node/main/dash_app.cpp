@@ -327,15 +327,13 @@ struct LinkView {
     }
 };
 
-// (5) Mutatós fordulatszámmérő: 270°-os skála ezres számokkal, a redline-tól piros sávval, elvékonyodó tű és alatta a sebesség.
+// (5) Mutatós műszerek közös alapja: 270°-os skála képbe rajzolva, forgatott élsimított tű, agy és "nincs adat" jelzés.
 // Hogyan:     a skála osztásai és számai nem változnak, ezért egyszer képbe rajzoljuk (lv_snapshot, PSRAM),
 //             és a képernyőn ez a kép látszik; így a tű mozgatásakor és a képernyő csúsztatásakor csak másolás kell,
-//             nem a ~100 osztás és szám újrarajzolása. A skála három egymásra tett lv_scale: a sűrű kis osztások
-//             (100 vagy 200 1/perc), az 500-as közepes osztások és az ezres nagy osztások a számokkal.
-//             A tű egy előre kiszámolt (élsimított, szimmetrikus) kép, amelyet az LVGL forgat; mozgásakor csak az érintett
-//             terület rajzolódik újra. A tű a mért érték felé simítva mozog, és csak akkor rajzoljuk újra, ha a kerekített
-//             érték változott. A skála beállítás módosításakor újragenerálódik (set_scale).
-struct NeedleTachView {
+//             nem a ~100 osztás és szám újrarajzolása. A skála egymásra tett lv_scale rétegekből áll (kis, közepes és
+//             nagy osztások). A tű egy előre kiszámolt (élsimított, szimmetrikus) A8 kép, amelyet az LVGL forgat;
+//             mozgásakor csak az érintett terület rajzolódik újra. A tű a mért érték felé simítva mozog.
+struct NeedleGaugeBase {
     static constexpr int32_t kDiameter = 336;
     static constexpr int32_t kNeedleLen = 126;  // a tű hossza a középponttól a csúcsig
     static constexpr int32_t kNeedleHalfW = 6;  // a tű fél szélessége a tövénél (a csúcs felé egyenletesen szűkül)
@@ -352,29 +350,28 @@ struct NeedleTachView {
     lv_obj_t* face = nullptr;                   // a kész skála képe
     lv_obj_t* live_scale = nullptr;             // csak ha a képpuffer nem foglalható le: az élő skála marad
     lv_obj_t* needle;
-    lv_obj_t* speed;
+    lv_obj_t* value;                            // a számjegyes érték a tű alatt
     lv_obj_t* nodata;
     lv_draw_buf_t face_buf;
     void* face_mem = nullptr;
+    lv_draw_buf_t* needle_buf = nullptr;        // a tű képe (A8)
     lv_style_t red_main, red_major, red_med, red_minor;
     float shown = 0;
     int32_t drawn = -1;
-    int32_t rpm_max = 8000;
-    int32_t rpm_red = 6500;
-    lv_draw_buf_t* needle_buf = nullptr;        // a tű képe (A8)
+    int32_t gmax = 8000;                        // a skála vége (a mérő mértékegységében)
 
     // Mit csinál: egy skálaréteget hoz létre a tartón (átlátszó háttér, 270°-os körív 135°-tól).
     // Hogyan:     a skála végét az osztásköz többszörösére kerekíti lefelé, a szögtartományt arányosan csökkenti,
-    //             így az osztások pontosan a fordulatszám-értékekre esnek.
+    //             így az osztások pontosan az értékekre esnek.
     lv_obj_t* add_scale(lv_obj_t* host, int32_t step) {
-        const int32_t top = rpm_max / step * step;
+        const int32_t top = gmax / step * step;
         lv_obj_t* sc = lv_scale_create(host);
         lv_obj_set_size(sc, kDiameter, kDiameter);
         lv_obj_center(sc);
         lv_obj_set_style_bg_opa(sc, LV_OPA_TRANSP, 0);
         lv_obj_set_style_border_width(sc, 0, 0);
         lv_scale_set_mode(sc, LV_SCALE_MODE_ROUND_INNER);
-        lv_scale_set_angle_range(sc, static_cast<uint32_t>(270 * top / rpm_max));
+        lv_scale_set_angle_range(sc, static_cast<uint32_t>(270 * top / gmax));
         lv_scale_set_rotation(sc, 135);
         lv_scale_set_total_tick_count(sc, static_cast<uint32_t>(top / step + 1));
         lv_scale_set_range(sc, 0, top);
@@ -382,77 +379,57 @@ struct NeedleTachView {
         return sc;
     }
 
-    // Mit csinál: a skála kész képét előállítja a jelenlegi skálavéggel és redline-nal.
-    // Hogyan:     ideiglenes skálákat épít, képbe rajzolja (snapshot), majd törli; a kép a PSRAM-ban van.
-    void render_face() {
-        static const char* kThousands[] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", nullptr};
-        // Az 500-as osztások feliratai: csak a félezreseké (500, 1500, ...); az egész ezreseknél a nagy skála száma áll.
-        static const char* kHalves[] = {"",     "500", "",     "1500", "",     "2500", "",     "3500", "",     "4500", "",     "5500", "",
-                                        "6500", "",    "7500", "",     "8500", "",     "9500", "",     "10500", "",    "11500", "",    nullptr};
+    // Mit csinál: egy számot tesz a skála osztása mellé, belül, a felirat méretéhez és helyzetéhez igazítva.
+    // Hogyan:     a felirat doboza és az osztás vége közti rés mindenhol ugyanakkora (gap): a doboz sugárirányú kiterjedése
+    //             a fél szélesség és a fél magasság vetülete (|cos| és |sin| szerint). Így a hosszú szám a kör két oldalán
+    //             (ahol a szélessége sugárirányú) beljebb kerül, a kör tetején és alján (ahol csak a magassága számít) nem.
+    // Miért:      az LVGL saját felirata a középpontot rögzíti, ezért a vízszintesen elhelyezkedő hosszú számok rálógtak az osztásra.
+    void add_label(lv_obj_t* host, int32_t val, const char* text, const lv_font_t* font, lv_color_t color, int32_t tick_len, int32_t gap) {
+        lv_point_t sz;
+        lv_text_get_size(&sz, text, font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        const float th = (135.f + 270.f * static_cast<float>(val) / static_cast<float>(gmax)) * 3.14159265f / 180.f;
+        const float c = std::cos(th), sn = std::sin(th);
+        const float ext = 0.5f * static_cast<float>(sz.x) * std::fabs(c) + 0.35f * static_cast<float>(sz.y) * std::fabs(sn);  // a számjegyek a sor magasságának ~60%-át töltik ki
+        const float r = kDiameter / 2.f - static_cast<float>(tick_len + gap) - ext;
+        make_label(host, font, color, LV_ALIGN_CENTER, static_cast<int32_t>(std::lround(r * c)), static_cast<int32_t>(std::lround(r * sn)), text);
+    }
+
+    // Mit csinál: körívet rajzol a skála mentén a két érték között (a skála külső szélén, befelé vastagodva).
+    // Hogyan:     lv_arc objektum, csak a háttérív látszik (a jelző és a gomb ki van kapcsolva).
+    // Miért:      a skálaobjektum saját ívét a pillanatkép nem mutatta, ez az ív minden esetben látszik.
+    void add_arc(lv_obj_t* host, int32_t from_val, int32_t to_val, int32_t width, lv_color_t color) {
+        lv_obj_t* a = lv_arc_create(host);
+        lv_obj_remove_style(a, nullptr, LV_PART_KNOB);
+        lv_obj_set_size(a, kDiameter, kDiameter);
+        lv_obj_center(a);
+        lv_obj_remove_flag(a, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE));
+        const int32_t s0 = 135 + 270 * from_val / gmax, s1 = 135 + 270 * to_val / gmax;
+        lv_arc_set_bg_angles(a, static_cast<lv_value_precise_t>(s0 % 360), static_cast<lv_value_precise_t>(s1 % 360));
+        lv_obj_set_style_arc_width(a, width, LV_PART_MAIN);
+        lv_obj_set_style_arc_color(a, color, LV_PART_MAIN);
+        lv_obj_set_style_arc_rounded(a, false, LV_PART_MAIN);
+        lv_obj_set_style_arc_width(a, 0, LV_PART_INDICATOR);
+    }
+
+    // Mit csinál: a skála rajzolásához tartót készít a képernyőn (a régi élő skála, ha volt, törlődik).
+    // Hogyan:     a skála a rajzterületét 100 px-szel túlnyújtja; a pontosan kDiameter méretű tartóról készül a kép.
+    lv_obj_t* begin_face() {
         if (live_scale) {
             lv_obj_delete(live_scale);
             live_scale = nullptr;
         }
-        // A skála a rajzterületét 100 px-szel túlnyújtja; a pontosan kDiameter méretű tartóról készül a kép.
         lv_obj_t* host = lv_obj_create(scr);
         lv_obj_remove_style_all(host);
         lv_obj_set_size(host, kDiameter, kDiameter);
         lv_obj_center(host);
         lv_obj_set_style_bg_color(host, g_bg, 0);
         lv_obj_set_style_bg_opa(host, LV_OPA_COVER, 0);
+        return host;
+    }
 
-        // 1. réteg: sűrű kis osztások és a vékony szürke körív (270°-os, nem teljes kör); 7000 1/perc fölött 200-as osztásköz.
-        const bool dense = rpm_max <= 7000;
-        const int32_t fine_step = dense ? 100 : 200;
-        lv_obj_t* fine = add_scale(host, fine_step);
-        const int32_t fine_top = rpm_max / fine_step * fine_step;
-        lv_scale_set_major_tick_every(fine, static_cast<uint32_t>(fine_top / fine_step + 1));  // csak a 0. osztás "nagy"
-        lv_obj_set_style_arc_width(fine, 2, LV_PART_MAIN);
-        lv_obj_set_style_arc_color(fine, g_accent, LV_PART_MAIN);
-        lv_obj_set_style_line_width(fine, 2, LV_PART_ITEMS);
-        lv_obj_set_style_line_color(fine, g_dim, LV_PART_ITEMS);
-        lv_obj_set_style_length(fine, 8, LV_PART_ITEMS);
-        lv_obj_set_style_line_width(fine, 2, LV_PART_INDICATOR);
-        lv_obj_set_style_line_color(fine, g_dim, LV_PART_INDICATOR);
-        lv_obj_set_style_length(fine, 8, LV_PART_INDICATOR);
-        lv_scale_section_t* z_fine = lv_scale_add_section(fine);
-        lv_scale_set_section_range(fine, z_fine, std::min(rpm_red, fine_top), fine_top);
-        lv_scale_set_section_style_main(fine, z_fine, &red_main);
-        lv_scale_set_section_style_indicator(fine, z_fine, &red_minor);
-        lv_scale_set_section_style_items(fine, z_fine, &red_minor);
-
-        // 2. réteg: az 500-as osztások, kicsit hosszabbak a kicsiknél (csak a 100-as osztásköznél, mert a 200-as nem illeszkedik).
-        if (dense) {
-            lv_obj_t* med = add_scale(host, 500);
-            lv_scale_set_major_tick_every(med, 1);
-            lv_obj_set_style_line_width(med, 2, LV_PART_INDICATOR);
-            lv_obj_set_style_line_color(med, g_accent, LV_PART_INDICATOR);
-            lv_obj_set_style_length(med, 12, LV_PART_INDICATOR);
-            lv_scale_set_label_show(med, true);
-            lv_scale_set_text_src(med, kHalves);
-            lv_obj_set_style_pad_radial(med, 6, LV_PART_INDICATOR);  // a felirat messzebb az osztástól, a nagy számok sávja felé
-            lv_scale_section_t* z_med = lv_scale_add_section(med);
-            lv_scale_set_section_range(med, z_med, std::min(rpm_red, rpm_max / 500 * 500), rpm_max / 500 * 500);
-            lv_scale_set_section_style_indicator(med, z_med, &red_med);
-        }
-
-        // 3. réteg: az ezres nagy osztások a számokkal.
-        lv_obj_t* big = add_scale(host, 1000);
-        lv_scale_set_major_tick_every(big, 1);
-        lv_scale_set_label_show(big, true);
-        lv_scale_set_text_src(big, kThousands);
-        lv_obj_set_style_line_width(big, 3, LV_PART_INDICATOR);
-        lv_obj_set_style_line_color(big, g_text, LV_PART_INDICATOR);
-        lv_obj_set_style_length(big, 16, LV_PART_INDICATOR);
-        lv_obj_set_style_text_font(big, &og_font_montserrat_20, LV_PART_INDICATOR);
-        lv_obj_set_style_text_color(big, g_text, LV_PART_INDICATOR);
-        lv_scale_section_t* z_big = lv_scale_add_section(big);
-        lv_scale_set_section_range(big, z_big, std::min(rpm_red, rpm_max / 1000 * 1000), rpm_max / 1000 * 1000);
-        lv_scale_set_section_style_indicator(big, z_big, &red_major);
-
-        make_label(host, &og_font_montserrat_20, g_dim, LV_ALIGN_CENTER, 0, 50, "X1000 1/perc");
+    // Mit csinál: a tartót képbe rajzolja (snapshot) és a képernyőn ezt a képet mutatja; a tartó törlődik.
+    void end_face(lv_obj_t* host) {
         lv_obj_update_layout(host);
-
         if (face_mem && lv_snapshot_take_to_draw_buf(host, LV_COLOR_FORMAT_RGB565, &face_buf) == LV_RESULT_OK) {
             lv_image_set_src(face, &face_buf);
             lv_obj_invalidate(face);
@@ -462,13 +439,6 @@ struct NeedleTachView {
             live_scale = host;
             lv_obj_move_to_index(host, 0);
         }
-    }
-
-    // Mit csinál: új skálavég és redline (beállítás módosításakor): újragenerálja a skálát.
-    void set_scale(int32_t max, int32_t redline) {
-        rpm_max = std::max<int32_t>(1000, max / 100 * 100);
-        rpm_red = std::min(redline, rpm_max);
-        render_face();
         drawn = -1;  // a tűt az új skálán újra ki kell számolni
     }
 
@@ -511,11 +481,13 @@ struct NeedleTachView {
         }
     }
 
-    // Mit csinál: a tű forgatását a megadott fordulatszámhoz állítja (tized fokban; a skála 135°-nál kezdődik, 270° nyílású).
+    // Mit csinál: a tű forgatása tized fokban a megadott értékhez (a skála 135°-nál kezdődik, 270° nyílású).
     // Hogyan:     a kép csúcsa felfelé néz (-90°), ezért a forgatás az irányszög + 90°.
-    int32_t needle_rotation(int32_t rpm) const { return (1350 + 900 + 2700 * rpm / rpm_max) % 3600; }
+    int32_t needle_rotation(float val) const { return (1350 + 900 + static_cast<int32_t>(2700.f * val / static_cast<float>(gmax) + 0.5f)) % 3600; }
 
-    void build() {
+    // Mit csinál: a közös elemeket (képernyő, színes stílusok, skálakép, tű, agy, feliratok) felépíti.
+    // Hogyan:     a mérőnként eltérő feliratokat az utódosztály adja a skála képébe.
+    void build_base() {
         scr = make_screen();
         lv_obj_set_style_pad_all(scr, 0, 0);
         lv_obj_set_style_border_width(scr, 0, 0);
@@ -561,35 +533,207 @@ struct NeedleTachView {
         lv_obj_set_style_border_width(hub, 3, 0);
         lv_obj_set_style_border_color(hub, g_accent, 0);
 
-        // Fix szélességű, középre igazított feliratok: a tartalomhoz igazodó szélesség eltolta a sebességet.
-        speed = make_label(scr, &og_font_montserrat_28, g_text, LV_ALIGN_CENTER, 0, 85, "-- km/h");
+        // Fix szélességű, középre igazított feliratok: a tartalomhoz igazodó szélesség eltolta az értéket.
+        value = make_label(scr, &og_font_montserrat_28, g_text, LV_ALIGN_CENTER, 0, 85, "--");
         nodata = make_label(scr, &og_font_montserrat_20, g_warn, LV_ALIGN_CENTER, 0, 128, "NINCS ADAT");
-        for (lv_obj_t* l : {speed, nodata}) {
+        for (lv_obj_t* l : {value, nodata}) {
             lv_obj_set_width(l, 200);
             lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
         }
-        lv_obj_align(speed, LV_ALIGN_CENTER, 0, 85);
+        lv_obj_align(value, LV_ALIGN_CENTER, 0, 85);
         lv_obj_align(nodata, LV_ALIGN_CENTER, 0, 128);
     }
 
-    void update(const DashValues& v) {
-        const bool ok_rpm = v.fresh && (v.flags & kFlagRpm);
-        const float target = ok_rpm ? std::min<float>(v.rpm, static_cast<float>(rpm_max)) : 0.f;
+    // Mit csinál: a tűt a cél felé simítva mozgatja, és csak akkor rajzoltatja újra, ha a forgatás (0,1°) változott.
+    void move_needle(float target) {
         shown += (target - shown) * kSmooth;
-        if (std::abs(target - shown) < 1.f) shown = target;
-        const int32_t rot = needle_rotation(static_cast<int32_t>(shown + 0.5f));
+        if (std::abs(target - shown) < static_cast<float>(gmax) / 2700.f * 0.5f) shown = target;
+        const int32_t rot = needle_rotation(shown);
         if (rot != drawn) {
             lv_image_set_rotation(needle, rot);
             drawn = rot;
         }
+    }
+
+    // Mit csinál: a "NINCS ADAT" felirat láthatóságát az adatok frissességéhez igazítja.
+    void show_nodata(bool fresh) {
+        if (lv_obj_is_hidden(nodata) != fresh) lv_obj_set_hidden(nodata, fresh);
+    }
+};
+
+// Mit csinál: mutatós fordulatszámmérő: ezres számok, 500-as közepes osztások halvány felirattal, a redline-tól piros sáv;
+//             a tű alatt a sebesség.
+// Hogyan:     három skálaréteg: sűrű kis osztások (100, 7000 fölött 200 1/perc), 500-as osztások és az ezres nagy osztások.
+struct NeedleTachView : NeedleGaugeBase {
+    int32_t rpm_red = 6500;
+
+    // Mit csinál: a skála kész képét előállítja a jelenlegi skálavéggel és redline-nal.
+    void render_face() {
+        lv_obj_t* host = begin_face();
+
+        // Körívek: vékony, 270°-os íve (nem teljes kör) és a redline-tól a piros sáv.
+        add_arc(host, 0, gmax, 2, g_accent);
+        if (rpm_red < gmax) add_arc(host, rpm_red, gmax, 8, g_warn);
+
+        // 1. réteg: sűrű kis osztások; 7000 1/perc fölött 200-as osztásköz.
+        const bool dense = gmax <= 7000;
+        const int32_t fine_step = dense ? 100 : 200;
+        lv_obj_t* fine = add_scale(host, fine_step);
+        const int32_t fine_top = gmax / fine_step * fine_step;
+        lv_scale_set_major_tick_every(fine, static_cast<uint32_t>(fine_top / fine_step + 1));  // csak a 0. osztás "nagy"
+        lv_obj_set_style_line_width(fine, 2, LV_PART_ITEMS);
+        lv_obj_set_style_line_color(fine, g_dim, LV_PART_ITEMS);
+        lv_obj_set_style_length(fine, 8, LV_PART_ITEMS);
+        lv_obj_set_style_line_width(fine, 2, LV_PART_INDICATOR);
+        lv_obj_set_style_line_color(fine, g_dim, LV_PART_INDICATOR);
+        lv_obj_set_style_length(fine, 8, LV_PART_INDICATOR);
+        lv_scale_section_t* z_fine = lv_scale_add_section(fine);
+        lv_scale_set_section_range(fine, z_fine, std::min(rpm_red, fine_top), fine_top);
+        lv_scale_set_section_style_indicator(fine, z_fine, &red_minor);
+        lv_scale_set_section_style_items(fine, z_fine, &red_minor);
+
+        // 2. réteg: az 500-as osztások, kicsit hosszabbak a kicsiknél (csak a 100-as osztásköznél, mert a 200-as nem illeszkedik).
+        if (dense) {
+            lv_obj_t* med = add_scale(host, 500);
+            lv_scale_set_major_tick_every(med, 1);
+            lv_obj_set_style_line_width(med, 2, LV_PART_INDICATOR);
+            lv_obj_set_style_line_color(med, g_accent, LV_PART_INDICATOR);
+            lv_obj_set_style_length(med, 12, LV_PART_INDICATOR);
+            lv_scale_set_label_show(med, false);  // a feliratokat az add_label teszi ki
+            lv_scale_section_t* z_med = lv_scale_add_section(med);
+            lv_scale_set_section_range(med, z_med, std::min(rpm_red, gmax / 500 * 500), gmax / 500 * 500);
+            lv_scale_set_section_style_indicator(med, z_med, &red_med);
+        }
+
+        // 3. réteg: az ezres nagy osztások a számokkal.
+        lv_obj_t* big = add_scale(host, 1000);
+        lv_scale_set_major_tick_every(big, 1);
+        lv_scale_set_label_show(big, false);
+        lv_obj_set_style_line_width(big, 3, LV_PART_INDICATOR);
+        lv_obj_set_style_line_color(big, g_text, LV_PART_INDICATOR);
+        lv_obj_set_style_length(big, 16, LV_PART_INDICATOR);
+        lv_scale_section_t* z_big = lv_scale_add_section(big);
+        lv_scale_set_section_range(big, z_big, std::min(rpm_red, gmax / 1000 * 1000), gmax / 1000 * 1000);
+        lv_scale_set_section_style_indicator(big, z_big, &red_major);
+
+        // Feliratok: az ezres számok nagyok (a redline-tól pirosak), a félezresek kicsik és halványak.
+        char b[12];
+        for (int32_t v = 0; v <= gmax / 1000 * 1000; v += 1000) {
+            std::snprintf(b, sizeof b, "%d", static_cast<int>(v / 1000));
+            add_label(host, v, b, &og_font_montserrat_20, v >= rpm_red ? g_warn : g_text, 16, 5);
+        }
+        if (dense) {
+            for (int32_t v = 500; v <= gmax / 500 * 500; v += 1000) {
+                std::snprintf(b, sizeof b, "%d", static_cast<int>(v));
+                add_label(host, v, b, &lv_font_montserrat_14, v >= rpm_red ? g_warn : g_dim, 12, 5);
+            }
+        }
+        make_label(host, &og_font_montserrat_20, g_dim, LV_ALIGN_CENTER, 0, 50, "X1000 1/perc");
+        end_face(host);
+    }
+
+    // Mit csinál: új skálavég és redline (beállítás módosításakor): újragenerálja a skálát.
+    void set_scale(int32_t max, int32_t redline) {
+        gmax = std::max<int32_t>(1000, max / 100 * 100);
+        rpm_red = std::min(redline, gmax);
+        render_face();
+    }
+
+    void build() { build_base(); }
+
+    void update(const DashValues& v) {
+        const bool ok_rpm = v.fresh && (v.flags & kFlagRpm);
+        move_needle(ok_rpm ? std::min<float>(v.rpm, static_cast<float>(gmax)) : 0.f);
         char b[24];
         const bool mph = g_cfg.speed_unit == SpeedUnit::Mph;
         if (v.fresh && (v.flags & kFlagSpeed))
             std::snprintf(b, sizeof b, mph ? "%d mph" : "%d km/h", static_cast<int>((mph ? v.speed_kmh * 0.621371f : v.speed_kmh) + 0.5f));
         else
             std::snprintf(b, sizeof b, mph ? "-- mph" : "-- km/h");
-        set_text(speed, b);
-        if (lv_obj_is_hidden(nodata) != v.fresh) lv_obj_set_hidden(nodata, v.fresh);
+        set_text(value, b);
+        show_nodata(v.fresh);
+    }
+};
+
+// Mit csinál: mutatós sebességmérő: számozott nagy osztások, közepes és kis osztások; a tű alatt a számjegyes érték.
+// Hogyan:     a skála végét a beállított végsebesség adja a kiválasztott mértékegységben (km/h vagy mph). Az osztások
+//             sűrűsége a skála végétől függ, hogy a számok ne torlódjanak: 140-ig (1, 5, 10), 280-ig (5, 10, 20),
+//             fölötte (10, 20, 40). Beállítás vagy mértékegység módosításakor újragenerálódik (set_scale).
+struct NeedleSpeedView : NeedleGaugeBase {
+    bool mph = false;
+    bool rendered = false;
+    int32_t max_kmh = 0;                  // a legutóbb beállított végsebesség (km/h), a változás észleléséhez
+
+    // Mit csinál: a skála kész képét előállítja a jelenlegi skálavéggel és mértékegységgel.
+    void render_face(int32_t fine_step, int32_t med_step, int32_t big_step) {
+        lv_obj_t* host = begin_face();
+
+        add_arc(host, 0, gmax, 2, g_accent);  // a vékony körív
+
+        // 1. réteg: kis osztások.
+        lv_obj_t* fine = add_scale(host, fine_step);
+        lv_scale_set_major_tick_every(fine, static_cast<uint32_t>(gmax / fine_step + 1));  // csak a 0. osztás "nagy"
+        lv_obj_set_style_line_width(fine, 2, LV_PART_ITEMS);
+        lv_obj_set_style_line_color(fine, g_dim, LV_PART_ITEMS);
+        lv_obj_set_style_length(fine, 8, LV_PART_ITEMS);
+        lv_obj_set_style_line_width(fine, 2, LV_PART_INDICATOR);
+        lv_obj_set_style_line_color(fine, g_dim, LV_PART_INDICATOR);
+        lv_obj_set_style_length(fine, 8, LV_PART_INDICATOR);
+
+        // 2. réteg: közepes osztások.
+        lv_obj_t* med = add_scale(host, med_step);
+        lv_scale_set_major_tick_every(med, 1);
+        lv_obj_set_style_line_width(med, 2, LV_PART_INDICATOR);
+        lv_obj_set_style_line_color(med, g_accent, LV_PART_INDICATOR);
+        lv_obj_set_style_length(med, 12, LV_PART_INDICATOR);
+        lv_scale_set_label_show(med, false);
+
+        // 3. réteg: nagy osztások, számokkal.
+        lv_obj_t* big = add_scale(host, big_step);
+        lv_scale_set_major_tick_every(big, 1);
+        lv_scale_set_label_show(big, false);  // a feliratokat az add_label teszi ki
+        lv_obj_set_style_line_width(big, 3, LV_PART_INDICATOR);
+        lv_obj_set_style_line_color(big, g_text, LV_PART_INDICATOR);
+        lv_obj_set_style_length(big, 16, LV_PART_INDICATOR);
+        char b[12];
+        for (int32_t v = 0; v <= gmax; v += big_step) {
+            std::snprintf(b, sizeof b, "%d", static_cast<int>(v));
+            add_label(host, v, b, &og_font_montserrat_20, g_text, 16, 5);
+        }
+
+        make_label(host, &og_font_montserrat_20, g_dim, LV_ALIGN_CENTER, 0, 50, mph ? "mph" : "km/h");
+        end_face(host);
+        rendered = true;
+    }
+
+    // Mit csinál: beállítja a skálavéget és a mértékegységet; csak változáskor generálja újra a skálát.
+    // Hogyan:     a végsebességet átszámolja a mértékegységre, és lefelé kerekíti a nagy osztás többszörösére.
+    void set_scale(int32_t max_speed_kmh, bool use_mph) {
+        if (rendered && use_mph == mph && max_speed_kmh == max_kmh) return;
+        mph = use_mph;
+        max_kmh = max_speed_kmh;
+        const int32_t v = mph ? static_cast<int32_t>(max_speed_kmh * 0.621371f + 0.5f) : max_speed_kmh;
+        int32_t fine = 10, med = 20, big = 40;
+        if (v <= 140) { fine = 1; med = 5; big = 10; }
+        else if (v <= 280) { fine = 5; med = 10; big = 20; }
+        gmax = std::max(big, v / big * big);
+        render_face(fine, med, big);
+    }
+
+    void build() {
+        gmax = 240;
+        build_base();
+    }
+
+    void update(const DashValues& v) {
+        const bool ok = v.fresh && (v.flags & kFlagSpeed);
+        const float val = ok ? (mph ? v.speed_kmh * 0.621371f : v.speed_kmh) : 0.f;
+        move_needle(std::min(val, static_cast<float>(gmax)));
+        char b[16];
+        if (ok) std::snprintf(b, sizeof b, "%d", static_cast<int>(val + 0.5f));
+        else std::snprintf(b, sizeof b, "--");
+        set_text(value, b);
+        show_nodata(v.fresh);
     }
 };
 
@@ -692,12 +836,14 @@ MusicView g_music;
 #endif
 constexpr int kMusicId = 3;  // a zene képernyőre csak kézzel lépünk; az automatikus váltás kihagyja
 constexpr int kNeedleTachId = 4;
+constexpr int kNeedleSpeedId = 5;
 
 MainView g_main;
 DetailView g_detail;
 LinkView g_linkv;
 NeedleTachView g_needle_tach;
-lv_obj_t* g_screens[kScreenIds] = {};  // képernyőazonosító szerint: 0 fő, 1 részletek, 2 kapcsolat, 3 zene, 4 mutatós fordulatszámmérő
+NeedleSpeedView g_needle_speed;
+lv_obj_t* g_screens[kScreenIds] = {};  // képernyőazonosító szerint: 0 fő, 1 részletek, 2 kapcsolat, 3 zene, 4 mutatós fordulatszámmérő, 5 mutatós sebességmérő
 int g_active[kScreenIds];               // a lapozásban részt vevő képernyők, a beállított sorrendben
 int g_active_n = 0;
 int g_pos = 0;                          // a jelenlegi képernyő helye a g_active-ban
@@ -729,6 +875,7 @@ void ui_tick(lv_timer_t*) {
     g_detail.update(v, bat, vin);
     g_linkv.update(v, l);
     g_needle_tach.update(v);
+    g_needle_speed.update(v);
 #if defined(CONFIG_OG_DISP_MUSIC)
     g_music.update(ble_ams_info(), now_ms());
 #endif
@@ -824,6 +971,7 @@ void open_settings(lv_event_t*) {
 void apply_live() {
     g_main.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
     g_needle_tach.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
+    g_needle_speed.set_scale(g_cfg.max_speed_kmh, g_cfg.speed_unit == SpeedUnit::Mph);
     if (g_switch_timer) lv_timer_set_period(g_switch_timer, g_cfg.switch_period_s * 1000u);
     g_backlight_pct = g_dimmed ? std::min<int>(g_cfg.brightness_pct, kLowBatteryBacklight) : g_cfg.brightness_pct;
     if (g_lcd) g_lcd->set_backlight(g_backlight_pct);
@@ -1121,7 +1269,7 @@ void bench_task(void*) {
         }
     }
     // Álló képernyők: 6 s-ig egy helyben, hogy a mozgó tű/ív idleje is látsszon (az átmenetek már lecsengtek).
-    for (const int id : {0, kNeedleTachId}) {
+    for (const int id : {0, kNeedleTachId, kNeedleSpeedId}) {
         for (int k = 0; k < g_active_n; ++k) {
             if (g_active[k] != id) continue;
             g_bench_busy = true;
@@ -1208,7 +1356,10 @@ void show_boot_logo(const lv_image_dsc_t* logo) {
 
 // Mit csinál: az indulás utáni első LVGL-ütemben előállítja a mutatós fordulatszámmérő skálájának képét.
 // Miért:      a rajzolást az LVGL-feladat végzi (a main feladat verme kicsi a képrajzoláshoz).
-void initial_scale_tick(lv_timer_t*) { g_needle_tach.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm); }
+void initial_scale_tick(lv_timer_t*) {
+    g_needle_tach.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
+    g_needle_speed.set_scale(g_cfg.max_speed_kmh, g_cfg.speed_unit == SpeedUnit::Mph);
+}
 
 }  // namespace
 
@@ -1249,6 +1400,8 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
         g_screens[2] = g_linkv.scr;
         g_needle_tach.build();
         g_screens[kNeedleTachId] = g_needle_tach.scr;
+        g_needle_speed.build();
+        g_screens[kNeedleSpeedId] = g_needle_speed.scr;
 #if defined(CONFIG_OG_DISP_MUSIC)
         g_music.build();
         g_screens[kMusicId] = g_music.scr;
