@@ -160,7 +160,7 @@ void set_text(lv_obj_t* label, const char* text) {
 }
 
 // A kiválasztott paletta színei; az apply_palette() tölti fel, még a képernyők építése előtt.
-lv_color_t g_bg, g_track, g_text, g_dim, g_accent, g_warn;
+lv_color_t g_bg, g_track, g_text, g_dim, g_accent, g_warn, g_needle;
 
 lv_obj_t* make_screen() {
     lv_obj_t* scr = lv_obj_create(nullptr);
@@ -191,6 +191,7 @@ void apply_palette(const Settings& s) {
     g_dim = lv_color_hex(p.dim);
     g_accent = lv_color_hex(p.accent);
     g_warn = lv_color_hex(p.warn);
+    g_needle = lv_color_hex(p.needle);
 }
 
 // Mit csinál: a töltöttséghez illő akkumulátor-ikon (töltés becsült állapotában villám).
@@ -415,6 +416,8 @@ struct NeedleGaugeBase {
     float shown = 0;
     int32_t drawn = -1;
     int32_t gmax = 8000;                        // a skála vége (a mérő mértékegységében)
+    int32_t start_deg = 135;                    // a skála kezdő iránya (fok, az óramutató járásával, a 3 óra felől mérve)
+    int32_t sweep_deg = 270;                    // a skála nyílása; negatív: az érték az óramutatóval szemben nő
 
     // Mit csinál: egy skálaréteget hoz létre a tartón (átlátszó háttér, 270°-os körív 135°-tól).
     // Hogyan:     a skála végét az osztásköz többszörösére kerekíti lefelé, a szögtartományt arányosan csökkenti,
@@ -427,8 +430,8 @@ struct NeedleGaugeBase {
         lv_obj_set_style_bg_opa(sc, LV_OPA_TRANSP, 0);
         lv_obj_set_style_border_width(sc, 0, 0);
         lv_scale_set_mode(sc, LV_SCALE_MODE_ROUND_INNER);
-        lv_scale_set_angle_range(sc, static_cast<uint32_t>(270 * top / gmax));
-        lv_scale_set_rotation(sc, 135);
+        lv_scale_set_angle_range(sc, static_cast<uint32_t>(std::abs(sweep_deg) * top / gmax));
+        lv_scale_set_rotation(sc, static_cast<int32_t>(sweep_deg >= 0 ? start_deg : start_deg + sweep_deg));
         lv_scale_set_total_tick_count(sc, static_cast<uint32_t>(top / step + 1));
         lv_scale_set_range(sc, 0, top);
         lv_obj_set_style_arc_width(sc, 0, LV_PART_MAIN);
@@ -443,7 +446,7 @@ struct NeedleGaugeBase {
     void add_label(lv_obj_t* host, int32_t val, const char* text, const lv_font_t* font, lv_color_t color, int32_t tick_len, int32_t gap) {
         lv_point_t sz;
         lv_text_get_size(&sz, text, font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
-        const float th = (135.f + 270.f * static_cast<float>(val) / static_cast<float>(gmax)) * 3.14159265f / 180.f;
+        const float th = (static_cast<float>(start_deg) + static_cast<float>(sweep_deg) * static_cast<float>(val) / static_cast<float>(gmax)) * 3.14159265f / 180.f;
         const float c = std::cos(th), sn = std::sin(th);
         const float ext = 0.5f * static_cast<float>(sz.x) * std::fabs(c) + 0.35f * static_cast<float>(sz.y) * std::fabs(sn);  // a számjegyek a sor magasságának ~60%-át töltik ki
         const float r = kDiameter / 2.f - static_cast<float>(tick_len + gap) - ext;
@@ -459,8 +462,9 @@ struct NeedleGaugeBase {
         lv_obj_set_size(a, kDiameter, kDiameter);
         lv_obj_center(a);
         lv_obj_remove_flag(a, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE));
-        const int32_t s0 = 135 + 270 * from_val / gmax, s1 = 135 + 270 * to_val / gmax;
-        lv_arc_set_bg_angles(a, static_cast<lv_value_precise_t>(s0 % 360), static_cast<lv_value_precise_t>(s1 % 360));
+        int32_t s0 = start_deg + sweep_deg * from_val / gmax, s1 = start_deg + sweep_deg * to_val / gmax;
+        if (s0 > s1) std::swap(s0, s1);  // az LVGL íve mindig az óramutatóval megy s0-tól s1-ig
+        lv_arc_set_bg_angles(a, static_cast<lv_value_precise_t>((s0 % 360 + 360) % 360), static_cast<lv_value_precise_t>((s1 % 360 + 360) % 360));
         lv_obj_set_style_arc_width(a, width, LV_PART_MAIN);
         lv_obj_set_style_arc_color(a, color, LV_PART_MAIN);
         lv_obj_set_style_arc_rounded(a, false, LV_PART_MAIN);
@@ -539,7 +543,13 @@ struct NeedleGaugeBase {
 
     // Mit csinál: a tű forgatása tized fokban a megadott értékhez (a skála 135°-nál kezdődik, 270° nyílású).
     // Hogyan:     a kép csúcsa felfelé néz (-90°), ezért a forgatás az irányszög + 90°.
-    int32_t needle_rotation(float val) const { return (1350 + 900 + static_cast<int32_t>(2700.f * val / static_cast<float>(gmax) + 0.5f)) % 3600; }
+    int32_t needle_rotation(float val) const { return rotation_of(val, gmax, start_deg, sweep_deg); }
+
+    // Mit csinál: a tű forgatása tized fokban egy tetszőleges nyílású skálán (az érték 0..max).
+    static int32_t rotation_of(float val, int32_t max, int32_t start, int32_t sweep) {
+        const int32_t r = start * 10 + 900 + static_cast<int32_t>(std::lround(static_cast<float>(sweep) * 10.f * val / static_cast<float>(max)));
+        return (r % 3600 + 3600) % 3600;
+    }
 
     // Mit csinál: a közös elemeket (képernyő, színes stílusok, skálakép, tű, agy, feliratok) felépíti.
     // Hogyan:     a mérőnként eltérő feliratokat az utódosztály adja a skála képébe.
@@ -575,7 +585,7 @@ struct NeedleGaugeBase {
         if (needle_buf) lv_image_set_src(needle, needle_buf);
         lv_obj_set_pos(needle, kCenter - kImgW / 2, kCenter - kImgPivotY);
         lv_image_set_pivot(needle, kImgW / 2, kImgPivotY);
-        lv_obj_set_style_image_recolor(needle, g_accent, 0);
+        lv_obj_set_style_image_recolor(needle, g_needle, 0);
         lv_obj_set_style_image_recolor_opa(needle, LV_OPA_COVER, 0);
         lv_obj_remove_flag(needle, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE));
         lv_image_set_rotation(needle, needle_rotation(0));
@@ -618,7 +628,7 @@ struct NeedleGaugeBase {
 };
 
 // Mit csinál: mutatós fordulatszámmérő: ezres számok, 500-as közepes osztások halvány felirattal, a redline-tól piros sáv;
-//             a tű alatt a sebesség.
+//             a tű alatt nincs külön szám (a sebességnek külön mutatós képernyője van).
 // Hogyan:     három skálaréteg: sűrű kis osztások (100, 7000 fölött 200 1/perc), 500-as osztások és az ezres nagy osztások.
 struct NeedleTachView : NeedleGaugeBase {
     int32_t rpm_red = 6500;
@@ -695,18 +705,14 @@ struct NeedleTachView : NeedleGaugeBase {
         render_face();
     }
 
-    void build() { build_base(); }
+    void build() {
+        build_base();
+        lv_obj_set_hidden(value, true);  // a sebességnek külön mutatós képernyője van, itt nem írjuk ki
+    }
 
     void update(const DashValues& v) {
         const bool ok_rpm = v.fresh && (v.flags & kFlagRpm);
         move_needle(ok_rpm ? std::min<float>(v.rpm, static_cast<float>(gmax)) : 0.f);
-        char b[24];
-        const bool mph = g_cfg.speed_unit == SpeedUnit::Mph;
-        if (v.fresh && (v.flags & kFlagSpeed))
-            std::snprintf(b, sizeof b, mph ? "%d mph" : "%d km/h", static_cast<int>((mph ? v.speed_kmh * 0.621371f : v.speed_kmh) + 0.5f));
-        else
-            std::snprintf(b, sizeof b, mph ? "-- mph" : "-- km/h");
-        set_text(value, b);
         show_nodata(v.fresh);
     }
 };
@@ -789,6 +795,167 @@ struct NeedleSpeedView : NeedleGaugeBase {
         if (ok) std::snprintf(b, sizeof b, "%d", static_cast<int>(val + 0.5f));
         else std::snprintf(b, sizeof b, "--");
         set_text(value, b);
+        show_nodata(v.fresh);
+    }
+};
+
+// Mit csinál: kettős mutatós mérő egy tárcsán: felül az akkumulátorfeszültség (10–15 V), alul a hűtővíz hőmérséklete;
+//             a két tű közös tengelyen mozog, a számértékek a tárcsa két oldalán látszanak.
+// Hogyan:     a skála két 90°-os ív (felül és alul is balról jobbra nő az érték), a közös alap skála-, címke- és
+//             körív-segédjei a start_deg/sweep_deg tagokon át használhatók tetszőleges nyílásra. Az értékek pozíciója a
+//             skála elejétől számolt egész szám (feszültségnél tized volt, hőmérsékletnél fok), a szöveg ebből áll elő.
+//             Az akkumulátor-skála a mért feszültségtől függ (12 V-os vagy 24 V-os rendszer, 18 V fölött 24 V-os; a váltáskor
+//             a tárcsa újrarajzolódik, közte hiszterézis van). 12 V: 10..16 V, piros <= 11,0 V és >= 15,0 V; 24 V: 23..30 V,
+//             piros <= 23,5 V és >= 29,5 V. Hűtővíz: 60..120 °C 15 fokos nagy osztásokkal, piros 105 fölött.
+struct NeedleDualView : NeedleGaugeBase {
+    static constexpr int32_t kBatStart = 225, kBatSweep = 90;                 // a feszültségmérő íve felül
+    static constexpr float kV24On = 20.0f, kV24Off = 17.0f;                   // a 24 V-os rendszer felismerésének hiszterézise (V)
+    static constexpr int32_t kTempStart = 135, kTempSweep = -90;              // alul balról jobbra
+    lv_obj_t* needle2 = nullptr;
+    lv_obj_t* value2 = nullptr;
+    float shown2 = 0;
+    int32_t drawn2 = -1;
+    bool fahrenheit = false;
+    bool rendered = false;
+    int32_t t_min = 60, t_span = 60;  // a hőmérséklet-skála kezdete és nyílása a kijelzett mértékegységben
+    bool v24 = false;                 // 24 V-os rendszer (a mért feszültségből)
+    int32_t b_min = 100, b_span = 60; // a feszültség-skála kezdete és nyílása tizedvoltban
+
+    // Mit csinál: egy 90°-os mérőívet rajzol a tárcsára: vékony ív, piros szélső sávok, kis és nagy osztások, számok.
+    // Hogyan:     a pozíciók 0..span egészek; a feliratok szövege (lab_min + pozíció) / lab_div. A piros sáv: [0, red_lo_to]
+    //             és [red_hi_from, span] (red_lo_to = 0, illetve red_hi_from = span: nincs ilyen sáv). Az óramutatóval
+    //             szemben növő skálán (sweep < 0) az LVGL osztásai fordított sorrendűek, ezért a szakaszokat tükrözzük.
+    void add_gauge(lv_obj_t* host, int32_t start, int32_t sweep, int32_t span, int32_t big, int32_t fine, int32_t lab_min,
+                   int32_t lab_div, int32_t red_lo_to, int32_t red_hi_from) {
+        start_deg = start;
+        sweep_deg = sweep;
+        gmax = span;
+        const bool rev = sweep < 0;
+        auto section = [&](lv_obj_t* sc, lv_style_t* ind, lv_style_t* items, int32_t a, int32_t b) {
+            int32_t x0 = rev ? span - b : a, x1 = rev ? span - a : b;
+            lv_scale_section_t* z = lv_scale_add_section(sc);
+            lv_scale_set_section_range(sc, z, x0, x1);
+            lv_scale_set_section_style_indicator(sc, z, ind);
+            if (items) lv_scale_set_section_style_items(sc, z, items);
+        };
+        const bool lo = red_lo_to > 0, hi = red_hi_from < span;
+
+        add_arc(host, 0, span, 2, g_accent);
+        if (lo) add_arc(host, 0, red_lo_to, 8, g_warn);
+        if (hi) add_arc(host, red_hi_from, span, 8, g_warn);
+
+        lv_obj_t* f = add_scale(host, fine);
+        lv_scale_set_major_tick_every(f, static_cast<uint32_t>(span / fine + 1));  // csak a 0. osztás "nagy"
+        lv_obj_set_style_line_width(f, 2, LV_PART_ITEMS);
+        lv_obj_set_style_line_color(f, g_dim, LV_PART_ITEMS);
+        lv_obj_set_style_length(f, 8, LV_PART_ITEMS);
+        lv_obj_set_style_line_width(f, 2, LV_PART_INDICATOR);
+        lv_obj_set_style_line_color(f, g_dim, LV_PART_INDICATOR);
+        lv_obj_set_style_length(f, 8, LV_PART_INDICATOR);
+        if (lo) section(f, &red_minor, &red_minor, 0, red_lo_to);
+        if (hi) section(f, &red_minor, &red_minor, red_hi_from, span);
+
+        lv_obj_t* b = add_scale(host, big);
+        lv_scale_set_major_tick_every(b, 1);
+        lv_scale_set_label_show(b, false);  // a feliratokat az add_label teszi ki
+        lv_obj_set_style_line_width(b, 3, LV_PART_INDICATOR);
+        lv_obj_set_style_line_color(b, g_text, LV_PART_INDICATOR);
+        lv_obj_set_style_length(b, 16, LV_PART_INDICATOR);
+        if (lo) section(b, &red_major, nullptr, 0, red_lo_to);
+        if (hi) section(b, &red_major, nullptr, red_hi_from, span);
+
+        char t[12];
+        for (int32_t p = 0; p <= span; p += big) {
+            std::snprintf(t, sizeof t, "%d", static_cast<int>((lab_min + p) / lab_div));
+            add_label(host, p, t, &og_font_montserrat_20, ((lo && p <= red_lo_to) || (hi && p >= red_hi_from)) ? g_warn : g_text, 16, 5);
+        }
+    }
+
+    // Mit csinál: a tárcsa kész képét előállítja a jelenlegi hőmérséklet-mértékegységgel.
+    void render_face() {
+        lv_obj_t* host = begin_face();
+        if (v24) add_gauge(host, kBatStart, kBatSweep, b_span, 10, 5, b_min, 10, 5, 65);   // 23,0..30,0 V; piros <= 23,5 és >= 29,5
+        else add_gauge(host, kBatStart, kBatSweep, b_span, 10, 2, b_min, 10, 10, 50);      // 10,0..16,0 V; piros <= 11,0 és >= 15,0
+        if (fahrenheit) add_gauge(host, kTempStart, kTempSweep, t_span, 30, 10, t_min, 1, 0, 80);  // 140..260 °F; piros 220-tól
+        else add_gauge(host, kTempStart, kTempSweep, t_span, 15, 5, t_min, 1, 0, 45);              // 60..120 °C; piros 105-től
+        end_face(host);
+        rendered = true;
+        drawn2 = -1;
+    }
+
+    // Mit csinál: beállítja a hőmérséklet mértékegységét; csak változáskor generálja újra a tárcsát.
+    // Hogyan:     °C: 60..120 (piros 105-től); °F: 140..260 (piros 220-tól).
+    void set_scale(bool use_fahrenheit) {
+        if (rendered && use_fahrenheit == fahrenheit) return;
+        fahrenheit = use_fahrenheit;
+        t_min = fahrenheit ? 140 : 60;
+        t_span = fahrenheit ? 120 : 60;
+        render_face();
+    }
+
+    // Mit csinál: a feszültség-skálát a rendszerfeszültséghez igazítja; csak változáskor rajzolja újra a tárcsát.
+    void set_system_24v(bool on) {
+        if (on == v24 && rendered) return;
+        v24 = on;
+        b_min = v24 ? 230 : 100;
+        b_span = v24 ? 70 : 60;
+        render_face();
+    }
+
+    void build() {
+        build_base();
+        needle2 = lv_image_create(scr);
+        if (needle_buf) lv_image_set_src(needle2, needle_buf);
+        lv_obj_set_pos(needle2, kCenter - kImgW / 2, kCenter - kImgPivotY);
+        lv_image_set_pivot(needle2, kImgW / 2, kImgPivotY);
+        lv_obj_set_style_image_recolor(needle2, g_needle, 0);
+        lv_obj_set_style_image_recolor_opa(needle2, LV_OPA_COVER, 0);
+        lv_obj_remove_flag(needle2, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE));
+        lv_obj_move_to_index(needle2, lv_obj_get_index(needle) + 1);  // az agy a két tű fölött marad
+        lv_image_set_rotation(needle, rotation_of(0, b_span, kBatStart, kBatSweep));
+        lv_image_set_rotation(needle2, rotation_of(0, t_span, kTempStart, kTempSweep));
+
+        // A számértékek a tárcsa két oldalán, a tűk söprési sávján kívül: bal oldalt az akkumulátor, jobb oldalt a hűtővíz.
+        value2 = make_label(scr, &og_font_montserrat_28, g_text, LV_ALIGN_CENTER, 96, 10, "--");
+        for (lv_obj_t* l : {value, value2}) {
+            lv_obj_set_width(l, 112);
+            lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
+        }
+        lv_obj_align(value, LV_ALIGN_CENTER, -96, 10);
+        lv_obj_align(value2, LV_ALIGN_CENTER, 96, 10);
+        make_label(scr, &og_font_montserrat_20, g_dim, LV_ALIGN_CENTER, -96, -20, "AKKU");
+        make_label(scr, &og_font_montserrat_20, g_dim, LV_ALIGN_CENTER, 96, -20, "HŰTŐVÍZ");
+        lv_obj_align(nodata, LV_ALIGN_CENTER, 0, 48);
+    }
+
+    // Mit csinál: egy tűt a cél felé simítva mozgat, és csak a forgatás (0,1°) változásakor rajzoltat újra.
+    void step_needle(lv_obj_t* n, float& sh, int32_t& dr, float target, int32_t span, int32_t start, int32_t sweep) {
+        sh += (target - sh) * kSmooth;
+        if (std::abs(target - sh) < static_cast<float>(span) / (static_cast<float>(std::abs(sweep)) * 10.f) * 0.5f) sh = target;
+        const int32_t rot = rotation_of(sh, span, start, sweep);
+        if (rot != dr) {
+            lv_image_set_rotation(n, rot);
+            dr = rot;
+        }
+    }
+
+    void update(const DashValues& v) {
+        auto ok = [&](uint16_t f) { return v.fresh && (v.flags & f); };
+        const bool ok_v = ok(kFlagVbat), ok_c = ok(kFlagCoolant);
+        if (ok_v && !v24 && v.vbat_v > kV24On) set_system_24v(true);        // a skála a mért feszültséghez igazodik
+        else if (ok_v && v24 && v.vbat_v < kV24Off) set_system_24v(false);
+        const float temp = fahrenheit ? v.coolant_c * 1.8f + 32.f : v.coolant_c;
+        step_needle(needle, shown, drawn, ok_v ? std::clamp(v.vbat_v * 10.f - static_cast<float>(b_min), 0.f, static_cast<float>(b_span)) : 0.f, b_span,
+                    kBatStart, kBatSweep);
+        step_needle(needle2, shown2, drawn2, ok_c ? std::clamp(temp - static_cast<float>(t_min), 0.f, static_cast<float>(t_span)) : 0.f,
+                    t_span, kTempStart, kTempSweep);
+        char b[24];
+        if (ok_v) fmt_dec(b, sizeof b, "%.1f V", v.vbat_v);
+        else std::snprintf(b, sizeof b, "--");
+        set_text(value, b);
+        if (ok_c) std::snprintf(b, sizeof b, fahrenheit ? "%d °F" : "%d °C", static_cast<int>(temp));
+        else std::snprintf(b, sizeof b, "--");
+        set_text(value2, b);
         show_nodata(v.fresh);
     }
 };
@@ -893,13 +1060,15 @@ MusicView g_music;
 constexpr int kMusicId = 3;  // a zene képernyőre csak kézzel lépünk; az automatikus váltás kihagyja
 constexpr int kNeedleTachId = 4;
 constexpr int kNeedleSpeedId = 5;
+constexpr int kNeedleDualId = 6;  // kettős mutatós mérő: akkumulátorfeszültség és hűtővíz
 
 MainView g_main;
 DetailView g_detail;
 LinkView g_linkv;
 NeedleTachView g_needle_tach;
 NeedleSpeedView g_needle_speed;
-lv_obj_t* g_screens[kScreenIds] = {};  // képernyőazonosító szerint: 0 fő, 1 részletek, 2 kapcsolat, 3 zene, 4 mutatós fordulatszámmérő, 5 mutatós sebességmérő
+NeedleDualView g_needle_dual;
+lv_obj_t* g_screens[kScreenIds] = {};  // képernyőazonosító szerint: 0 fő, 1 részletek, 2 kapcsolat, 3 zene, 4 mutatós fordulatszámmérő, 5 mutatós sebességmérő, 6 kettős mérő (akkumulátor és hűtővíz)
 int g_active[kScreenIds];               // a lapozásban részt vevő képernyők, a beállított sorrendben
 int g_active_n = 0;
 int g_pos = 0;                          // a jelenlegi képernyő helye a g_active-ban
@@ -932,6 +1101,7 @@ void ui_tick(lv_timer_t*) {
     g_linkv.update(v, l);
     g_needle_tach.update(v);
     g_needle_speed.update(v);
+    g_needle_dual.update(v);
 #if defined(CONFIG_OG_DISP_MUSIC)
     g_music.update(ble_ams_info(), now_ms());
 #endif
@@ -1029,6 +1199,7 @@ void apply_live() {
     g_main.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
     g_needle_tach.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
     g_needle_speed.set_scale(g_cfg.max_speed_kmh, g_cfg.speed_unit == SpeedUnit::Mph);
+    g_needle_dual.set_scale(g_cfg.temp_unit == TempUnit::Fahrenheit);
     if (g_switch_timer) lv_timer_set_period(g_switch_timer, g_cfg.switch_period_s * 1000u);
     g_backlight_pct = g_dimmed ? std::min<int>(g_cfg.brightness_pct, kLowBatteryBacklight) : g_cfg.brightness_pct;
     if (g_lcd) g_lcd->set_backlight(g_backlight_pct);
@@ -1327,7 +1498,7 @@ void bench_task(void*) {
         }
     }
     // Álló képernyők: 6 s-ig egy helyben, hogy a mozgó tű/ív idleje is látsszon (az átmenetek már lecsengtek).
-    for (const int id : {0, kNeedleTachId, kNeedleSpeedId}) {
+    for (const int id : {0, kNeedleTachId, kNeedleSpeedId, kNeedleDualId}) {
         for (int k = 0; k < g_active_n; ++k) {
             if (g_active[k] != id) continue;
             g_bench_busy = true;
@@ -1420,6 +1591,8 @@ void initial_scale_tick(lv_timer_t*) {
     mem_probe("mutatós fordulatszám skála");
     g_needle_speed.set_scale(g_cfg.max_speed_kmh, g_cfg.speed_unit == SpeedUnit::Mph);
     mem_probe("mutatós sebesség skála");
+    g_needle_dual.set_scale(g_cfg.temp_unit == TempUnit::Fahrenheit);
+    mem_probe("kettős mérő skála");
 #if defined(CONFIG_OG_DISP_MEMPROF)
     lv_timer_create(mem_probe_timer, 20000, nullptr);
 #endif
@@ -1475,6 +1648,9 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
         g_needle_speed.build();
         g_screens[kNeedleSpeedId] = g_needle_speed.scr;
         mem_probe("mutatós sebesség (váz)");
+        g_needle_dual.build();
+        g_screens[kNeedleDualId] = g_needle_dual.scr;
+        mem_probe("kettős mérő (váz)");
 #if defined(CONFIG_OG_DISP_MUSIC)
         g_music.build();
         g_screens[kMusicId] = g_music.scr;

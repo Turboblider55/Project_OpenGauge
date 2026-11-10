@@ -14,6 +14,7 @@ struct Palette {
     uint32_t dim;     // másodlagos szöveg, címkék
     uint32_t accent;  // a fő jelző szín (ív, haladássáv, címek)
     uint32_t warn;    // figyelmeztetés: redline, hiba, nincs adat
+    uint32_t needle;  // a mutatós műszerek tűje
 };
 
 constexpr int kPaletteCount = 3;
@@ -21,9 +22,9 @@ constexpr int kPaletteCount = 3;
 // Mit csinál: visszaadja az azonosítóhoz tartozó palettát; érvénytelen azonosítónál az alapértelmezettet (0).
 inline const Palette& palette_get(int id) {
     static const Palette kPalettes[kPaletteCount] = {
-        {"Piros-kék", 0x000000, 0x23262E, 0xFFFFFF, 0x9AA3B5, 0x20A8FF, 0xE02020},
-        {"Borostyán", 0x000000, 0x303030, 0xFFFFFF, 0x9A9A9A, 0xFF8000, 0xE02020},
-        {"Zöld", 0x000000, 0x1F2B22, 0xFFFFFF, 0x9AB0A0, 0x20C060, 0xE02020},
+        {"Piros-kék", 0x000000, 0x23262E, 0xFFFFFF, 0x9AA3B5, 0x20A8FF, 0xE02020, 0xF02828},
+        {"Borostyán", 0x000000, 0x303030, 0xFFFFFF, 0x9A9A9A, 0xFF8000, 0xE02020, 0xFF8000},
+        {"Zöld", 0x000000, 0x1F2B22, 0xFFFFFF, 0x9AB0A0, 0x20C060, 0xE02020, 0x20C060},
     };
     return kPalettes[(id >= 0 && id < kPaletteCount) ? id : 0];
 }
