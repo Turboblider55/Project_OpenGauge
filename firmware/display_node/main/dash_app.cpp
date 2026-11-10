@@ -41,6 +41,7 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "espnow_link.h"
+#include "gear_model.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "led_pattern.h"
@@ -139,6 +140,17 @@ BatteryAdc g_adc;
 BatteryGauge g_gauge;
 bool g_adc_ok = false;
 int g_backlight_pct = CONFIG_OG_LCD_BACKLIGHT_PERCENT;  // a jelenlegi (akkumulátorszinttől függő) fényerő
+// A fokozatbecslés (a kapcsolatfeladat tölti, a 0. magon; a kijelző az atomokból olvas). A modell zárja védi, mert a beállítás
+// (fokozatszám) az LVGL-szálból módosítja.
+GearModel g_gear;
+std::mutex g_gear_mx;
+std::atomic<int> g_gear_now{0};     // a becsült fokozat (0: nem ismert)
+std::atomic<int> g_gear_known{0};   // a megtanult fokozatok száma
+std::atomic<int> g_gear_total{5};   // a beállított fokozatszám
+std::atomic<bool> g_gear_ready{false};
+uint32_t g_gear_saved_ms = 0;       // a tanult adat utolsó mentésének ideje
+bool g_gear_unsaved = false;        // van mentetlen változás
+
 std::atomic<int> g_sleep_in_s{-1};                      // az alvásig hátralévő idő a kijelzőre (-1: nem mutatjuk)
 #if defined(CONFIG_OG_DISP_SLEEP)
 DisplayPowerFsm g_power(DisplayPowerConfig{CONFIG_OG_DISP_SLEEP_AFTER_S * 1000u, CONFIG_OG_DISP_SLEEP_GRACE_S * 1000u});
@@ -181,6 +193,46 @@ lv_obj_t* make_label(lv_obj_t* parent, const lv_font_t* font, lv_color_t color, 
 }
 
 Settings g_cfg;  // a betöltött beállítások (indításkor állnak be, utána csak olvassuk)
+
+// Mit csinál: egy friss telemetriamintát ad a fokozatbecslőnek, és kiteszi az eredményt az atomokba (a kijelző onnan olvas).
+void gear_feed(const DashValues& v) {
+    const bool ok = v.fresh && (v.flags & kFlagRpm) && (v.flags & kFlagSpeed);
+    std::lock_guard<std::mutex> lock(g_gear_mx);
+    g_gear.update(v.rpm, v.speed_kmh, ok);
+    g_gear_now.store(g_gear.gear(), std::memory_order_relaxed);
+    g_gear_known.store(g_gear.learned_gears(), std::memory_order_relaxed);
+    g_gear_total.store(g_gear.config().gears, std::memory_order_relaxed);
+    g_gear_ready.store(g_gear.ready(), std::memory_order_relaxed);
+}
+
+// Mit csinál: a beállított fokozatszámot átadja a becslőnek (a megtanult adat marad, ha a szám nem csökken).
+void gear_apply_config() {
+    std::lock_guard<std::mutex> lock(g_gear_mx);
+    GearConfig c = g_gear.config();
+    const bool changed = c.gears != g_cfg.gear_count;
+    c.gears = g_cfg.gear_count;
+    g_gear.set_config(c);
+    if (changed) g_gear.reset_learning();  // más fokozatszám: más váltó, a tanult adat érvénytelen
+    g_gear_total.store(g_gear.config().gears, std::memory_order_relaxed);
+    g_gear_known.store(g_gear.learned_gears(), std::memory_order_relaxed);
+    g_gear_ready.store(g_gear.ready(), std::memory_order_relaxed);
+}
+
+// Mit csinál: a tanult adatot elmenti, ha változott. A mentés NVS-be ír, ezért csak kGearSaveMinMs-onként (vagy kényszerítve).
+// Miért:      a flash kopása: a tanulás percekig tart, és az adat lassan változik.
+constexpr uint32_t kGearSaveMinMs = 120000;
+void gear_persist(uint32_t now, bool force) {
+    std::lock_guard<std::mutex> lock(g_gear_mx);
+    if (g_gear.take_dirty()) g_gear_unsaved = true;
+    if (!g_gear_unsaved || (!force && now - g_gear_saved_ms < kGearSaveMinMs)) return;
+    if (gear_state_save(g_gear)) {
+        g_gear_unsaved = false;
+        g_gear_saved_ms = now;
+        ESP_LOGI(TAG, "Tanult fokozatok mentve: %d/%d fokozat, %lu minta", g_gear.learned_gears(), g_gear.config().gears,
+                 (unsigned long)g_gear.samples());
+    }
+}
+
 
 // Mit csinál: a beállításban kiválasztott palettát LVGL-színekké alakítja.
 void apply_palette(const Settings& s) {
@@ -705,11 +757,27 @@ struct NeedleTachView : NeedleGaugeBase {
         render_face();
     }
 
-    void build() { build_base(); }
+    lv_obj_t* gear_lbl = nullptr;
+
+    void build() {
+        build_base();
+        gear_lbl = make_label(scr, &og_font_montserrat_20, g_accent, LV_ALIGN_CENTER, 0, 118, "");
+        lv_obj_set_width(gear_lbl, 200);
+        lv_obj_set_style_text_align(gear_lbl, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align(gear_lbl, LV_ALIGN_CENTER, 0, 118);
+    }
 
     void update(const DashValues& v) {
         const bool ok_rpm = v.fresh && (v.flags & kFlagRpm);
         move_needle(ok_rpm ? std::min<float>(v.rpm, static_cast<float>(gmax)) : 0.f);
+        {   // fokozat: ismert fokozatnál "3. fokozat", különben ("-" váltás közben, "Tanulás n/N" amíg nem ismert minden fokozat)
+            char g[24];
+            if (!v.fresh) g[0] = 0;
+            else if (!g_gear_ready.load(std::memory_order_relaxed)) std::snprintf(g, sizeof g, "Tanulás %d/%d", g_gear_known.load(std::memory_order_relaxed), g_gear_total.load(std::memory_order_relaxed));
+            else if (g_gear_now.load(std::memory_order_relaxed) > 0) std::snprintf(g, sizeof g, "%d. fokozat", g_gear_now.load(std::memory_order_relaxed));
+            else std::snprintf(g, sizeof g, "-");
+            set_text(gear_lbl, g);
+        }
         char b[12];
         if (ok_rpm) std::snprintf(b, sizeof b, "%d", static_cast<int>((v.rpm + 5.f) / 10.f) * 10);  // 10-es kerekítés: a számjegyek nem villognak
         else std::snprintf(b, sizeof b, "--");
@@ -1213,6 +1281,7 @@ void apply_live() {
     g_needle_speed.set_scale(g_cfg.max_speed_kmh, g_cfg.speed_unit == SpeedUnit::Mph);
     g_needle_dual.set_voltage_mode(g_cfg.system_voltage);
     g_needle_dual.set_scale(g_cfg.temp_unit == TempUnit::Fahrenheit);
+    gear_apply_config();
     if (g_switch_timer) lv_timer_set_period(g_switch_timer, g_cfg.switch_period_s * 1000u);
     g_backlight_pct = g_dimmed ? std::min<int>(g_cfg.brightness_pct, kLowBatteryBacklight) : g_cfg.brightness_pct;
     if (g_lcd) g_lcd->set_backlight(g_backlight_pct);
@@ -1295,6 +1364,7 @@ void enter_sleep() {
 #if defined(CONFIG_OG_DISP_MUSIC)
     ble_stop();  // a telefonos kapcsolat megszűnik; az ébresztő ablakok saját BLE-indítást használnak
 #endif
+    gear_persist(now_ms(), true);
     lvgl_port_stop();
     g_lcd->set_backlight(0);
     g_lcd->display_on(false);
@@ -1385,13 +1455,16 @@ void link_task(void*) {
             bool fresh, stopped, new_vin;
             uint32_t stopped_ms;
             char vin[18];
+            DashValues dv;
             {
                 std::lock_guard<std::mutex> lock(g_mx);
                 fresh = g_model.on_packet(p.data, p.len, p.rssi, p.rx_ms);
                 stopped = g_model.engine_stopped();
                 stopped_ms = g_model.stopped_ms();
                 new_vin = g_model.take_new_vin(vin);
+                if (fresh) dv = g_model.values(p.rx_ms);
             }
+            if (fresh) gear_feed(dv);
             if (new_vin) {  // új vagy megváltozott VIN: mentjük a következő indítás logójához (a logót most nem cseréljük)
                 const int brand = vin_brand_id(vin);
                 ESP_LOGI(TAG, "VIN: %s (%s)", vin, brand >= 0 ? vin_brand_name(brand) : "ismeretlen márka");
@@ -1430,6 +1503,7 @@ void link_task(void*) {
         g_led->set_link(alive ? LinkLed::Ok : LinkLed::Waiting);
         g_led->set_fault(Fault::Radio, radio_fault.update(!alive, now));
         battery_tick(power_fault, second);
+        gear_persist(now, false);
 #if defined(CONFIG_OG_DISP_SLEEP)
         {
             // Az érintés ideje az LVGL tétlenségi számlálójából; az alvásig hátralévő idő a kijelzőre megy.
@@ -1455,11 +1529,11 @@ void link_task(void*) {
         const EspNowLink::Stats ls = g_link.stats();
         ESP_LOGI(TAG,
                  "%lu csomag/s, RSSI %d dBm | összes %lu, elveszett %lu (%.2f %%, 60 s: %.2f %%), elavult %lu, újraindulás %lu, "
-                 "érvénytelen %lu, sor tele %lu, seq %u | adat %s, %lu 1/perc | FPS %lu, belső RAM %u kB | VIN %s",
+                 "érvénytelen %lu, sor tele %lu, seq %u | adat %s, %lu 1/perc, %d km/h | FPS %lu, belső RAM %u kB | VIN %s | fokozat %d (%d/%d)",
                  (unsigned long)l.per_sec, l.rssi_dbm, (unsigned long)l.received, (unsigned long)l.lost,
                  l.loss_ratio * 100.0, l.loss_ratio_window * 100.0, (unsigned long)l.stale, (unsigned long)l.resyncs, (unsigned long)l.invalid,
-                 (unsigned long)ls.rx_dropped, l.last_seq, v.fresh ? "friss" : "NINCS", (unsigned long)(v.rpm + 0.5f),
-                 (unsigned long)lvgl_take_frames(), (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024), cur_vin[0] ? cur_vin : "--");
+                 (unsigned long)ls.rx_dropped, l.last_seq, v.fresh ? "friss" : "NINCS", (unsigned long)(v.rpm + 0.5f), (int)(v.speed_kmh + 0.5f),
+                 (unsigned long)lvgl_take_frames(), (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024), cur_vin[0] ? cur_vin : "--", g_gear_now.load(), g_gear_known.load(), g_gear_total.load());
     }
 }
 
@@ -1626,6 +1700,8 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
     const bool cfg_loaded = settings_load(g_cfg);  // az ESP-NOW indítása már előkészítette az NVS-t
     apply_palette(g_cfg);
     g_backlight_pct = g_cfg.brightness_pct;
+    if (gear_state_load(g_gear)) ESP_LOGI(TAG, "Tanult fokozatok betöltve: %d fokozat, %lu minta", g_gear.learned_gears(), (unsigned long)g_gear.samples());
+    gear_apply_config();
     ESP_LOGI(TAG, "Beállítások: %s, paletta: %s", cfg_loaded ? "mentett" : "alapértelmezett", palette_get(g_cfg.palette).name);
     g_adc_ok = g_adc.init(board::kPinBattery);
     lv_display_t* disp = lvgl_start(lcd, swap_bytes);
@@ -1712,7 +1788,7 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
 #endif
 
     // A kapcsolatfeladat a 0. magon (az LVGL az 1. magon fut).
-    xTaskCreatePinnedToCore(link_task, "og_link", 4096, nullptr, 5, nullptr, 0);
+    xTaskCreatePinnedToCore(link_task, "og_link", 6144, nullptr, 5, nullptr, 0);  // az NVS-mentés (fokozatok) miatt nagyobb verem
     mem_probe_locked("kapcsolatfeladat indult");
 #if defined(CONFIG_OG_DISP_BENCH)
     xTaskCreatePinnedToCore(bench_task, "og_bench", 4096, nullptr, 3, nullptr, 0);

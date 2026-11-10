@@ -2,8 +2,8 @@
 // Az ECU-szimulátor konzolparancsainak értelmezése (hardverfüggetlen, PC-n tesztelhető).
 //
 // Mit csinál: egy beírt sorból parancsot készít: gyújtás be/ki, az automatikus értékváltozás
-//             be/ki, egy érték kézi beállítása, súgó, állapot.
-// Hogyan:     szóközzel tagolt szavak: "key on", "key off", "auto on", "auto off", "status",
+//             be/ki, a menetszimuláció (gyorsítás, váltások, fékezés) be/ki, egy érték kézi beállítása, súgó, állapot.
+// Hogyan:     szóközzel tagolt szavak: "key on", "key off", "auto on", "auto off", "drive on", "drive off", "status",
 //             "help", illetve "<mező> <szám>" (rpm, speed, coolant, throttle, vbat).
 // Miért:      az érték- és animáció-simítás ellenőrzéséhez kézzel kell tudni állítani az ECU
 //             értékeit, az alvási tesztekhez pedig a gyújtás ki-be kapcsolását.
@@ -12,7 +12,7 @@
 
 namespace og {
 
-enum class SimCmd { None, Help, Status, KeyOn, KeyOff, AutoOn, AutoOff, Set, Bad };
+enum class SimCmd { None, Help, Status, KeyOn, KeyOff, AutoOn, AutoOff, DriveOn, DriveOff, Set, Bad };
 
 enum class SimField { Rpm, Speed, Coolant, Throttle, Vbat };
 
@@ -48,6 +48,8 @@ inline SimCommand parse_sim_command(const char* line) {
         c.cmd = SimCmd::Status;
     } else if (!strcmp(w1, "key")) {
         c.cmd = !strcmp(w2, "on") ? SimCmd::KeyOn : !strcmp(w2, "off") ? SimCmd::KeyOff : SimCmd::Bad;
+    } else if (!strcmp(w1, "drive")) {
+        c.cmd = !strcmp(w2, "on") ? SimCmd::DriveOn : !strcmp(w2, "off") ? SimCmd::DriveOff : SimCmd::Bad;
     } else if (!strcmp(w1, "auto")) {
         c.cmd = !strcmp(w2, "on") ? SimCmd::AutoOn : !strcmp(w2, "off") ? SimCmd::AutoOff : SimCmd::Bad;
     } else {

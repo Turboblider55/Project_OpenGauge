@@ -11,7 +11,7 @@ namespace og {
 namespace {
 
 enum class Field : uint8_t {
-    Music, Debug, MaxRpm, Redline, MaxSpeed, Sleep, Palette, SkipLogo, Brightness, SpeedUnit, TempUnit, SysVolt, AutoSwitch, SwitchPeriod,
+    Music, Debug, MaxRpm, Redline, MaxSpeed, Sleep, Palette, SkipLogo, Brightness, SpeedUnit, TempUnit, SysVolt, GearCount, AutoSwitch, SwitchPeriod,
     Count
 };
 
@@ -36,6 +36,7 @@ const FieldInfo kFields[] = {
     {Field::SpeedUnit, Kind::Cycle, "Sebesség egysége"},
     {Field::TempUnit, Kind::Cycle, "Hőmérséklet egysége"},
     {Field::SysVolt, Kind::Cycle, "Rendszerfeszültség"},
+    {Field::GearCount, Kind::Stepper, "Fokozatok száma"},
     {Field::AutoSwitch, Kind::Switch, "Automatikus lapozás"},
     {Field::SwitchPeriod, Kind::Stepper, "Lapozás ideje (s)"},
 };
@@ -77,6 +78,7 @@ struct SettingsViewImpl {
                 break;
             case Field::Palette: std::snprintf(b, cap, "%s", palette_get(s.palette).name); break;
             case Field::Brightness: std::snprintf(b, cap, "%u", s.brightness_pct); break;
+            case Field::GearCount: std::snprintf(b, cap, "%u", s.gear_count); break;
             case Field::SpeedUnit: std::snprintf(b, cap, "%s", s.speed_unit == SpeedUnit::Mph ? "mph" : "km/h"); break;
             case Field::TempUnit: std::snprintf(b, cap, "%s", s.temp_unit == TempUnit::Fahrenheit ? "°F" : "°C"); break;
             case Field::SysVolt:
@@ -123,6 +125,7 @@ struct SettingsViewImpl {
                 break;
             }
             case Field::Brightness: s.brightness_pct = static_cast<uint8_t>(stepped(s.brightness_pct, 5, 100, 5)); break;
+            case Field::GearCount: s.gear_count = static_cast<uint8_t>(stepped(s.gear_count, 3, 8, 1)); break;
             case Field::SwitchPeriod: s.switch_period_s = static_cast<uint16_t>(stepped(s.switch_period_s, 5, 300, 5)); break;
             default: break;
         }

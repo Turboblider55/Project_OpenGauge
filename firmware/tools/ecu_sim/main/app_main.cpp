@@ -31,6 +31,7 @@
 #include "og_protocol.h"
 #include "og_vin.h"
 #include "esp_random.h"
+#include "drive_sim.h"
 #include "sim_command.h"
 #include "sdkconfig.h"
 #include "twai_bus.h"
@@ -184,7 +185,7 @@ void console_task(void*) {
 }
 
 const char* kHelp =
-    "Parancsok: key on|off | auto on|off | rpm|speed|coolant|throttle|vbat <szám> | status | help";
+    "Parancsok: key on|off | auto on|off | drive on|off | rpm|speed|coolant|throttle|vbat <szám> | status | help";
 
 }  // namespace
 
@@ -227,6 +228,8 @@ extern "C" void app_main(void) {
     DelayedEmitter out(bus);
     bool key_on = true;
     bool auto_values = true;
+    bool drive_mode = false;  // menetszimuláció: valós arányú fordulatszám és sebesség váltásokkal (drive_sim.h)
+    og::DriveSim drive;
     uint32_t bg_seq = 0;
     // Az ébredési késleltetés mérése: a gyújtás bekapcsolásától az első nyugtázott keretig (a vevő
     // TWAI-ja él) és az első vett OBD-kérésig eltelt idő.
@@ -254,7 +257,19 @@ extern "C" void app_main(void) {
                     key_on = false;
                     ESP_LOGI(TAG, "GYÚJTÁS KI (uptime %lu ms): az ECU nem válaszol, a busz csendes", (unsigned long)now);
                     break;
+                case og::SimCmd::DriveOn:
+                    drive = og::DriveSim{};
+                    drive_mode = true;
+                    auto_values = false;
+                    ESP_LOGI(TAG, "Menetszimuláció: be (állás, gyorsítás 5 fokozatban, tempó, fékezés, megállás, ismétlődik)");
+                    break;
+                case og::SimCmd::DriveOff:
+                    drive_mode = false;
+                    auto_values = false;
+                    ESP_LOGI(TAG, "Menetszimuláció: ki (az értékek megmaradnak)");
+                    break;
                 case og::SimCmd::AutoOn:
+                    drive_mode = false;
                     auto_values = true;
                     ESP_LOGI(TAG, "Automatikus értékváltozás: be");
                     break;
@@ -264,6 +279,7 @@ extern "C" void app_main(void) {
                     break;
                 case og::SimCmd::Set: {
                     auto_values = false;
+                    drive_mode = false;
                     og::VehicleState& s = ecu.state;
                     switch (cmd.field) {
                         case og::SimField::Rpm: s.rpm = cmd.value; break;
@@ -276,9 +292,9 @@ extern "C" void app_main(void) {
                     break;
                 }
                 case og::SimCmd::Status:
-                    ESP_LOGI(TAG, "Gyújtás %s, automatikus változás %s | RPM %.0f, sebesség %.0f, víz %.0f, fojtó %.0f, U %.1f V",
-                             key_on ? "BE" : "KI", auto_values ? "be" : "ki", ecu.state.rpm, ecu.state.speed_kmh,
-                             ecu.state.coolant_c, ecu.state.throttle_pct, ecu.state.vbat_v);
+                    ESP_LOGI(TAG, "Gyújtás %s, automatikus változás %s, menet %s (fokozat %d) | RPM %.0f, sebesség %.0f, víz %.0f, fojtó %.0f, U %.1f V",
+                             key_on ? "BE" : "KI", auto_values ? "be" : "ki", drive_mode ? "be" : "ki", drive.gear, ecu.state.rpm,
+                             ecu.state.speed_kmh, ecu.state.coolant_c, ecu.state.throttle_pct, ecu.state.vbat_v);
                     break;
                 case og::SimCmd::Help:
                     ESP_LOGI(TAG, "%s", kHelp);
@@ -297,6 +313,13 @@ extern "C" void app_main(void) {
         }
         if (static_cast<int32_t>(now - next_state) >= 0) {
             if (auto_values) update_state(ecu.state, now);
+            if (drive_mode) {
+                update_state(ecu.state, now);  // hűtővíz és akkufeszültség mint az automatikus módban
+                drive.step(0.1f);
+                ecu.state.rpm = drive.rpm;
+                ecu.state.speed_kmh = drive.speed_kmh;
+                ecu.state.throttle_pct = drive.throttle_pct;
+            }
             next_state = now + 100;
         }
         if (key_on && static_cast<int32_t>(now - next_bg) >= 0) {

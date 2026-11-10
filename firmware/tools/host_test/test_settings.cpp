@@ -52,7 +52,7 @@ static void encode_decode_round_trip() {
     s.sleep_s = 120; s.palette = 2; s.skip_logo = true; s.brightness_pct = 60; s.speed_unit = SpeedUnit::Mph;
     s.temp_unit = TempUnit::Fahrenheit; s.auto_switch = false; s.switch_period_s = 45;
     s.screen_order[0] = 3; s.screen_order[1] = 2; s.screen_order[2] = 1; s.screen_order[3] = 0; s.screen_order[4] = 4; s.screen_order[5] = 5; s.screen_order[6] = 6;
-    s.system_voltage = SystemVoltage::V24; s.screen_mask = 0x55;
+    s.system_voltage = SystemVoltage::V24; s.screen_mask = 0x55; s.gear_count = 6;
     uint8_t buf[kSettingsBlobSize];
     CHECK(settings_encode(s, buf, sizeof buf) == kSettingsBlobSize);
     Settings r;
@@ -63,33 +63,44 @@ static void encode_decode_round_trip() {
 static void screen_mask_and_voltage_are_sanitized() {
     Settings s;
     s.screen_mask = 0;  // legalább egy képernyő látszik
+    s.gear_count = 20;
     s.system_voltage = static_cast<SystemVoltage>(9);
     sanitize(s);
-    CHECK(s.screen_mask == 1 && s.system_voltage == SystemVoltage::Auto);
+    CHECK(s.screen_mask == 1 && s.system_voltage == SystemVoltage::Auto && s.gear_count == 8);
     s.screen_mask = 0xFF;  // ismeretlen képernyők bitjei lekerülnek
     sanitize(s);
     CHECK(s.screen_mask == (1u << kScreenIds) - 1);
 }
 
-// Az 1. verziójú blob (a rendszerfeszültség és a képernyőmaszk előtti formátum) olvasható marad, az új mezők alapértékek.
-static void version_1_blob_is_still_readable() {
+// A régebbi verziójú blobok (rövidebbek) olvashatók maradnak, az újabb mezők alapértékek.
+static void older_blobs_are_still_readable() {
     Settings s;
     s.max_rpm = 7000;
     s.system_voltage = SystemVoltage::V24;
     s.screen_mask = 0x03;
-    uint8_t v2[kSettingsBlobSize];
-    settings_encode(s, v2, sizeof v2);
-    uint8_t v1[kSettingsBlobSizeV1];
-    std::memcpy(v1, v2, kSettingsBlobSizeV1 - 2);  // a közös rész az új mezők előtt
-    v1[2] = 1;
-    const uint16_t sum = settings_detail::checksum(v1, kSettingsBlobSizeV1 - 2);
-    v1[kSettingsBlobSizeV1 - 2] = static_cast<uint8_t>(sum);
-    v1[kSettingsBlobSizeV1 - 1] = static_cast<uint8_t>(sum >> 8);
+    s.gear_count = 6;
+    uint8_t cur[kSettingsBlobSize];
+    settings_encode(s, cur, sizeof cur);
+    auto make = [&](uint8_t ver, size_t len, uint8_t* out) {
+        std::memcpy(out, cur, len - 2);  // a közös rész az ellenőrzőösszeg előtt (a mezők csak hozzáfűződnek)
+        out[2] = ver;
+        const uint16_t sum = settings_detail::checksum(out, len - 2);
+        out[len - 2] = static_cast<uint8_t>(sum);
+        out[len - 1] = static_cast<uint8_t>(sum >> 8);
+    };
+    uint8_t v1[kSettingsBlobSizeV1], v2[kSettingsBlobSizeV2];
+    make(1, kSettingsBlobSizeV1, v1);
+    make(2, kSettingsBlobSizeV2, v2);
     Settings r;
     CHECK(settings_decode(v1, sizeof v1, r));
     CHECK(r.max_rpm == 7000);
-    CHECK(r.system_voltage == SystemVoltage::Auto && r.screen_mask == (1u << kScreenIds) - 1);
-    CHECK(!settings_decode(v1, sizeof v1 - 1, r));  // az 1. verzió hossza rögzített
+    CHECK(r.system_voltage == SystemVoltage::Auto && r.screen_mask == (1u << kScreenIds) - 1 && r.gear_count == 5);
+    CHECK(settings_decode(v2, sizeof v2, r));
+    CHECK(r.system_voltage == SystemVoltage::V24 && r.screen_mask == 0x03 && r.gear_count == 5);  // a fokozatszám 3. verziós
+    CHECK(settings_decode(cur, sizeof cur, r));
+    CHECK(r.gear_count == 6);
+    CHECK(!settings_decode(v1, sizeof v1 - 1, r));  // a hossz verziónként rögzített
+    CHECK(!settings_decode(v2, sizeof v1, r));
 }
 
 static void encode_rejects_small_buffer() {
@@ -145,7 +156,7 @@ int main() {
     RUN(screen_order_must_be_a_permutation);
     RUN(encode_decode_round_trip);
     RUN(screen_mask_and_voltage_are_sanitized);
-    RUN(version_1_blob_is_still_readable);
+    RUN(older_blobs_are_still_readable);
     RUN(encode_rejects_small_buffer);
     RUN(decode_rejects_damaged_data_and_gives_defaults);
     RUN(decode_sanitizes_out_of_range_fields);

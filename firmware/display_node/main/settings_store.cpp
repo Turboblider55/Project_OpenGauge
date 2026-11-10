@@ -69,4 +69,26 @@ bool last_vin_load(char out[18]) {
     return true;
 }
 
+bool gear_state_load(GearModel& m) {
+    nvs_handle_t h;
+    if (nvs_open(kNamespace, NVS_READONLY, &h) != ESP_OK) return false;
+    uint8_t buf[GearModel::kBlobSize];
+    size_t len = sizeof buf;
+    const esp_err_t e = nvs_get_blob(h, "gears", buf, &len);
+    nvs_close(h);
+    return e == ESP_OK && m.decode(buf, len);
+}
+
+// Mit csinál: a tanult adatot elmenti; a hívó ritkán hívja (flash-kímélés), a modell take_dirty()-je jelzi a változást.
+bool gear_state_save(const GearModel& m) {
+    uint8_t buf[GearModel::kBlobSize];
+    const size_t n = m.encode(buf, sizeof buf);
+    nvs_handle_t h;
+    if (n == 0 || nvs_open(kNamespace, NVS_READWRITE, &h) != ESP_OK) return false;
+    esp_err_t e = nvs_set_blob(h, "gears", buf, n);
+    if (e == ESP_OK) e = nvs_commit(h);
+    nvs_close(h);
+    return e == ESP_OK;
+}
+
 }  // namespace og
