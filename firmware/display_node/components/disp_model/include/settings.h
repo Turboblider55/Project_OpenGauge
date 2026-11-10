@@ -12,6 +12,7 @@ namespace og {
 
 enum class SpeedUnit : uint8_t { Kmh = 0, Mph = 1 };
 enum class TempUnit : uint8_t { Celsius = 0, Fahrenheit = 1 };
+enum class SystemVoltage : uint8_t { Auto = 0, V12 = 1, V24 = 2 };  // az akkumulátor-skála: a mért feszültségből vagy kényszerítve
 
 constexpr int kMaxScreens = 8;  // a képernyő-sorrend tömbjének mérete
 constexpr int kScreenIds = 7;   // jelenleg ismert képernyők: 0 fő, 1 részletek, 2 kapcsolat, 3 zene, 4 mutatós fordulatszámmérő, 5 mutatós sebességmérő, 6 kettős mérő (akkumulátor és hűtővíz)
@@ -31,11 +32,14 @@ struct Settings {
     bool auto_switch = true;          // automatikus lapozás a képernyők között
     uint16_t switch_period_s = 5;     // lapozás sebessége (másodperc)
     uint8_t screen_order[kMaxScreens] = {0, 1, 2, 3, 4, 5, 6, 0};  // az első kScreenIds elem számít
+    SystemVoltage system_voltage = SystemVoltage::Auto;
+    uint8_t screen_mask = (1u << kScreenIds) - 1;  // a lapozásban részt vevő képernyők (azonosítónként egy bit); a debug és a zene feltételei ezen felül érvényesek
 };
 
 // Mit csinál: az értékeket érvényes tartományba hozza (a tárolt vagy a felhasználó által beírt adat hibás is lehet).
 // Hogyan:     a határokat levágja; a redline legfeljebb a max. fordulatszám; a képernyő-sorrend csak
-//             akkor marad, ha pontosan egyszer tartalmaz minden ismert képernyőt, különben az alapsorrend áll vissza.
+//             akkor marad, ha pontosan egyszer tartalmaz minden ismert képernyőt, különben az alapsorrend áll vissza;
+//             a képernyőmaszkban csak ismert képernyők bitje maradhat, és legalább egy képernyőnek láthatónak kell lennie.
 inline void sanitize(Settings& s) {
     s.max_rpm = std::clamp<uint16_t>(s.max_rpm, 3000, 12000);
     s.redline_rpm = std::clamp<uint16_t>(s.redline_rpm, 2000, s.max_rpm);
@@ -46,6 +50,9 @@ inline void sanitize(Settings& s) {
     if (s.speed_unit != SpeedUnit::Mph) s.speed_unit = SpeedUnit::Kmh;
     if (s.temp_unit != TempUnit::Fahrenheit) s.temp_unit = TempUnit::Celsius;
     s.switch_period_s = std::clamp<uint16_t>(s.switch_period_s, 3, 300);
+    if (s.system_voltage != SystemVoltage::V12 && s.system_voltage != SystemVoltage::V24) s.system_voltage = SystemVoltage::Auto;
+    s.screen_mask &= static_cast<uint8_t>((1u << kScreenIds) - 1);
+    if (s.screen_mask == 0) s.screen_mask = 1;
     bool seen[kScreenIds] = {};
     bool ok = true;
     for (int i = 0; i < kScreenIds; ++i) {
@@ -56,8 +63,9 @@ inline void sanitize(Settings& s) {
     if (!ok) for (int i = 0; i < kMaxScreens; ++i) s.screen_order[i] = static_cast<uint8_t>(i < kScreenIds ? i : 0);
 }
 
-constexpr size_t kSettingsBlobSize = 3 + 18 + kMaxScreens + 2;  // azonosító és verzió + mezők + sorrend + ellenőrzőösszeg
-constexpr uint8_t kSettingsVersion = 1;
+constexpr size_t kSettingsBlobSizeV1 = 3 + 18 + kMaxScreens + 2;  // az 1. verzió hossza (azonosító és verzió + mezők + sorrend + ellenőrzőösszeg)
+constexpr size_t kSettingsBlobSize = kSettingsBlobSizeV1 + 2;      // a 2. verzió: + rendszerfeszültség és képernyőmaszk
+constexpr uint8_t kSettingsVersion = 2;
 
 namespace settings_detail {
 inline uint16_t checksum(const uint8_t* p, size_t n) {
@@ -82,15 +90,19 @@ inline size_t settings_encode(const Settings& s, uint8_t* out, size_t cap) {
     u8(static_cast<uint8_t>(s.speed_unit)); u8(static_cast<uint8_t>(s.temp_unit));
     u8(s.auto_switch); u16(s.switch_period_s);
     for (int i = 0; i < kMaxScreens; ++i) u8(s.screen_order[i]);
+    u8(static_cast<uint8_t>(s.system_voltage)); u8(s.screen_mask);
     u16(settings_detail::checksum(out, n));
     return n;
 }
 
 // Mit csinál: visszaolvassa a bájtsort; hibás hossznál, azonosítónál, verziónál vagy összegnél false, és a kimenet alapérték.
-// Hogyan:     sikeres olvasás után a sanitize() is lefut, így a kimenet mindig érvényes.
+// Hogyan:     sikeres olvasás után a sanitize() is lefut, így a kimenet mindig érvényes. Az 1. verziójú (rövidebb) blobot
+//             is olvassa: az újabb mezők ilyenkor alapértékűek, így a frissítés nem veszíti el a mentett beállításokat.
 inline bool settings_decode(const uint8_t* in, size_t n, Settings& out) {
     out = Settings{};
-    if (!in || n != kSettingsBlobSize || in[0] != 'O' || in[1] != 'G' || in[2] != kSettingsVersion) return false;
+    if (!in || n < 3 || in[0] != 'O' || in[1] != 'G') return false;
+    const uint8_t ver = in[2];
+    if (!((ver == 1 && n == kSettingsBlobSizeV1) || (ver == 2 && n == kSettingsBlobSize))) return false;
     const uint16_t want = static_cast<uint16_t>(in[n - 2] | (in[n - 1] << 8));
     if (settings_detail::checksum(in, n - 2) != want) return false;
     size_t p = 3;
@@ -102,6 +114,10 @@ inline bool settings_decode(const uint8_t* in, size_t n, Settings& out) {
     out.speed_unit = static_cast<SpeedUnit>(u8()); out.temp_unit = static_cast<TempUnit>(u8());
     out.auto_switch = u8() != 0; out.switch_period_s = u16();
     for (int i = 0; i < kMaxScreens; ++i) out.screen_order[i] = u8();
+    if (ver >= 2) {
+        out.system_voltage = static_cast<SystemVoltage>(u8());
+        out.screen_mask = u8();
+    }
     sanitize(out);
     return true;
 }

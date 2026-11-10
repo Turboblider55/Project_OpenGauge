@@ -705,14 +705,15 @@ struct NeedleTachView : NeedleGaugeBase {
         render_face();
     }
 
-    void build() {
-        build_base();
-        lv_obj_set_hidden(value, true);  // a sebességnek külön mutatós képernyője van, itt nem írjuk ki
-    }
+    void build() { build_base(); }
 
     void update(const DashValues& v) {
         const bool ok_rpm = v.fresh && (v.flags & kFlagRpm);
         move_needle(ok_rpm ? std::min<float>(v.rpm, static_cast<float>(gmax)) : 0.f);
+        char b[12];
+        if (ok_rpm) std::snprintf(b, sizeof b, "%d", static_cast<int>((v.rpm + 5.f) / 10.f) * 10);  // 10-es kerekítés: a számjegyek nem villognak
+        else std::snprintf(b, sizeof b, "--");
+        set_text(value, b);
         show_nodata(v.fresh);
     }
 };
@@ -818,7 +819,8 @@ struct NeedleDualView : NeedleGaugeBase {
     bool fahrenheit = false;
     bool rendered = false;
     int32_t t_min = 60, t_span = 60;  // a hőmérséklet-skála kezdete és nyílása a kijelzett mértékegységben
-    bool v24 = false;                 // 24 V-os rendszer (a mért feszültségből)
+    bool v24 = false;                 // 24 V-os rendszer (a mért feszültségből vagy a beállításból)
+    SystemVoltage mode = SystemVoltage::Auto;
     int32_t b_min = 100, b_span = 60; // a feszültség-skála kezdete és nyílása tizedvoltban
 
     // Mit csinál: egy 90°-os mérőívet rajzol a tárcsára: vékony ív, piros szélső sávok, kis és nagy osztások, számok.
@@ -893,13 +895,20 @@ struct NeedleDualView : NeedleGaugeBase {
         render_face();
     }
 
+    // Mit csinál: beállítja, hogy a rendszerfeszültséget a mérés (Auto) vagy a felhasználó (12 V / 24 V) adja.
+    // Hogyan:     kényszerített módban azonnal átáll a skála; Auto módban a skála marad, amíg a mért feszültség át nem vált.
+    void set_voltage_mode(SystemVoltage m) {
+        mode = m;
+        if (m != SystemVoltage::Auto) set_system_24v(m == SystemVoltage::V24);
+    }
+
     // Mit csinál: a feszültség-skálát a rendszerfeszültséghez igazítja; csak változáskor rajzolja újra a tárcsát.
     void set_system_24v(bool on) {
         if (on == v24 && rendered) return;
         v24 = on;
         b_min = v24 ? 230 : 100;
         b_span = v24 ? 70 : 60;
-        render_face();
+        if (rendered) render_face();  // az első rajzolást a set_scale végzi
     }
 
     void build() {
@@ -942,8 +951,10 @@ struct NeedleDualView : NeedleGaugeBase {
     void update(const DashValues& v) {
         auto ok = [&](uint16_t f) { return v.fresh && (v.flags & f); };
         const bool ok_v = ok(kFlagVbat), ok_c = ok(kFlagCoolant);
-        if (ok_v && !v24 && v.vbat_v > kV24On) set_system_24v(true);        // a skála a mért feszültséghez igazodik
-        else if (ok_v && v24 && v.vbat_v < kV24Off) set_system_24v(false);
+        if (mode == SystemVoltage::Auto && ok_v) {  // a skála a mért feszültséghez igazodik
+            if (!v24 && v.vbat_v > kV24On) set_system_24v(true);
+            else if (v24 && v.vbat_v < kV24Off) set_system_24v(false);
+        }
         const float temp = fahrenheit ? v.coolant_c * 1.8f + 32.f : v.coolant_c;
         step_needle(needle, shown, drawn, ok_v ? std::clamp(v.vbat_v * 10.f - static_cast<float>(b_min), 0.f, static_cast<float>(b_span)) : 0.f, b_span,
                     kBatStart, kBatSweep);
@@ -1111,6 +1122,7 @@ void ui_tick(lv_timer_t*) {
 // Miért:      a Részletek és a Kapcsolat a debug módhoz tartozik, a zene a zene-kapcsolóhoz.
 bool screen_enabled(int id) {
     if (!g_screens[id]) return false;
+    if (!((g_cfg.screen_mask >> id) & 1)) return false;  // a felhasználó kivette a lapozásból
     if (id == 1 || id == 2) return g_cfg.debug_mode;
     if (id == kMusicId) return g_cfg.music_enabled;
     return true;
@@ -1199,6 +1211,7 @@ void apply_live() {
     g_main.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
     g_needle_tach.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
     g_needle_speed.set_scale(g_cfg.max_speed_kmh, g_cfg.speed_unit == SpeedUnit::Mph);
+    g_needle_dual.set_voltage_mode(g_cfg.system_voltage);
     g_needle_dual.set_scale(g_cfg.temp_unit == TempUnit::Fahrenheit);
     if (g_switch_timer) lv_timer_set_period(g_switch_timer, g_cfg.switch_period_s * 1000u);
     g_backlight_pct = g_dimmed ? std::min<int>(g_cfg.brightness_pct, kLowBatteryBacklight) : g_cfg.brightness_pct;
@@ -1591,6 +1604,7 @@ void initial_scale_tick(lv_timer_t*) {
     mem_probe("mutatós fordulatszám skála");
     g_needle_speed.set_scale(g_cfg.max_speed_kmh, g_cfg.speed_unit == SpeedUnit::Mph);
     mem_probe("mutatós sebesség skála");
+    g_needle_dual.set_voltage_mode(g_cfg.system_voltage);
     g_needle_dual.set_scale(g_cfg.temp_unit == TempUnit::Fahrenheit);
     mem_probe("kettős mérő skála");
 #if defined(CONFIG_OG_DISP_MEMPROF)

@@ -44,7 +44,10 @@ CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
 CONFIG_BT_NIMBLE_MAX_BONDS=1
 # A párosítási kulcsok NVS-ben maradnak (az iOS AMS kötött kapcsolatot kér).
 CONFIG_BT_NIMBLE_NVS_PERSIST=y
-# LVGL kupac: a csúcshasználat a beállítások képernyőjének megnyitásakor van (indulási állapot ~27 kB + a beállítások
-# ~24 kB + a forgatott mutatók átmeneti rajzpuffere). 60 kB-nál a mutató forgatásához nem maradt hely, és a rajzolás
-# összeomlott (NULL puffer az lv_draw_sw_transform-ban); 64 kB-nál a skálaképek rajzolása is elmaradt. 72 kB bevált.
+# LVGL memória: a beépített kupac fix méretű tömb a belső RAM-ban; a csúcshasználat (beállítások megnyitása, skálaképek
+# rajzolása) 72 kB-ot kívánt, ami a BLE (42 kB) mellett a belső RAM nagy részét elvitte (9 kB maradt, 60 kB-nál pedig a forgatott
+# mutató rajzpufferénél összeomlott a rajzolás). Ezért az LVGL a PSRAM-ból foglal (main/lv_mem_psram.c); az LV_MEM_SIZE
+# ilyenkor nem számít, a belső RAM szabad része ~80 kB lett, az FPS nem változott.
 CONFIG_LV_MEM_SIZE=73728
+# Az LVGL memóriakezelője a PSRAM-ban fut (main/lv_mem_psram.c): a beépített 72 kB-os kupac a belső RAM-ot vitte el.
+CONFIG_LV_USE_CUSTOM_MALLOC=y

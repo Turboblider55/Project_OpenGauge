@@ -11,7 +11,7 @@ namespace og {
 namespace {
 
 enum class Field : uint8_t {
-    Music, Debug, MaxRpm, Redline, MaxSpeed, Sleep, Palette, SkipLogo, Brightness, SpeedUnit, TempUnit, AutoSwitch, SwitchPeriod,
+    Music, Debug, MaxRpm, Redline, MaxSpeed, Sleep, Palette, SkipLogo, Brightness, SpeedUnit, TempUnit, SysVolt, AutoSwitch, SwitchPeriod,
     Count
 };
 
@@ -35,12 +35,16 @@ const FieldInfo kFields[] = {
     {Field::Brightness, Kind::Stepper, "Fényerő (%)"},
     {Field::SpeedUnit, Kind::Cycle, "Sebesség egysége"},
     {Field::TempUnit, Kind::Cycle, "Hőmérséklet egysége"},
+    {Field::SysVolt, Kind::Cycle, "Rendszerfeszültség"},
     {Field::AutoSwitch, Kind::Switch, "Automatikus lapozás"},
     {Field::SwitchPeriod, Kind::Stepper, "Lapozás ideje (s)"},
 };
 constexpr int kFieldCount = sizeof kFields / sizeof kFields[0];
 
 constexpr int32_t kRowWidth = 250;
+
+// A képernyők rövid nevei a sorrend-listában (azonosító szerint: lásd settings.h kScreenIds).
+const char* const kScreenNames[kScreenIds] = {"Fő", "Részletek", "Kapcsolat", "Zene", "Fordulat", "Sebesség", "Akku+víz"};
 
 }  // namespace
 
@@ -51,12 +55,15 @@ struct SettingsViewImpl {
         Field field;
         lv_obj_t* widget;  // kapcsoló, vagy az érték feliratú címke
         int dir;           // léptetőnél: -1 / +1
+        int idx;           // képernyősoroknál: a sor sorszáma a listában
     };
 
-    static inline Ctx ctx[kFieldCount * 3];
+    static inline Ctx ctx[kFieldCount * 3 + kScreenIds * 3];
     static inline int ctx_n = 0;
     static inline UiColors colors;
     static inline lv_obj_t* widgets[kFieldCount];  // soronként a kapcsoló / érték-címke (open() frissíti)
+    static inline lv_obj_t* scr_name[kScreenIds];  // a képernyősorok felirata és láthatóság-kapcsolója
+    static inline lv_obj_t* scr_sw[kScreenIds];
 
     // Mit csinál: egy mező értékének szövege a léptető / váltógomb feliratához.
     static void text_of(const Settings& s, Field f, char* b, size_t cap) {
@@ -72,6 +79,9 @@ struct SettingsViewImpl {
             case Field::Brightness: std::snprintf(b, cap, "%u", s.brightness_pct); break;
             case Field::SpeedUnit: std::snprintf(b, cap, "%s", s.speed_unit == SpeedUnit::Mph ? "mph" : "km/h"); break;
             case Field::TempUnit: std::snprintf(b, cap, "%s", s.temp_unit == TempUnit::Fahrenheit ? "°F" : "°C"); break;
+            case Field::SysVolt:
+                std::snprintf(b, cap, "%s", s.system_voltage == SystemVoltage::V12 ? "12 V" : s.system_voltage == SystemVoltage::V24 ? "24 V" : "Auto");
+                break;
             case Field::SwitchPeriod: std::snprintf(b, cap, "%u", s.switch_period_s); break;
             default: b[0] = 0; break;
         }
@@ -123,6 +133,7 @@ struct SettingsViewImpl {
             case Field::Palette: s.palette = static_cast<uint8_t>((s.palette + 1) % kPaletteCount); break;
             case Field::SpeedUnit: s.speed_unit = s.speed_unit == SpeedUnit::Kmh ? SpeedUnit::Mph : SpeedUnit::Kmh; break;
             case Field::TempUnit: s.temp_unit = s.temp_unit == TempUnit::Celsius ? TempUnit::Fahrenheit : TempUnit::Celsius; break;
+            case Field::SysVolt: s.system_voltage = static_cast<SystemVoltage>((static_cast<int>(s.system_voltage) + 1) % 3); break;
             default: break;
         }
     }
@@ -149,12 +160,39 @@ struct SettingsViewImpl {
                 lv_label_set_text(widgets[i], b);
             }
         }
+        for (int i = 0; i < kScreenIds; ++i) {
+            const uint8_t id = v->edit_.screen_order[i];
+            if (id >= kScreenIds) continue;
+            lv_label_set_text(scr_name[i], kScreenNames[id]);
+            lv_obj_set_state(scr_sw[i], LV_STATE_CHECKED, (v->edit_.screen_mask >> id) & 1);
+        }
     }
 
     static void on_step(lv_event_t* e) {
         Ctx* c = static_cast<Ctx*>(lv_event_get_user_data(e));
         step(c->view->edit_, c->field, c->dir);
         refresh_labels(c->view);
+    }
+
+    // Mit csinál: a képernyősor ▲/▼ gombja: a képernyőt a listában egy hellyel feljebb/lejjebb teszi (felcseréli a szomszéddal).
+    static void on_screen_move(lv_event_t* e) {
+        Ctx* c = static_cast<Ctx*>(lv_event_get_user_data(e));
+        const int j = c->idx + c->dir;
+        if (j < 0 || j >= kScreenIds) return;
+        std::swap(c->view->edit_.screen_order[c->idx], c->view->edit_.screen_order[j]);
+        refresh_labels(c->view);
+    }
+
+    // Mit csinál: a képernyősor kapcsolója: be/ki veszi a képernyőt a lapozásból; az utolsó látható képernyő nem kapcsolható ki.
+    static void on_screen_toggle(lv_event_t* e) {
+        Ctx* c = static_cast<Ctx*>(lv_event_get_user_data(e));
+        Settings& s = c->view->edit_;
+        const uint8_t id = s.screen_order[c->idx];
+        if (id >= kScreenIds) return;
+        const uint8_t bit = static_cast<uint8_t>(1u << id);
+        if (lv_obj_has_state(c->widget, LV_STATE_CHECKED)) s.screen_mask |= bit;
+        else if ((s.screen_mask & ~bit) != 0) s.screen_mask &= static_cast<uint8_t>(~bit);
+        refresh_labels(c->view);  // az elutasított kikapcsolás kapcsolóállását is visszaállítja
     }
 
     static void on_cycle(lv_event_t* e) {
@@ -223,8 +261,35 @@ struct SettingsViewImpl {
 
     static Ctx* new_ctx(SettingsView* v, Field f, lv_obj_t* w, int dir) {
         Ctx* c = &ctx[ctx_n++];
-        *c = {v, f, w, dir};
+        *c = {v, f, w, dir, 0};
         return c;
+    }
+
+    // Mit csinál: egy képernyősor: ▲, a képernyő neve, a láthatóság kapcsolója és ▼; a sor a lista adott helyét mutatja.
+    static void build_screen_row(SettingsView* v, int i) {
+        lv_obj_t* line = make_flex(v->list_, LV_FLEX_FLOW_ROW, kRowWidth);
+        lv_obj_t* up = make_button(line, 40, 40, LV_SYMBOL_UP, &og_font_montserrat_20);
+        lv_obj_t* name = make_label(line, &og_font_montserrat_20, colors.text, "");
+        lv_obj_set_width(name, 92);
+        lv_label_set_long_mode(name, LV_LABEL_LONG_CLIP);
+        lv_obj_set_style_text_align(name, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_t* sw = lv_switch_create(line);
+        lv_obj_set_size(sw, 50, 26);
+        lv_obj_set_style_bg_color(sw, colors.track, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(sw, colors.accent, static_cast<lv_style_selector_t>(LV_PART_INDICATOR) | LV_STATE_CHECKED);
+        lv_obj_add_flag(sw, LV_OBJ_FLAG_EVENT_BUBBLE);
+        lv_obj_t* down = make_button(line, 40, 40, LV_SYMBOL_DOWN, &og_font_montserrat_20);
+        Ctx* cu = new_ctx(v, Field::Count, up, -1);
+        cu->idx = i;
+        Ctx* cd = new_ctx(v, Field::Count, down, +1);
+        cd->idx = i;
+        Ctx* cs = new_ctx(v, Field::Count, sw, 0);
+        cs->idx = i;
+        lv_obj_add_event_cb(up, on_screen_move, LV_EVENT_CLICKED, cu);
+        lv_obj_add_event_cb(down, on_screen_move, LV_EVENT_CLICKED, cd);
+        lv_obj_add_event_cb(sw, on_screen_toggle, LV_EVENT_VALUE_CHANGED, cs);
+        scr_name[i] = name;
+        scr_sw[i] = sw;
     }
 
     static void build_row(SettingsView* v, int i) {
@@ -309,6 +374,8 @@ void SettingsView::build() {
 
     I::make_label(list_, &og_font_montserrat_28, c.accent, "BEÁLLÍTÁSOK");
     for (int i = 0; i < kFieldCount; ++i) I::build_row(this, i);
+    I::make_label(list_, &og_font_montserrat_20, c.dim, "Képernyők sorrendje és láthatósága");
+    for (int i = 0; i < kScreenIds; ++i) I::build_screen_row(this, i);
     lv_obj_t* back = I::make_button(list_, kRowWidth - 40, 48, "VISSZA", &og_font_montserrat_28);
     back_label_ = lv_obj_get_child(back, 0);
     lv_obj_add_event_cb(back, I::on_back, LV_EVENT_CLICKED, this);

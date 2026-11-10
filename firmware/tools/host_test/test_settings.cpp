@@ -52,11 +52,44 @@ static void encode_decode_round_trip() {
     s.sleep_s = 120; s.palette = 2; s.skip_logo = true; s.brightness_pct = 60; s.speed_unit = SpeedUnit::Mph;
     s.temp_unit = TempUnit::Fahrenheit; s.auto_switch = false; s.switch_period_s = 45;
     s.screen_order[0] = 3; s.screen_order[1] = 2; s.screen_order[2] = 1; s.screen_order[3] = 0; s.screen_order[4] = 4; s.screen_order[5] = 5; s.screen_order[6] = 6;
+    s.system_voltage = SystemVoltage::V24; s.screen_mask = 0x55;
     uint8_t buf[kSettingsBlobSize];
     CHECK(settings_encode(s, buf, sizeof buf) == kSettingsBlobSize);
     Settings r;
     CHECK(settings_decode(buf, sizeof buf, r));
     CHECK(std::memcmp(&s, &r, sizeof s) == 0);
+}
+
+static void screen_mask_and_voltage_are_sanitized() {
+    Settings s;
+    s.screen_mask = 0;  // legalább egy képernyő látszik
+    s.system_voltage = static_cast<SystemVoltage>(9);
+    sanitize(s);
+    CHECK(s.screen_mask == 1 && s.system_voltage == SystemVoltage::Auto);
+    s.screen_mask = 0xFF;  // ismeretlen képernyők bitjei lekerülnek
+    sanitize(s);
+    CHECK(s.screen_mask == (1u << kScreenIds) - 1);
+}
+
+// Az 1. verziójú blob (a rendszerfeszültség és a képernyőmaszk előtti formátum) olvasható marad, az új mezők alapértékek.
+static void version_1_blob_is_still_readable() {
+    Settings s;
+    s.max_rpm = 7000;
+    s.system_voltage = SystemVoltage::V24;
+    s.screen_mask = 0x03;
+    uint8_t v2[kSettingsBlobSize];
+    settings_encode(s, v2, sizeof v2);
+    uint8_t v1[kSettingsBlobSizeV1];
+    std::memcpy(v1, v2, kSettingsBlobSizeV1 - 2);  // a közös rész az új mezők előtt
+    v1[2] = 1;
+    const uint16_t sum = settings_detail::checksum(v1, kSettingsBlobSizeV1 - 2);
+    v1[kSettingsBlobSizeV1 - 2] = static_cast<uint8_t>(sum);
+    v1[kSettingsBlobSizeV1 - 1] = static_cast<uint8_t>(sum >> 8);
+    Settings r;
+    CHECK(settings_decode(v1, sizeof v1, r));
+    CHECK(r.max_rpm == 7000);
+    CHECK(r.system_voltage == SystemVoltage::Auto && r.screen_mask == (1u << kScreenIds) - 1);
+    CHECK(!settings_decode(v1, sizeof v1 - 1, r));  // az 1. verzió hossza rögzített
 }
 
 static void encode_rejects_small_buffer() {
@@ -111,6 +144,8 @@ int main() {
     RUN(sanitize_clamps_values);
     RUN(screen_order_must_be_a_permutation);
     RUN(encode_decode_round_trip);
+    RUN(screen_mask_and_voltage_are_sanitized);
+    RUN(version_1_blob_is_still_readable);
     RUN(encode_rejects_small_buffer);
     RUN(decode_rejects_damaged_data_and_gives_defaults);
     RUN(decode_sanitizes_out_of_range_fields);
