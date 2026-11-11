@@ -34,6 +34,9 @@ struct Settings {
     uint8_t screen_order[kMaxScreens] = {0, 1, 2, 3, 4, 5, 6, 0};  // az első kScreenIds elem számít
     SystemVoltage system_voltage = SystemVoltage::Auto;
     uint8_t gear_count = 5;           // a váltó előremeneti fokozatainak száma (a fokozatbecslés ennyi fokozatot tanul)
+    uint16_t final_drive_x100 = 0;    // a főhajtás áttétele századokban (0: nincs megadva)
+    uint16_t tyre_circ_mm = 0;        // a kerék gördülési kerülete mm-ben (0: nincs megadva)
+    uint16_t gear_ratio_x100[8] = {}; // a fokozatok áttétele századokban (0: nincs megadva); mind a gear_count darab kell a képlethez
     uint8_t screen_mask = (1u << kScreenIds) - 1;  // a lapozásban részt vevő képernyők (azonosítónként egy bit); a debug és a zene feltételei ezen felül érvényesek
 };
 
@@ -54,6 +57,10 @@ inline void sanitize(Settings& s) {
     if (s.system_voltage != SystemVoltage::V12 && s.system_voltage != SystemVoltage::V24) s.system_voltage = SystemVoltage::Auto;
     s.screen_mask &= static_cast<uint8_t>((1u << kScreenIds) - 1);
     s.gear_count = std::clamp<uint8_t>(s.gear_count, 3, 8);
+    auto zero_or = [](uint16_t v, uint16_t lo, uint16_t hi) -> uint16_t { return v == 0 ? 0 : std::clamp<uint16_t>(v, lo, hi); };
+    s.final_drive_x100 = zero_or(s.final_drive_x100, 100, 800);   // 1,00..8,00
+    s.tyre_circ_mm = zero_or(s.tyre_circ_mm, 1200, 2800);        // 1,2..2,8 m
+    for (uint16_t& r : s.gear_ratio_x100) r = zero_or(r, 20, 999);  // 0,20..9,99
     if (s.screen_mask == 0) s.screen_mask = 1;
     bool seen[kScreenIds] = {};
     bool ok = true;
@@ -67,8 +74,9 @@ inline void sanitize(Settings& s) {
 
 constexpr size_t kSettingsBlobSizeV1 = 3 + 18 + kMaxScreens + 2;  // az 1. verzió hossza (azonosító és verzió + mezők + sorrend + ellenőrzőösszeg)
 constexpr size_t kSettingsBlobSizeV2 = kSettingsBlobSizeV1 + 2;    // a 2. verzió: + rendszerfeszültség és képernyőmaszk
-constexpr size_t kSettingsBlobSize = kSettingsBlobSizeV2 + 1;      // a 3. verzió: + fokozatszám
-constexpr uint8_t kSettingsVersion = 3;
+constexpr size_t kSettingsBlobSizeV3 = kSettingsBlobSizeV2 + 1;    // a 3. verzió: + fokozatszám
+constexpr size_t kSettingsBlobSize = kSettingsBlobSizeV3 + 2 + 2 + 16;  // a 4. verzió: + főhajtás, kerékkerület, 8 áttétel
+constexpr uint8_t kSettingsVersion = 4;
 
 namespace settings_detail {
 inline uint16_t checksum(const uint8_t* p, size_t n) {
@@ -95,6 +103,8 @@ inline size_t settings_encode(const Settings& s, uint8_t* out, size_t cap) {
     for (int i = 0; i < kMaxScreens; ++i) u8(s.screen_order[i]);
     u8(static_cast<uint8_t>(s.system_voltage)); u8(s.screen_mask);
     u8(s.gear_count);
+    u16(s.final_drive_x100); u16(s.tyre_circ_mm);
+    for (int i = 0; i < 8; ++i) u16(s.gear_ratio_x100[i]);
     u16(settings_detail::checksum(out, n));
     return n;
 }
@@ -106,7 +116,7 @@ inline bool settings_decode(const uint8_t* in, size_t n, Settings& out) {
     out = Settings{};
     if (!in || n < 3 || in[0] != 'O' || in[1] != 'G') return false;
     const uint8_t ver = in[2];
-    if (!((ver == 1 && n == kSettingsBlobSizeV1) || (ver == 2 && n == kSettingsBlobSizeV2) || (ver == 3 && n == kSettingsBlobSize))) return false;
+    if (!((ver == 1 && n == kSettingsBlobSizeV1) || (ver == 2 && n == kSettingsBlobSizeV2) || (ver == 3 && n == kSettingsBlobSizeV3) || (ver == 4 && n == kSettingsBlobSize))) return false;
     const uint16_t want = static_cast<uint16_t>(in[n - 2] | (in[n - 1] << 8));
     if (settings_detail::checksum(in, n - 2) != want) return false;
     size_t p = 3;
@@ -123,6 +133,10 @@ inline bool settings_decode(const uint8_t* in, size_t n, Settings& out) {
         out.screen_mask = u8();
     }
     if (ver >= 3) out.gear_count = u8();
+    if (ver >= 4) {
+        out.final_drive_x100 = u16(); out.tyre_circ_mm = u16();
+        for (int i = 0; i < 8; ++i) out.gear_ratio_x100[i] = u16();
+    }
     sanitize(out);
     return true;
 }

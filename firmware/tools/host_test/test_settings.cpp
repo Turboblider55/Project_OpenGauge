@@ -53,6 +53,7 @@ static void encode_decode_round_trip() {
     s.temp_unit = TempUnit::Fahrenheit; s.auto_switch = false; s.switch_period_s = 45;
     s.screen_order[0] = 3; s.screen_order[1] = 2; s.screen_order[2] = 1; s.screen_order[3] = 0; s.screen_order[4] = 4; s.screen_order[5] = 5; s.screen_order[6] = 6;
     s.system_voltage = SystemVoltage::V24; s.screen_mask = 0x55; s.gear_count = 6;
+    s.final_drive_x100 = 390; s.tyre_circ_mm = 1900; s.gear_ratio_x100[0] = 360; s.gear_ratio_x100[4] = 80;
     uint8_t buf[kSettingsBlobSize];
     CHECK(settings_encode(s, buf, sizeof buf) == kSettingsBlobSize);
     Settings r;
@@ -64,9 +65,11 @@ static void screen_mask_and_voltage_are_sanitized() {
     Settings s;
     s.screen_mask = 0;  // legalább egy képernyő látszik
     s.gear_count = 20;
+    s.final_drive_x100 = 5; s.tyre_circ_mm = 9000; s.gear_ratio_x100[1] = 5000; s.gear_ratio_x100[2] = 0;
     s.system_voltage = static_cast<SystemVoltage>(9);
     sanitize(s);
     CHECK(s.screen_mask == 1 && s.system_voltage == SystemVoltage::Auto && s.gear_count == 8);
+    CHECK(s.final_drive_x100 == 100 && s.tyre_circ_mm == 2800 && s.gear_ratio_x100[1] == 999 && s.gear_ratio_x100[2] == 0);  // 0: nincs megadva
     s.screen_mask = 0xFF;  // ismeretlen képernyők bitjei lekerülnek
     sanitize(s);
     CHECK(s.screen_mask == (1u << kScreenIds) - 1);
@@ -79,6 +82,7 @@ static void older_blobs_are_still_readable() {
     s.system_voltage = SystemVoltage::V24;
     s.screen_mask = 0x03;
     s.gear_count = 6;
+    s.final_drive_x100 = 390; s.tyre_circ_mm = 1900; s.gear_ratio_x100[0] = 360; s.gear_ratio_x100[4] = 80;
     uint8_t cur[kSettingsBlobSize];
     settings_encode(s, cur, sizeof cur);
     auto make = [&](uint8_t ver, size_t len, uint8_t* out) {
@@ -88,17 +92,20 @@ static void older_blobs_are_still_readable() {
         out[len - 2] = static_cast<uint8_t>(sum);
         out[len - 1] = static_cast<uint8_t>(sum >> 8);
     };
-    uint8_t v1[kSettingsBlobSizeV1], v2[kSettingsBlobSizeV2];
+    uint8_t v1[kSettingsBlobSizeV1], v2[kSettingsBlobSizeV2], v3[kSettingsBlobSizeV3];
     make(1, kSettingsBlobSizeV1, v1);
     make(2, kSettingsBlobSizeV2, v2);
+    make(3, kSettingsBlobSizeV3, v3);
     Settings r;
     CHECK(settings_decode(v1, sizeof v1, r));
     CHECK(r.max_rpm == 7000);
     CHECK(r.system_voltage == SystemVoltage::Auto && r.screen_mask == (1u << kScreenIds) - 1 && r.gear_count == 5);
     CHECK(settings_decode(v2, sizeof v2, r));
     CHECK(r.system_voltage == SystemVoltage::V24 && r.screen_mask == 0x03 && r.gear_count == 5);  // a fokozatszám 3. verziós
+    CHECK(settings_decode(v3, sizeof v3, r));
+    CHECK(r.gear_count == 6 && r.final_drive_x100 == 0 && r.tyre_circ_mm == 0 && r.gear_ratio_x100[0] == 0);  // az áttételek 4. verziósak
     CHECK(settings_decode(cur, sizeof cur, r));
-    CHECK(r.gear_count == 6);
+    CHECK(r.gear_count == 6 && r.final_drive_x100 == 390 && r.tyre_circ_mm == 1900 && r.gear_ratio_x100[0] == 360 && r.gear_ratio_x100[4] == 80);
     CHECK(!settings_decode(v1, sizeof v1 - 1, r));  // a hossz verziónként rögzített
     CHECK(!settings_decode(v2, sizeof v1, r));
 }

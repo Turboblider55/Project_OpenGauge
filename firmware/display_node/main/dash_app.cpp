@@ -211,6 +211,9 @@ void gear_apply_config() {
     GearConfig c = g_gear.config();
     const bool changed = c.gears != g_cfg.gear_count;
     c.gears = g_cfg.gear_count;
+    c.final_drive = static_cast<float>(g_cfg.final_drive_x100) / 100.f;  // 0: nincs megadva
+    c.tyre_circ_m = static_cast<float>(g_cfg.tyre_circ_mm) / 1000.f;
+    for (int i = 0; i < kMaxGears; ++i) c.ratio[i] = static_cast<float>(g_cfg.gear_ratio_x100[i]) / 100.f;
     g_gear.set_config(c);
     if (changed) g_gear.reset_learning();  // más fokozatszám: más váltó, a tanult adat érvénytelen
     g_gear_total.store(g_gear.config().gears, std::memory_order_relaxed);
@@ -554,6 +557,46 @@ struct NeedleGaugeBase {
         drawn = -1;  // a tűt az új skálán újra ki kell számolni
     }
 
+    // Mit csinál: igaz, ha a pont a lekerekített téglalapban van (x0,y0)-(x1,y1), r sugarú sarkokkal.
+    static bool in_rrect(float x, float y, float x0, float y0, float x1, float y1, float r) {
+        if (x < x0 || x > x1 || y < y0 || y > y1) return false;
+        const float cx = x < x0 + r ? x0 + r : (x > x1 - r ? x1 - r : x);
+        const float cy = y < y0 + r ? y0 + r : (y > y1 - r ? y1 - r : y);
+        return (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r;
+    }
+
+    static bool in_circle(float x, float y, float cx, float cy, float r) { return (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r; }
+
+    // Mit csinál: egy w x h-s A8 ikont (átlátszósági maszk) rajzol egy alakzatfüggvényből: inside(x, y) igaz, ahol az ikon festett.
+    // Hogyan:     minden képpontot 4x4 mintavétellel számol (mint a tű), így a széle élsimított; a színt az image_recolor adja.
+    // Miért:      az ikonok kevés memóriát visznek (w*h bájt), a palettával színezhetők, és nincs szükség képfájlra.
+    template <typename F>
+    static lv_draw_buf_t* make_icon(int32_t w, int32_t h, F inside) {
+        lv_draw_buf_t* b = lv_draw_buf_create(static_cast<uint32_t>(w), static_cast<uint32_t>(h), LV_COLOR_FORMAT_A8, 0);
+        if (!b) return nullptr;
+        for (int32_t y = 0; y < h; ++y) {
+            uint8_t* row = static_cast<uint8_t*>(b->data) + static_cast<size_t>(y) * b->header.stride;
+            for (int32_t x = 0; x < w; ++x) {
+                int hit = 0;
+                for (int sy = 0; sy < 4; ++sy)
+                    for (int sx = 0; sx < 4; ++sx) hit += inside(static_cast<float>(x) + (sx + 0.5f) / 4.f, static_cast<float>(y) + (sy + 0.5f) / 4.f) ? 1 : 0;
+                row[x] = static_cast<uint8_t>(hit * 255 / 16);
+            }
+        }
+        return b;
+    }
+
+    // Mit csinál: egy ikont tesz a képernyőre a középponthoz képest (x, y) helyre, a palettaszínnel.
+    lv_obj_t* add_icon(lv_draw_buf_t* buf, int32_t x, int32_t y) {
+        lv_obj_t* img = lv_image_create(scr);
+        if (buf) lv_image_set_src(img, buf);
+        lv_obj_set_style_image_recolor(img, g_accent, 0);
+        lv_obj_set_style_image_recolor_opa(img, LV_OPA_COVER, 0);
+        lv_obj_remove_flag(img, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE));
+        lv_obj_align(img, LV_ALIGN_CENTER, x, y);
+        return img;
+    }
+
     // Mit csinál: a tű képét (A8 átlátszósági maszk, függőleges, a csúcs felül) előállítja egyszer.
     // Hogyan:     minden képpontot 4x4 mintavétellel (supersampling) számol az alakzatból: a törzs a tövétől (kNeedleHalfW)
     //             a csúcsig (kTipHalfW) egyenletesen keskenyedik, a farok állandó vastagságú és lekerekített végű.
@@ -882,6 +925,8 @@ struct NeedleDualView : NeedleGaugeBase {
     static constexpr int32_t kTempStart = 135, kTempSweep = -90;              // alul balról jobbra
     lv_obj_t* needle2 = nullptr;
     lv_obj_t* value2 = nullptr;
+    lv_draw_buf_t* icon_bat = nullptr;   // az akkumulátor és a hőmérő ikonja (A8)
+    lv_draw_buf_t* icon_temp = nullptr;
     float shown2 = 0;
     int32_t drawn2 = -1;
     bool fahrenheit = false;
@@ -1000,6 +1045,23 @@ struct NeedleDualView : NeedleGaugeBase {
         }
         lv_obj_align(value, LV_ALIGN_CENTER, -96, 10);
         lv_obj_align(value2, LV_ALIGN_CENTER, 96, 10);
+        // Ikonok a feliratok fölött: autó-akkumulátor (két sarus test + és - jel) és hőmérő (cső, gömb, mercuri, osztások).
+        icon_bat = make_icon(32, 32, [](float x, float y) {
+            const bool body = in_rrect(x, y, 1, 10, 31, 29, 3) && !in_rrect(x, y, 3.4f, 12.4f, 28.6f, 26.6f, 1.2f);
+            const bool terminals = in_rrect(x, y, 5, 4.5f, 10.5f, 10.5f, 1) || in_rrect(x, y, 21.5f, 4.5f, 27, 10.5f, 1);
+            const bool plus = (x >= 6.5f && x <= 12.5f && y >= 18.2f && y <= 20.4f) || (x >= 8.6f && x <= 10.4f && y >= 16.2f && y <= 22.4f);
+            const bool minus = x >= 19.5f && x <= 25.5f && y >= 18.2f && y <= 20.4f;
+            return body || terminals || plus || minus;
+        });
+        icon_temp = make_icon(32, 32, [](float x, float y) {
+            const bool outer = in_rrect(x, y, 11, 1, 21, 24, 5) || in_circle(x, y, 16, 25, 7.2f);
+            const bool inner = in_rrect(x, y, 13.4f, 3.4f, 18.6f, 24, 2.6f) || in_circle(x, y, 16, 25, 4.8f);
+            const bool fluid = (x >= 14.5f && x <= 17.5f && y >= 11 && y <= 25) || in_circle(x, y, 16, 25, 3.5f);
+            const bool ticks = x >= 23 && x <= 28 && ((y >= 5 && y <= 7) || (y >= 10 && y <= 12) || (y >= 15 && y <= 17));
+            return (outer && !inner) || fluid || ticks;
+        });
+        add_icon(icon_bat, -96, -52);
+        add_icon(icon_temp, 96, -52);
         make_label(scr, &og_font_montserrat_20, g_dim, LV_ALIGN_CENTER, -96, -20, "AKKU");
         make_label(scr, &og_font_montserrat_20, g_dim, LV_ALIGN_CENTER, 96, -20, "HŰTŐVÍZ");
         lv_obj_align(nodata, LV_ALIGN_CENTER, 0, 48);

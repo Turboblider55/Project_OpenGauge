@@ -11,7 +11,8 @@ namespace og {
 namespace {
 
 enum class Field : uint8_t {
-    Music, Debug, MaxRpm, Redline, MaxSpeed, Sleep, Palette, SkipLogo, Brightness, SpeedUnit, TempUnit, SysVolt, GearCount, AutoSwitch, SwitchPeriod,
+    Music, Debug, MaxRpm, Redline, MaxSpeed, Sleep, Palette, SkipLogo, Brightness, SpeedUnit, TempUnit, SysVolt, GearCount, FinalDrive, TyreCirc,
+    Ratio1, Ratio2, Ratio3, Ratio4, Ratio5, Ratio6, Ratio7, Ratio8, AutoSwitch, SwitchPeriod,
     Count
 };
 
@@ -37,12 +38,27 @@ const FieldInfo kFields[] = {
     {Field::TempUnit, Kind::Cycle, "Hőmérséklet egysége"},
     {Field::SysVolt, Kind::Cycle, "Rendszerfeszültség"},
     {Field::GearCount, Kind::Stepper, "Fokozatok száma"},
+    {Field::FinalDrive, Kind::Stepper, "Főhajtás áttétele"},
+    {Field::TyreCirc, Kind::Stepper, "Kerékkerület (m)"},
+    {Field::Ratio1, Kind::Stepper, "1. fokozat áttétele"},
+    {Field::Ratio2, Kind::Stepper, "2. fokozat áttétele"},
+    {Field::Ratio3, Kind::Stepper, "3. fokozat áttétele"},
+    {Field::Ratio4, Kind::Stepper, "4. fokozat áttétele"},
+    {Field::Ratio5, Kind::Stepper, "5. fokozat áttétele"},
+    {Field::Ratio6, Kind::Stepper, "6. fokozat áttétele"},
+    {Field::Ratio7, Kind::Stepper, "7. fokozat áttétele"},
+    {Field::Ratio8, Kind::Stepper, "8. fokozat áttétele"},
     {Field::AutoSwitch, Kind::Switch, "Automatikus lapozás"},
     {Field::SwitchPeriod, Kind::Stepper, "Lapozás ideje (s)"},
 };
 constexpr int kFieldCount = sizeof kFields / sizeof kFields[0];
 
 constexpr int32_t kRowWidth = 250;
+
+// Az áttétel-mezők sorszáma (0..7), vagy -1, ha a mező nem áttétel.
+constexpr int ratio_index(Field f) {
+    return f >= Field::Ratio1 && f <= Field::Ratio8 ? static_cast<int>(f) - static_cast<int>(Field::Ratio1) : -1;
+}
 
 // A képernyők rövid nevei a sorrend-listában (azonosító szerint: lásd settings.h kScreenIds).
 const char* const kScreenNames[kScreenIds] = {"Fő", "Részletek", "Kapcsolat", "Zene", "Fordulat", "Sebesség", "Akku+víz"};
@@ -79,6 +95,21 @@ struct SettingsViewImpl {
             case Field::Palette: std::snprintf(b, cap, "%s", palette_get(s.palette).name); break;
             case Field::Brightness: std::snprintf(b, cap, "%u", s.brightness_pct); break;
             case Field::GearCount: std::snprintf(b, cap, "%u", s.gear_count); break;
+            case Field::FinalDrive:
+                if (s.final_drive_x100 == 0) std::snprintf(b, cap, "-");
+                else std::snprintf(b, cap, "%u.%02u", s.final_drive_x100 / 100, s.final_drive_x100 % 100);
+                break;
+            case Field::TyreCirc:
+                if (s.tyre_circ_mm == 0) std::snprintf(b, cap, "-");
+                else std::snprintf(b, cap, "%u.%02u", s.tyre_circ_mm / 1000, s.tyre_circ_mm % 1000 / 10);
+                break;
+            case Field::Ratio1: case Field::Ratio2: case Field::Ratio3: case Field::Ratio4:
+            case Field::Ratio5: case Field::Ratio6: case Field::Ratio7: case Field::Ratio8: {
+                const unsigned r = s.gear_ratio_x100[ratio_index(f)];
+                if (r == 0) std::snprintf(b, cap, "-");
+                else std::snprintf(b, cap, "%u.%02u", r / 100, r % 100);
+                break;
+            }
             case Field::SpeedUnit: std::snprintf(b, cap, "%s", s.speed_unit == SpeedUnit::Mph ? "mph" : "km/h"); break;
             case Field::TempUnit: std::snprintf(b, cap, "%s", s.temp_unit == TempUnit::Fahrenheit ? "°F" : "°C"); break;
             case Field::SysVolt:
@@ -126,6 +157,21 @@ struct SettingsViewImpl {
             }
             case Field::Brightness: s.brightness_pct = static_cast<uint8_t>(stepped(s.brightness_pct, 5, 100, 5)); break;
             case Field::GearCount: s.gear_count = static_cast<uint8_t>(stepped(s.gear_count, 3, 8, 1)); break;
+            case Field::FinalDrive:  // 0: nincs megadva; az első + egy tipikus értéket ad, a - a 100 alatt kikapcsol
+                if (s.final_drive_x100 == 0) s.final_drive_x100 = dir > 0 ? 350 : 0;
+                else s.final_drive_x100 = static_cast<uint16_t>(s.final_drive_x100 + dir * 5 < 100 ? 0 : std::min(800, s.final_drive_x100 + dir * 5));
+                break;
+            case Field::TyreCirc:
+                if (s.tyre_circ_mm == 0) s.tyre_circ_mm = dir > 0 ? 1900 : 0;
+                else s.tyre_circ_mm = static_cast<uint16_t>(s.tyre_circ_mm + dir * 10 < 1200 ? 0 : std::min(2800, s.tyre_circ_mm + dir * 10));
+                break;
+            case Field::Ratio1: case Field::Ratio2: case Field::Ratio3: case Field::Ratio4:
+            case Field::Ratio5: case Field::Ratio6: case Field::Ratio7: case Field::Ratio8: {
+                uint16_t& r = s.gear_ratio_x100[ratio_index(f)];
+                if (r == 0) r = dir > 0 ? 100 : 0;
+                else r = static_cast<uint16_t>(r + dir * 5 < 20 ? 0 : std::min(999, r + dir * 5));
+                break;
+            }
             case Field::SwitchPeriod: s.switch_period_s = static_cast<uint16_t>(stepped(s.switch_period_s, 5, 300, 5)); break;
             default: break;
         }
