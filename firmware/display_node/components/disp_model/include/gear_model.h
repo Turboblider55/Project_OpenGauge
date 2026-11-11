@@ -13,6 +13,13 @@
 //             A fokozatot csak akkor adja meg, ha minden fokozat ismert (képlet vagy kész tanulás): részleges tudásnál a
 //             fürtök számozása félrevezető lenne (pl. csak a 3. és 4. fokozatot látta, ezeket 1.-nek és 2.-nak hívná).
 //             A kimenetet kStableOut egyező minta után váltja (egy zajos minta nem ugrasztja a kijelzőt).
+//             Üres ("N"): ha a sebesség legalább kMinSpeedNeutral, és a k tartósan (kNeutralSamples egymás utáni mintán) a
+//             legmagasabb fokozat k értéke alatt van (a fordulat "nem fér" egyetlen fokozathoz sem, pl. alapjárat gurulás
+//             közben), a gáz pedig nincs lenyomva, akkor az autó üresben (vagy kuplungnyomva) gurul. Ha a gáz lenyomott
+//             (pörgetés), az nem gurulás, ezért nem N. A váltás (< 1 s) a hosszabb időzítés miatt nem számít N-nek.
+//             Állás: ha a motor jár (fordulat >= 500), a sebesség pedig kStandstillSamples egymás utáni mintán 0, akkor N
+//             (üresben vagy kuplungnyomva áll az autó; a gázállás nem számít: üresben pörgetni is lehet). Ehhez nem kell
+//             fokozat-tudás, tanulás közben is érvényes. Indulásnál a sebesség azonnal elhagyja a nullát, ezért nincs N.
 // Miért:      az OBD-II-ben nincs egységes fokozat-PID (a TCU-t csak gyártóspecifikusan lehet lekérdezni).
 #pragma once
 
@@ -54,6 +61,11 @@ public:
     static constexpr uint16_t kMaxCount = 1000;        // egy fürt számlálójának felső korlátja
     static constexpr uint32_t kFreezeSamples = 30000;  // ennyi elfogadott minta után lezárul a tanulás
     static constexpr uint16_t kReplaceMargin = 8;      // a jelöltnek ennyivel több mintája kell, mint a leggyengébb fürtnek
+    static constexpr float kMinSpeedNeutral = 15.f;    // km/h: ez alatt nem mondunk N-t (a kuplungcsúszás és az alapjárat összemosódik)
+    static constexpr int kNeutralSamples = 15;         // ennyi egymás utáni minta (~1,5 s) kell az N-hez
+    static constexpr float kNeutralBelow = 0.85f;      // a k a legmagasabb fokozat k értékének ennyiszerese alatt van
+    static constexpr float kNeutralMaxThrottle = 15.f; // % gázállás: fölötte nem N
+    static constexpr int kStandstillSamples = 10;      // ennyi egymás utáni 0 km/h-s minta (~1 s) kell az álló N-hez
 
     struct Cluster {
         float k = 0.f;      // a fürt átlagos áttételi száma (1/perc per km/h)
@@ -69,15 +81,23 @@ public:
         if (m_ > cfg_.gears) m_ = cfg_.gears;  // kevesebb fokozat: a felesleges (legkisebb k-jú) fürtök elhagyhatók
     }
 
-    // Mit csinál: egy telemetriamintát dolgoz fel (kb. 10 Hz); valid = a fordulatszám és a sebesség friss és érvényes.
-    void update(float rpm, float speed_kmh, bool valid) {
+    // Mit csinál: egy telemetriamintát dolgoz fel (kb. 10 Hz); valid = a fordulatszám és a sebesség friss és érvényes;
+    //             throttle_pct = a gázállás % (negatív: nem ismert, az N-szabály ilyenkor nem használja).
+    void update(float rpm, float speed_kmh, bool valid, float throttle_pct = -1.f) {
+        // Állás: járó motor, nulla sebesség: N (a kuplung nyomva vagy üresben).
+        standstill_n_ = (valid && rpm >= 500.f && speed_kmh < 1.f) ? std::min(standstill_n_ + 1, kStandstillSamples) : 0;
         if (!valid || speed_kmh < kMinSpeedClassify || rpm < 500.f) {
             stab_n_ = 0;
+            neutral_n_ = 0;
             vote(0);
             return;
         }
         const float k = rpm / speed_kmh;
         vote(classify(k));
+        const float k_top = top_gear_k();
+        const bool coasting = k_top > 0.f && speed_kmh >= kMinSpeedNeutral && k < k_top * kNeutralBelow &&
+                              (throttle_pct < 0.f || throttle_pct <= kNeutralMaxThrottle);
+        neutral_n_ = coasting ? std::min(neutral_n_ + 1, kNeutralSamples) : 0;
         if (cfg_.has_formula() || frozen() || speed_kmh < kMinSpeedLearn || rpm < kMinRpm) {
             stab_n_ = 0;
             return;
@@ -100,6 +120,8 @@ public:
 
     // A jelenlegi fokozat (1..gears), 0: nem ismert (álló autó, kuplungnyomás, váltás, részleges tudás).
     int gear() const { return out_; }
+    // Igaz, ha az autó tartósan üresben (vagy kuplungnyomva) gurul: nincs fokozat, a fordulat a legmagasabb fokozat alatti.
+    bool neutral() const { return out_ == 0 && (neutral_n_ >= kNeutralSamples || standstill_n_ >= kStandstillSamples); }
     // A tudás teljessége: képletnél mindig; tanulásnál, ha minden fokozat fürtje megvan.
     bool ready() const { return cfg_.has_formula() || m_ >= cfg_.gears; }
     int learned_gears() const { return m_; }
@@ -117,6 +139,8 @@ public:
         stab_n_ = 0;
         out_ = pending_ = 0;
         pend_n_ = 0;
+        neutral_n_ = 0;
+        standstill_n_ = 0;
         dirty_ = true;
     }
 
@@ -191,6 +215,14 @@ private:
     float stab_min_ = 0.f, stab_max_ = 0.f, stab_sum_ = 0.f;  // a jelenlegi stabil szakasz
     int stab_n_ = 0;
     int out_ = 0, pending_ = 0, pend_n_ = 0;
+    int neutral_n_ = 0;
+    int standstill_n_ = 0;
+
+    // Mit csinál: a legmagasabb fokozat áttételi száma (a legkisebb k), 0, ha még nem ismert (az N-hez teljes tudás kell).
+    float top_gear_k() const {
+        if (cfg_.has_formula()) return (1000.f / 60.f / cfg_.tyre_circ_m) * cfg_.ratio[cfg_.gears - 1] * cfg_.final_drive;
+        return m_ >= cfg_.gears && m_ > 0 ? c_[m_ - 1].k : 0.f;
+    }
 
     static uint16_t checksum(const uint8_t* p, size_t n) {
         uint16_t a = 1, b = 0;  // Fletcher-16

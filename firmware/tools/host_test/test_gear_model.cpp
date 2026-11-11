@@ -215,6 +215,67 @@ static void persistence_round_trip_and_damage() {
     CHECK(a.encode(small, sizeof small) == 0);
 }
 
+static void neutral_is_reported_only_for_sustained_coasting_without_throttle() {
+    GearModel m;
+    GearConfig c;
+    c.gears = 5;
+    m.set_config(c);
+    Noise n;
+    accelerate_through_gears(m, n);
+    CHECK(m.ready());
+    drive(m, n, 4, 70, 71, 1);
+    CHECK(m.gear() == 4 && !m.neutral());
+    // Gurulás üresben 60 km/h-n: alapjárati fordulat (k = 14 < a 5. fokozat k-ja), gáz nincs.
+    for (int i = 0; i < 10; ++i) m.update(850.f, 60.f, true, 0.f);
+    CHECK(!m.neutral());  // még nem elég hosszú (a váltás nem N)
+    for (int i = 0; i < 10; ++i) m.update(850.f, 60.f, true, 0.f);
+    CHECK(m.neutral() && m.gear() == 0);
+    // Visszakapcsolás: a fokozat visszatér, az N megszűnik.
+    drive(m, n, 4, 60, 61, 1);
+    CHECK(m.gear() == 4 && !m.neutral());
+    // Gázzal pörgetve (kuplung nyomva) nem N, bármeddig tart.
+    for (int i = 0; i < 40; ++i) m.update(850.f, 60.f, true, 45.f);
+    CHECK(!m.neutral());
+    // 15 km/h alatt és tanulatlan modellben sincs N.
+    for (int i = 0; i < 40; ++i) m.update(850.f, 10.f, true, 0.f);
+    CHECK(!m.neutral());
+    GearModel fresh;
+    fresh.set_config(c);
+    for (int i = 0; i < 40; ++i) fresh.update(850.f, 60.f, true, 0.f);
+    CHECK(!fresh.neutral());
+}
+
+static void standstill_with_running_engine_is_neutral_even_while_learning() {
+    GearModel m;
+    GearConfig c;
+    c.gears = 5;
+    m.set_config(c);  // semmit nem tudott még
+    for (int i = 0; i < 5; ++i) m.update(850.f, 0.f, true, 0.f);
+    CHECK(!m.neutral());  // még nem elég hosszú
+    for (int i = 0; i < 10; ++i) m.update(850.f, 0.f, true, 0.f);
+    CHECK(m.neutral() && m.gear() == 0);
+    for (int i = 0; i < 30; ++i) m.update(3500.f, 0.f, true, 60.f);  // állva pörgetve (üresben) is N
+    CHECK(m.neutral());
+    m.update(1500.f, 3.f, true, 40.f);  // indulás: a sebesség elhagyta a nullát
+    CHECK(!m.neutral());
+    for (int i = 0; i < 30; ++i) m.update(0.f, 0.f, true, 0.f);  // leállt motor: nem N
+    CHECK(!m.neutral());
+    for (int i = 0; i < 30; ++i) m.update(850.f, 0.f, false, 0.f);  // érvénytelen adat: nem N
+    CHECK(!m.neutral());
+}
+
+static void neutral_from_formula_mode() {
+    GearModel m;
+    GearConfig c;
+    c.gears = 5;
+    c.final_drive = kFinal;
+    c.tyre_circ_m = kCirc;
+    for (int i = 0; i < 5; ++i) c.ratio[i] = kRatio[i];
+    m.set_config(c);
+    for (int i = 0; i < 30; ++i) m.update(850.f, 60.f, true);  // a gáz ismeretlen (-1): az N-szabály nem használja
+    CHECK(m.neutral());
+}
+
 static void reset_clears_learning() {
     GearModel m;
     GearConfig c;
@@ -237,6 +298,9 @@ int main() {
     RUN(learning_is_bounded_and_freezes);
     RUN(promising_candidate_replaces_weakest_cluster);
     RUN(persistence_round_trip_and_damage);
+    RUN(neutral_is_reported_only_for_sustained_coasting_without_throttle);
+    RUN(standstill_with_running_engine_is_neutral_even_while_learning);
+    RUN(neutral_from_formula_mode);
     RUN(reset_clears_learning);
     TEST_MAIN_END();
 }

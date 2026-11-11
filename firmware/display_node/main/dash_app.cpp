@@ -148,6 +148,7 @@ std::atomic<int> g_gear_now{0};     // a becsült fokozat (0: nem ismert)
 std::atomic<int> g_gear_known{0};   // a megtanult fokozatok száma
 std::atomic<int> g_gear_total{5};   // a beállított fokozatszám
 std::atomic<bool> g_gear_ready{false};
+std::atomic<bool> g_gear_neutral{false};  // tartós gurulás üresben ("N")
 uint32_t g_gear_saved_ms = 0;       // a tanult adat utolsó mentésének ideje
 bool g_gear_unsaved = false;        // van mentetlen változás
 
@@ -198,7 +199,8 @@ Settings g_cfg;  // a betöltött beállítások (indításkor állnak be, után
 void gear_feed(const DashValues& v) {
     const bool ok = v.fresh && (v.flags & kFlagRpm) && (v.flags & kFlagSpeed);
     std::lock_guard<std::mutex> lock(g_gear_mx);
-    g_gear.update(v.rpm, v.speed_kmh, ok);
+    g_gear.update(v.rpm, v.speed_kmh, ok, (v.flags & kFlagThrottle) ? v.throttle_pct : -1.f);
+    g_gear_neutral.store(g_gear.neutral(), std::memory_order_relaxed);
     g_gear_now.store(g_gear.gear(), std::memory_order_relaxed);
     g_gear_known.store(g_gear.learned_gears(), std::memory_order_relaxed);
     g_gear_total.store(g_gear.config().gears, std::memory_order_relaxed);
@@ -211,9 +213,10 @@ void gear_apply_config() {
     GearConfig c = g_gear.config();
     const bool changed = c.gears != g_cfg.gear_count;
     c.gears = g_cfg.gear_count;
-    c.final_drive = static_cast<float>(g_cfg.final_drive_x100) / 100.f;  // 0: nincs megadva
-    c.tyre_circ_m = static_cast<float>(g_cfg.tyre_circ_mm) / 1000.f;
-    for (int i = 0; i < kMaxGears; ++i) c.ratio[i] = static_cast<float>(g_cfg.gear_ratio_x100[i]) / 100.f;
+    // Kézi módban a megadott áttételekből számol (ha mind megvan); automata módban a képlet kikapcsolt, a készülék tanul.
+    c.final_drive = g_cfg.gear_manual ? static_cast<float>(g_cfg.final_drive_x100) / 100.f : 0.f;  // 0: nincs megadva
+    c.tyre_circ_m = g_cfg.gear_manual ? static_cast<float>(g_cfg.tyre_circ_mm) / 1000.f : 0.f;
+    for (int i = 0; i < kMaxGears; ++i) c.ratio[i] = g_cfg.gear_manual ? static_cast<float>(g_cfg.gear_ratio_x100[i]) / 100.f : 0.f;
     g_gear.set_config(c);
     if (changed) g_gear.reset_learning();  // más fokozatszám: más váltó, a tanult adat érvénytelen
     g_gear_total.store(g_gear.config().gears, std::memory_order_relaxed);
@@ -649,6 +652,12 @@ struct NeedleGaugeBase {
     // Mit csinál: a közös elemeket (képernyő, színes stílusok, skálakép, tű, agy, feliratok) felépíti.
     // Hogyan:     a mérőnként eltérő feliratokat az utódosztály adja a skála képébe.
     void build_base() {
+        build_face_part();
+        build_needle_part();
+    }
+
+    // Mit csinál: a képernyőt, a piros szakaszok stílusait és a skálakép képét (üresen) építi fel.
+    void build_face_part() {
         scr = make_screen();
         lv_obj_set_style_pad_all(scr, 0, 0);
         lv_obj_set_style_border_width(scr, 0, 0);
@@ -673,7 +682,10 @@ struct NeedleGaugeBase {
         else ESP_LOGE(TAG, "A skála képének memóriája nem foglalható le");
         face = lv_image_create(scr);
         lv_obj_center(face);
+    }
 
+    // Mit csinál: a tűt, az agyat és a feliratokat (érték, NINCS ADAT) építi fel a skálakép fölé.
+    void build_needle_part() {
         // A tű egy előre kiszámolt, forgatott A8 kép; a középpontja a képernyő közepén van, a színét a paletta adja.
         make_needle_image();
         needle = lv_image_create(scr);
@@ -816,6 +828,7 @@ struct NeedleTachView : NeedleGaugeBase {
         {   // fokozat: ismert fokozatnál "3. fokozat", különben ("-" váltás közben, "Tanulás n/N" amíg nem ismert minden fokozat)
             char g[24];
             if (!v.fresh) g[0] = 0;
+            else if (g_gear_neutral.load(std::memory_order_relaxed)) std::snprintf(g, sizeof g, "N (üres)");
             else if (!g_gear_ready.load(std::memory_order_relaxed)) std::snprintf(g, sizeof g, "Tanulás %d/%d", g_gear_known.load(std::memory_order_relaxed), g_gear_total.load(std::memory_order_relaxed));
             else if (g_gear_now.load(std::memory_order_relaxed) > 0) std::snprintf(g, sizeof g, "%d. fokozat", g_gear_now.load(std::memory_order_relaxed));
             else std::snprintf(g, sizeof g, "-");
@@ -1101,6 +1114,128 @@ struct NeedleDualView : NeedleGaugeBase {
     }
 };
 
+// (7) Fokozatközpontú képernyő: középen a nagy fokozatszám (vagy "N"), körülötte zónás fordulatív és egy sáv jelző.
+// Hogyan:     az ív három zónára bomlik: zöld a max. fordulat alsó 30%-áig (500-ra, 8000 fölött 1000-re kerekítve), narancs a
+//             zöld teteje és a redline között, piros a redline-tól; a zónák színe fix (a jelentésük miatt nem a palettából jön).
+//             A skálakép egyszer képbe készül (mint a mutatós műszereknél); a jelző két kis A8 kép (fekete szegély és fehér
+//             sáv), amelyet az LVGL a képernyő középpontja körül forgat. A nagy számjegyek külön betűkészletből vannak.
+// Miért:      a fokozat és a fordulat együtt mutatja, mikor érdemes váltani: a zöld a takarékos tartomány, a piros a túlpörgetés.
+struct GearView : NeedleGaugeBase {
+    static constexpr int32_t kBarW = 16, kBarH = 44;        // a jelző képe (a sáv a skálaívre merőleges)
+    static constexpr int32_t kBarPivotY = kDiameter / 2 + 6;  // a forgáspont a kép tetejétől a képernyő középpontjáig (a kép alatt)
+    static constexpr int32_t kArcW = 26;                    // az ív vastagsága
+    lv_obj_t* digit = nullptr;       // a nagy fokozatszám
+    lv_obj_t* rpm_value = nullptr;   // a fordulatszám számmal
+    lv_obj_t* caption = nullptr;     // "rpm" vagy "Tanulás n/N"
+    lv_obj_t* bar_dark = nullptr;
+    lv_obj_t* bar_light = nullptr;
+    lv_draw_buf_t* bar_dark_buf = nullptr;
+    lv_draw_buf_t* bar_light_buf = nullptr;
+    int32_t rpm_green = 2500, rpm_red = 6500;
+    bool rendered = false;
+
+    // Mit csinál: a zöld zóna teteje: a max. fordulat 30%-a, 500-ra (8000 fölött 1000-re) kerekítve, legalább 500.
+    static int32_t green_top_of(int32_t max_rpm) {
+        const int32_t step = max_rpm > 8000 ? 1000 : 500;
+        return std::max<int32_t>(step, (max_rpm * 3 / 10 + step / 2) / step * step);
+    }
+
+    // Mit csinál: a skálakép (zónás ív és az ezres számok) előállítása a jelenlegi skálavéggel és redline-nal.
+    void render_face() {
+        lv_obj_t* host = begin_face();
+        start_deg = 135;
+        sweep_deg = 270;
+        const lv_color_t green = lv_color_hex(0x22B14C), orange = lv_color_hex(0xFF8A1F);
+        const int32_t gt = std::min(rpm_green, rpm_red);
+        add_arc(host, 0, gt, kArcW, green);
+        if (rpm_red > gt) add_arc(host, gt, rpm_red, kArcW, orange);
+        if (rpm_red < gmax) add_arc(host, rpm_red, gmax, kArcW, g_warn);
+        char b[12];
+        for (int32_t v = 0; v <= gmax / 1000 * 1000; v += 1000) {
+            std::snprintf(b, sizeof b, "%d", static_cast<int>(v / 1000));
+            add_label(host, v, b, &lv_font_montserrat_14, g_dim, kArcW, 4);  // a számok az ív belső oldalán
+        }
+        end_face(host);
+        rendered = true;
+    }
+
+    // Mit csinál: új skálavég és redline (beállítás módosításakor): újragenerálja az ívet.
+    void set_scale(int32_t max, int32_t redline) {
+        const int32_t g = std::max<int32_t>(1000, max / 100 * 100);
+        const int32_t red = std::min<int32_t>(redline, g);
+        const int32_t green = green_top_of(g);
+        if (rendered && g == gmax && red == rpm_red && green == rpm_green) return;
+        gmax = g;
+        rpm_red = red;
+        rpm_green = green;
+        render_face();
+    }
+
+    void build() {
+        build_face_part();
+        gmax = 8000;
+        // A jelző: fekete szegély (szélesebb, hosszabb) és fehér sáv; a forgáspont a képernyő középpontja (a képen kívül).
+        bar_dark_buf = make_icon(kBarW, kBarH, [](float x, float y) { return in_rrect(x, y, 1, 0, 15, 44, 3); });
+        bar_light_buf = make_icon(kBarW, kBarH, [](float x, float y) { return in_rrect(x, y, 4, 3, 12, 41, 2); });
+        for (lv_obj_t** o : {&bar_dark, &bar_light}) {
+            *o = lv_image_create(scr);
+            lv_image_set_src(*o, o == &bar_dark ? bar_dark_buf : bar_light_buf);
+            lv_obj_set_pos(*o, kCenter - kBarW / 2, kCenter - kBarPivotY);
+            lv_image_set_pivot(*o, kBarW / 2, kBarPivotY);
+            lv_obj_set_style_image_recolor(*o, o == &bar_dark ? lv_color_black() : lv_color_white(), 0);
+            lv_obj_set_style_image_recolor_opa(*o, LV_OPA_COVER, 0);
+            lv_obj_remove_flag(*o, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE));
+            lv_image_set_rotation(*o, rotation_of(0, gmax, 135, 270));
+        }
+        digit = make_label(scr, &og_font_digits_140, g_text, LV_ALIGN_CENTER, 0, -16, "-");
+        rpm_value = make_label(scr, &og_font_montserrat_28, g_text, LV_ALIGN_CENTER, 0, 82, "--");
+        caption = make_label(scr, &og_font_montserrat_20, g_dim, LV_ALIGN_CENTER, 0, 112, "rpm");
+        nodata = make_label(scr, &og_font_montserrat_20, g_warn, LV_ALIGN_CENTER, 0, 138, "NINCS ADAT");
+        for (lv_obj_t* l : {digit, rpm_value, caption, nodata}) {
+            lv_obj_set_width(l, 200);
+            lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
+        }
+        lv_obj_align(digit, LV_ALIGN_CENTER, 0, -16);
+        lv_obj_align(rpm_value, LV_ALIGN_CENTER, 0, 82);
+        lv_obj_align(caption, LV_ALIGN_CENTER, 0, 112);
+        lv_obj_align(nodata, LV_ALIGN_CENTER, 0, 138);
+    }
+
+    // Mit csinál: a jelzőt a fordulat felé simítva mozgatja (csak 0,1°-os változásra rajzol újra).
+    void move_bar(float target) {
+        shown += (target - shown) * kSmooth;
+        if (std::abs(target - shown) < static_cast<float>(gmax) / 2700.f * 0.5f) shown = target;
+        const int32_t rot = rotation_of(shown, gmax, 135, 270);
+        if (rot != drawn) {
+            lv_image_set_rotation(bar_dark, rot);
+            lv_image_set_rotation(bar_light, rot);
+            drawn = rot;
+        }
+    }
+
+    void update(const DashValues& v) {
+        const bool ok_rpm = v.fresh && (v.flags & kFlagRpm);
+        move_bar(ok_rpm ? std::min<float>(v.rpm, static_cast<float>(gmax)) : 0.f);
+        char b[24];
+        if (ok_rpm) std::snprintf(b, sizeof b, "%d", static_cast<int>((v.rpm + 5.f) / 10.f) * 10);
+        else std::snprintf(b, sizeof b, "--");
+        set_text(rpm_value, b);
+        const bool ready = g_gear_ready.load(std::memory_order_relaxed);
+        const int gear = g_gear_now.load(std::memory_order_relaxed);
+        const bool neutral = g_gear_neutral.load(std::memory_order_relaxed);
+        if (!v.fresh) std::snprintf(b, sizeof b, "-");
+        else if (neutral) std::snprintf(b, sizeof b, "N");  // állás (tanulás közben is) vagy tartós gurulás üresben
+        else if (!ready) std::snprintf(b, sizeof b, "-");
+        else if (gear > 0) std::snprintf(b, sizeof b, "%d", gear);
+        else std::snprintf(b, sizeof b, "-");
+        set_text(digit, b);
+        if (ready || !v.fresh) std::snprintf(b, sizeof b, "rpm");
+        else std::snprintf(b, sizeof b, "Tanulás %d/%d", g_gear_known.load(std::memory_order_relaxed), g_gear_total.load(std::memory_order_relaxed));
+        set_text(caption, b);
+        show_nodata(v.fresh);
+    }
+};
+
 #if defined(CONFIG_OG_DISP_MUSIC)
 // Mit csinál: a képernyő gombjai (előző, lejátszás/szünet, következő) lejátszásvezérlő parancsot küldenek az iPhone-nak.
 void on_music_button(lv_event_t* e) {
@@ -1201,6 +1336,7 @@ MusicView g_music;
 constexpr int kMusicId = 3;  // a zene képernyőre csak kézzel lépünk; az automatikus váltás kihagyja
 constexpr int kNeedleTachId = 4;
 constexpr int kNeedleSpeedId = 5;
+constexpr int kGearViewId = 7;  // fokozatközpontú képernyő
 constexpr int kNeedleDualId = 6;  // kettős mutatós mérő: akkumulátorfeszültség és hűtővíz
 
 MainView g_main;
@@ -1209,7 +1345,8 @@ LinkView g_linkv;
 NeedleTachView g_needle_tach;
 NeedleSpeedView g_needle_speed;
 NeedleDualView g_needle_dual;
-lv_obj_t* g_screens[kScreenIds] = {};  // képernyőazonosító szerint: 0 fő, 1 részletek, 2 kapcsolat, 3 zene, 4 mutatós fordulatszámmérő, 5 mutatós sebességmérő, 6 kettős mérő (akkumulátor és hűtővíz)
+GearView g_gear_view;
+lv_obj_t* g_screens[kScreenIds] = {};  // képernyőazonosító szerint: 0 fő, 1 részletek, 2 kapcsolat, 3 zene, 4 mutatós fordulatszámmérő, 5 mutatós sebességmérő, 6 kettős mérő (akkumulátor és hűtővíz), 7 fokozatközpontú képernyő
 int g_active[kScreenIds];               // a lapozásban részt vevő képernyők, a beállított sorrendben
 int g_active_n = 0;
 int g_pos = 0;                          // a jelenlegi képernyő helye a g_active-ban
@@ -1243,6 +1380,7 @@ void ui_tick(lv_timer_t*) {
     g_needle_tach.update(v);
     g_needle_speed.update(v);
     g_needle_dual.update(v);
+    g_gear_view.update(v);
 #if defined(CONFIG_OG_DISP_MUSIC)
     g_music.update(ble_ams_info(), now_ms());
 #endif
@@ -1343,6 +1481,7 @@ void apply_live() {
     g_needle_speed.set_scale(g_cfg.max_speed_kmh, g_cfg.speed_unit == SpeedUnit::Mph);
     g_needle_dual.set_voltage_mode(g_cfg.system_voltage);
     g_needle_dual.set_scale(g_cfg.temp_unit == TempUnit::Fahrenheit);
+    g_gear_view.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
     gear_apply_config();
     if (g_switch_timer) lv_timer_set_period(g_switch_timer, g_cfg.switch_period_s * 1000u);
     g_backlight_pct = g_dimmed ? std::min<int>(g_cfg.brightness_pct, kLowBatteryBacklight) : g_cfg.brightness_pct;
@@ -1365,6 +1504,12 @@ void on_settings_exit(const Settings& s) {
     apply_live();
     g_pause_until = now_ms() + kTouchPauseMs;
     // auto_del: az átmenet végén az LVGL törli a beállítások képernyőjét (a kupac felszabadul, a következő megnyitás újraépíti).
+    lv_screen_load_anim(g_screens[g_active[g_pos]], LV_SCREEN_LOAD_ANIM_MOVE_RIGHT, kSwitchAnimMs, 0, true);
+}
+
+// Mit csinál: a beállítások fő listájának jobbra húzása: a módosításokat elveti, és visszalép az előző képernyőre.
+void on_settings_cancel() {
+    g_pause_until = now_ms() + kTouchPauseMs;
     lv_screen_load_anim(g_screens[g_active[g_pos]], LV_SCREEN_LOAD_ANIM_MOVE_RIGHT, kSwitchAnimMs, 0, true);
 }
 
@@ -1591,11 +1736,11 @@ void link_task(void*) {
         const EspNowLink::Stats ls = g_link.stats();
         ESP_LOGI(TAG,
                  "%lu csomag/s, RSSI %d dBm | összes %lu, elveszett %lu (%.2f %%, 60 s: %.2f %%), elavult %lu, újraindulás %lu, "
-                 "érvénytelen %lu, sor tele %lu, seq %u | adat %s, %lu 1/perc, %d km/h | FPS %lu, belső RAM %u kB | VIN %s | fokozat %d (%d/%d)",
+                 "érvénytelen %lu, sor tele %lu, seq %u | adat %s, %lu 1/perc, %d km/h | FPS %lu, belső RAM %u kB | VIN %s | fokozat %d%s (%d/%d)",
                  (unsigned long)l.per_sec, l.rssi_dbm, (unsigned long)l.received, (unsigned long)l.lost,
                  l.loss_ratio * 100.0, l.loss_ratio_window * 100.0, (unsigned long)l.stale, (unsigned long)l.resyncs, (unsigned long)l.invalid,
                  (unsigned long)ls.rx_dropped, l.last_seq, v.fresh ? "friss" : "NINCS", (unsigned long)(v.rpm + 0.5f), (int)(v.speed_kmh + 0.5f),
-                 (unsigned long)lvgl_take_frames(), (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024), cur_vin[0] ? cur_vin : "--", g_gear_now.load(), g_gear_known.load(), g_gear_total.load());
+                 (unsigned long)lvgl_take_frames(), (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024), cur_vin[0] ? cur_vin : "--", g_gear_now.load(), g_gear_neutral.load() ? " N" : "", g_gear_known.load(), g_gear_total.load());
     }
 }
 
@@ -1647,7 +1792,7 @@ void bench_task(void*) {
         }
     }
     // Álló képernyők: 6 s-ig egy helyben, hogy a mozgó tű/ív idleje is látsszon (az átmenetek már lecsengtek).
-    for (const int id : {0, kNeedleTachId, kNeedleSpeedId, kNeedleDualId}) {
+    for (const int id : {0, kNeedleTachId, kNeedleSpeedId, kNeedleDualId, kGearViewId}) {
         for (int k = 0; k < g_active_n; ++k) {
             if (g_active[k] != id) continue;
             g_bench_busy = true;
@@ -1743,6 +1888,8 @@ void initial_scale_tick(lv_timer_t*) {
     g_needle_dual.set_voltage_mode(g_cfg.system_voltage);
     g_needle_dual.set_scale(g_cfg.temp_unit == TempUnit::Fahrenheit);
     mem_probe("kettős mérő skála");
+    g_gear_view.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
+    mem_probe("fokozat-képernyő skála");
 #if defined(CONFIG_OG_DISP_MEMPROF)
     lv_timer_create(mem_probe_timer, 20000, nullptr);
 #endif
@@ -1803,6 +1950,9 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
         g_needle_dual.build();
         g_screens[kNeedleDualId] = g_needle_dual.scr;
         mem_probe("kettős mérő (váz)");
+        g_gear_view.build();
+        g_screens[kGearViewId] = g_gear_view.scr;
+        mem_probe("fokozat-képernyő (váz)");
 #if defined(CONFIG_OG_DISP_MUSIC)
         g_music.build();
         g_screens[kMusicId] = g_music.scr;
@@ -1810,7 +1960,7 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
 #endif
         for (lv_obj_t* scr : g_screens)
             if (scr) lv_obj_add_event_cb(scr, on_gesture, LV_EVENT_GESTURE, nullptr);
-        g_settings_view.init(UiColors{g_bg, g_track, g_text, g_dim, g_accent, g_warn}, on_settings_exit);
+        g_settings_view.init(UiColors{g_bg, g_track, g_text, g_dim, g_accent, g_warn}, on_settings_exit, on_settings_cancel);
         mem_probe("beállítások (init, nincs képernyő)");
 
         g_cog = lv_button_create(lv_layer_top());

@@ -15,7 +15,7 @@ enum class TempUnit : uint8_t { Celsius = 0, Fahrenheit = 1 };
 enum class SystemVoltage : uint8_t { Auto = 0, V12 = 1, V24 = 2 };  // az akkumulátor-skála: a mért feszültségből vagy kényszerítve
 
 constexpr int kMaxScreens = 8;  // a képernyő-sorrend tömbjének mérete
-constexpr int kScreenIds = 7;   // jelenleg ismert képernyők: 0 fő, 1 részletek, 2 kapcsolat, 3 zene, 4 mutatós fordulatszámmérő, 5 mutatós sebességmérő, 6 kettős mérő (akkumulátor és hűtővíz)
+constexpr int kScreenIds = 8;   // jelenleg ismert képernyők: 0 fő, 1 részletek, 2 kapcsolat, 3 zene, 4 mutatós fordulatszámmérő, 5 mutatós sebességmérő, 6 kettős mérő (akkumulátor és hűtővíz), 7 fokozatközpontú képernyő
 
 struct Settings {
     bool music_enabled = true;        // zene képernyő (BLE); kikapcsolva a BLE csak az ébresztéshez kell
@@ -31,12 +31,13 @@ struct Settings {
     TempUnit temp_unit = TempUnit::Celsius;
     bool auto_switch = true;          // automatikus lapozás a képernyők között
     uint16_t switch_period_s = 5;     // lapozás sebessége (másodperc)
-    uint8_t screen_order[kMaxScreens] = {0, 1, 2, 3, 4, 5, 6, 0};  // az első kScreenIds elem számít
+    uint8_t screen_order[kMaxScreens] = {0, 1, 2, 3, 4, 5, 6, 7};  // az első kScreenIds elem számít
     SystemVoltage system_voltage = SystemVoltage::Auto;
     uint8_t gear_count = 5;           // a váltó előremeneti fokozatainak száma (a fokozatbecslés ennyi fokozatot tanul)
     uint16_t final_drive_x100 = 0;    // a főhajtás áttétele századokban (0: nincs megadva)
     uint16_t tyre_circ_mm = 0;        // a kerék gördülési kerülete mm-ben (0: nincs megadva)
     uint16_t gear_ratio_x100[8] = {}; // a fokozatok áttétele századokban (0: nincs megadva); mind a gear_count darab kell a képlethez
+    bool gear_manual = false;         // false: a fokozatokat a készülék tanulja; true: a megadott áttételekből számolja (ha mind megvan)
     uint8_t screen_mask = (1u << kScreenIds) - 1;  // a lapozásban részt vevő képernyők (azonosítónként egy bit); a debug és a zene feltételei ezen felül érvényesek
 };
 
@@ -75,8 +76,9 @@ inline void sanitize(Settings& s) {
 constexpr size_t kSettingsBlobSizeV1 = 3 + 18 + kMaxScreens + 2;  // az 1. verzió hossza (azonosító és verzió + mezők + sorrend + ellenőrzőösszeg)
 constexpr size_t kSettingsBlobSizeV2 = kSettingsBlobSizeV1 + 2;    // a 2. verzió: + rendszerfeszültség és képernyőmaszk
 constexpr size_t kSettingsBlobSizeV3 = kSettingsBlobSizeV2 + 1;    // a 3. verzió: + fokozatszám
-constexpr size_t kSettingsBlobSize = kSettingsBlobSizeV3 + 2 + 2 + 16;  // a 4. verzió: + főhajtás, kerékkerület, 8 áttétel
-constexpr uint8_t kSettingsVersion = 4;
+constexpr size_t kSettingsBlobSizeV4 = kSettingsBlobSizeV3 + 2 + 2 + 16;  // a 4. verzió: + főhajtás, kerékkerület, 8 áttétel
+constexpr size_t kSettingsBlobSize = kSettingsBlobSizeV4 + 1;      // az 5. verzió: + a fokozatbeállítás módja (automatikus / kézi)
+constexpr uint8_t kSettingsVersion = 5;
 
 namespace settings_detail {
 inline uint16_t checksum(const uint8_t* p, size_t n) {
@@ -105,6 +107,7 @@ inline size_t settings_encode(const Settings& s, uint8_t* out, size_t cap) {
     u8(s.gear_count);
     u16(s.final_drive_x100); u16(s.tyre_circ_mm);
     for (int i = 0; i < 8; ++i) u16(s.gear_ratio_x100[i]);
+    u8(s.gear_manual);
     u16(settings_detail::checksum(out, n));
     return n;
 }
@@ -116,7 +119,7 @@ inline bool settings_decode(const uint8_t* in, size_t n, Settings& out) {
     out = Settings{};
     if (!in || n < 3 || in[0] != 'O' || in[1] != 'G') return false;
     const uint8_t ver = in[2];
-    if (!((ver == 1 && n == kSettingsBlobSizeV1) || (ver == 2 && n == kSettingsBlobSizeV2) || (ver == 3 && n == kSettingsBlobSizeV3) || (ver == 4 && n == kSettingsBlobSize))) return false;
+    if (!((ver == 1 && n == kSettingsBlobSizeV1) || (ver == 2 && n == kSettingsBlobSizeV2) || (ver == 3 && n == kSettingsBlobSizeV3) || (ver == 4 && n == kSettingsBlobSizeV4) || (ver == 5 && n == kSettingsBlobSize))) return false;
     const uint16_t want = static_cast<uint16_t>(in[n - 2] | (in[n - 1] << 8));
     if (settings_detail::checksum(in, n - 2) != want) return false;
     size_t p = 3;
@@ -137,6 +140,7 @@ inline bool settings_decode(const uint8_t* in, size_t n, Settings& out) {
         out.final_drive_x100 = u16(); out.tyre_circ_mm = u16();
         for (int i = 0; i < 8; ++i) out.gear_ratio_x100[i] = u16();
     }
+    if (ver >= 5) out.gear_manual = u8() != 0;
     sanitize(out);
     return true;
 }

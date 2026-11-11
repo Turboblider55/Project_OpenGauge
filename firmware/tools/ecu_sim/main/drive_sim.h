@@ -4,7 +4,7 @@
 // Mit csinál: egy kézi váltós autó fordulatszámát és sebességét állítja elő úgy, ahogy egy valódi autó mutatná: minden fokozatban
 //             a fordulatszám a sebességgel arányos (rpm = k_fokozat * sebesség), váltáskor a tengelykapcsoló nyomva van
 //             (a fordulatszám a régi arányról az újra csúszik, a sebesség lassan csökken), megálláskor alapjárat.
-// Hogyan:     egy egyszerű menetciklus ismétlődik: állás, gyorsítás 100 km/h-ig, állandó tempó, fékezés 35 km/h-ra,
+// Hogyan:     egy egyszerű menetciklus ismétlődik: állás, gyorsítás 100 km/h-ig, állandó tempó, gurulás üresben, fékezés 35 km/h-ra,
 //             gyorsítás 70 km/h-ra, állandó tempó, fékezés megállásig. Felváltás magas, visszaváltás alacsony
 //             fordulatszámnál; a gyorsulás fokozatonként csökken. Minden lépés dt másodperces.
 // Miért:      a kijelző fokozatbecsléséhez és a mutatók mozgásának ellenőrzéséhez a konstans/szinuszos érték nem elég:
@@ -31,7 +31,7 @@ struct DriveSim {
     // A fokozat áttételi száma: fordulat / sebesség (1/perc per km/h).
     static float k_of(int gear) { return 1000.f / 60.f / kCircM * ratio(gear) * kFinal; }
 
-    enum class Phase { Stand, Accel1, Cruise1, Brake1, Accel2, Cruise2, Brake2 };
+    enum class Phase { Stand, Accel1, Cruise1, Coast1, Brake1, Accel2, Cruise2, Brake2 };
 
     float speed_kmh = 0.f;
     float rpm = kIdleRpm;
@@ -55,7 +55,8 @@ struct DriveSim {
                 if (phase_t_ >= 3.f) go(Phase::Accel1);
                 break;
             case Phase::Accel1: accelerate(dt, 100.f, Phase::Cruise1); break;
-            case Phase::Cruise1: cruise(dt, 6.f, Phase::Brake1); break;
+            case Phase::Cruise1: cruise(dt, 6.f, Phase::Coast1); break;
+            case Phase::Coast1: coast(dt); break;
             case Phase::Brake1: brake(dt, 35.f, Phase::Accel2); break;
             case Phase::Accel2: accelerate(dt, 70.f, Phase::Cruise2); break;
             case Phase::Cruise2: cruise(dt, 5.f, Phase::Brake2); break;
@@ -133,6 +134,21 @@ private:
         throttle_pct = 18.f + 0.1f * speed_kmh;
         set_rpm_from_gear();
         if (phase_t_ >= seconds) go(next);
+    }
+
+    // Mit csinál: gurulás üresben (a kuplung nyomva / üresbe váltva): a fordulat alapjáratra esik, a sebesség lassan fogy;
+    //             5 s után a sofőr visszakapcsol a sebességhez illő fokozatba (legfeljebb 3000 1/perc), és fékezés következik.
+    void coast(float dt) {
+        throttle_pct = 0.f;
+        gear = 0;
+        speed_kmh = std::max(0.f, speed_kmh - 1.5f * dt);
+        rpm = std::max(kIdleRpm, rpm - 1500.f * dt);
+        if (phase_t_ >= 5.f) {
+            int g = kGears;
+            while (g > 1 && k_of(g) * speed_kmh > 3000.f) --g;
+            start_shift(g);
+            go(Phase::Brake1);
+        }
     }
 
     void brake(float dt, float target, Phase next) {

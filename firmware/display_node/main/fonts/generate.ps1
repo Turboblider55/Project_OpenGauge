@@ -18,3 +18,8 @@ foreach ($size in 20, 28) {
         -o "og_font_montserrat_$size.c"
     if ($LASTEXITCODE -ne 0) { throw "A generálás sikertelen ($size px)" }
 }
+
+# A fokozatközpontú képernyő nagy számjegyei: csak a 0-9 számjegyek, az N betű és a kötőjel (140 px), tartalék nélkül.
+npx --yes lv_font_conv@1.5.3 --bpp 4 --size 140 --font Montserrat-Medium.ttf -r 0x30-0x39,0x4E,0x2D `
+    --format lvgl --no-compress --no-prefilter --lv-include lvgl.h --lv-font-name og_font_digits_140 -o og_font_digits_140.c
+if ($LASTEXITCODE -ne 0) { throw "A generálás sikertelen (számjegyek)" }

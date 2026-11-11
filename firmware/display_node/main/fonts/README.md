@@ -37,3 +37,5 @@ A két betűkészlet együtt kb. 64 kB-tal növeli a programot (a flashben táro
 
 ## Licenc
 A Montserrat betűtípus az SIL Open Font License 1.1 alatt szabadon felhasználható és terjeszthető (Julieta Ulanovsky és munkatársai). A generált fájlok a betűtípus származékai, ugyanezen licenc alatt.
+
+- `og_font_digits_140`: a fokozatközpontú képernyő nagy számjegyei (0-9, N, kötőjel, 140 px, 4 bpp, tartalék nélkül); ugyanezzel a szkripttel készül.

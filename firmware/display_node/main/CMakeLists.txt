@@ -1,6 +1,6 @@
 idf_component_register(SRCS "app_main.cpp" "color_test.cpp" "lvgl_setup.cpp" "lvgl_test.cpp" "espnow_rx_test.cpp"
                             "dash_app.cpp" "touch_test.cpp" "battery_adc.cpp" "wake_test.cpp"
-                            "fonts/og_font_montserrat_20.c" "fonts/og_font_montserrat_28.c"
+                            "fonts/og_font_montserrat_20.c" "fonts/og_font_montserrat_28.c" "fonts/og_font_digits_140.c"
                             "logo/og_logos.cpp" "logo/og_logo_opel.c" "logo/og_logo_volkswagen.c" "logo/og_logo_skoda.c"
                             "logo/og_logo_suzuki.c" "logo/og_logo_toyota.c" "logo/og_logo_peugeot.c" "logo/og_logo_renault.c"
                             "logo/og_logo_bmw.c" "settings_store.cpp" "settings_view.cpp" "og_prof.cpp" "lv_mem_psram.c"

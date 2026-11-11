@@ -73,9 +73,33 @@ static void formula_matches_the_simulated_car() {
     CHECK(m.learned_gears() == 0);  // a képlet nem tanul
 }
 
+static void model_reports_neutral_during_the_simulated_coast() {
+    DriveSim s;
+    GearModel m;
+    GearConfig c;
+    c.gears = DriveSim::kGears;
+    m.set_config(c);
+    int coast_n = 0, coast_neutral = 0, driving_neutral = 0, driving_n = 0;
+    for (int i = 0; i < 20 * 60 * 10; ++i) {
+        s.step(0.1f);
+        m.update(s.rpm, std::round(s.speed_kmh), true, s.throttle_pct);
+        if (!m.ready()) continue;
+        if (s.phase == DriveSim::Phase::Coast1 && s.gear == 0) {
+            if (s.speed_kmh > 40.f) { ++coast_n; coast_neutral += m.neutral() ? 1 : 0; }
+        } else if (s.gear > 0 && s.speed_kmh > 20.f) {
+            ++driving_n;
+            driving_neutral += m.neutral() ? 1 : 0;
+        }
+    }
+    CHECK(coast_n > 100);
+    CHECK(coast_neutral * 100 > coast_n * 55);  // a gurulás nagy része N (az első 1,5 s a időzítés miatt nem)
+    CHECK(driving_neutral * 100 < driving_n);   // menet közben az N 1% alatt (a váltások környékén legfeljebb néhány minta)
+}
+
 int main() {
     RUN(cycle_stays_in_realistic_bounds_and_uses_all_gears);
     RUN(model_learns_the_gears_from_the_simulated_drive);
     RUN(formula_matches_the_simulated_car);
+    RUN(model_reports_neutral_during_the_simulated_coast);
     TEST_MAIN_END();
 }

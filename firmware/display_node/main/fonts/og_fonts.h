@@ -13,6 +13,8 @@ extern "C" {
 
 extern const lv_font_t og_font_montserrat_20;
 extern const lv_font_t og_font_montserrat_28;
+// 140 px-es, csak számjegyeket (0-9), az N betűt és a kötőjelet tartalmazó betűkészlet a fokozatközpontú képernyőhöz.
+extern const lv_font_t og_font_digits_140;
 
 #ifdef __cplusplus
 }
