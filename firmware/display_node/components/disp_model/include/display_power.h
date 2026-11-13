@@ -23,7 +23,10 @@ public:
     // A "nincs adat" jelzés és a visszaszámlálás megjelenítése ennyi adat nélküli idő után kezdődik.
     static constexpr uint32_t kNoDataMs = 2000;
 
-    explicit DisplayPowerFsm(const DisplayPowerConfig& cfg = DisplayPowerConfig()) : cfg_(cfg) {}
+    explicit DisplayPowerFsm(const DisplayPowerConfig& cfg = DisplayPowerConfig()) : cfg_(cfg), default_sleep_after_ms_(cfg.sleep_after_ms) {}
+
+    // Mit csinál: átállítja az elalvási időt (ms); 0-nál a fordításkori alapérték marad. A beállításokból hívják.
+    void set_sleep_after_ms(uint32_t ms) { cfg_.sleep_after_ms = ms ? ms : default_sleep_after_ms_; }
 
     void on_touch(uint32_t now_ms) { if (now_ms > last_touch_ms_) last_touch_ms_ = now_ms; }
     void on_data(uint32_t now_ms) { last_data_ms_ = now_ms; engine_stopped_ = false; }
@@ -61,6 +64,7 @@ private:
     }
 
     DisplayPowerConfig cfg_;
+    uint32_t default_sleep_after_ms_;  // a fordításkori alapérték (a 0 = gyári beállításhoz)
     uint32_t last_touch_ms_ = 0, last_data_ms_ = 0, wake_ms_ = 0, stopped_ms_ = 0;
     bool engine_stopped_ = false;
 };

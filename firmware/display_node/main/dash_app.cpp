@@ -1483,6 +1483,9 @@ void apply_live() {
     g_needle_dual.set_scale(g_cfg.temp_unit == TempUnit::Fahrenheit);
     g_gear_view.set_scale(g_cfg.max_rpm, g_cfg.redline_rpm);
     gear_apply_config();
+#if defined(CONFIG_OG_DISP_SLEEP)
+    g_power.set_sleep_after_ms(g_cfg.sleep_s * 1000u);  // 0: a fordításkori érték
+#endif
     if (g_switch_timer) lv_timer_set_period(g_switch_timer, g_cfg.switch_period_s * 1000u);
     g_backlight_pct = g_dimmed ? std::min<int>(g_cfg.brightness_pct, kLowBatteryBacklight) : g_cfg.brightness_pct;
     if (g_lcd) g_lcd->set_backlight(g_backlight_pct);
@@ -1911,6 +1914,9 @@ void run_dash_app(LcdPanel& lcd, bool swap_bytes, TouchPanel* touch, StatusLed& 
     g_backlight_pct = g_cfg.brightness_pct;
     if (gear_state_load(g_gear)) ESP_LOGI(TAG, "Tanult fokozatok betöltve: %d fokozat, %lu minta", g_gear.learned_gears(), (unsigned long)g_gear.samples());
     gear_apply_config();
+#if defined(CONFIG_OG_DISP_SLEEP)
+    g_power.set_sleep_after_ms(g_cfg.sleep_s * 1000u);  // a beállításban megadott elalvási idő (0: a fordításkori)
+#endif
     ESP_LOGI(TAG, "Beállítások: %s, paletta: %s", cfg_loaded ? "mentett" : "alapértelmezett", palette_get(g_cfg.palette).name);
     g_adc_ok = g_adc.init(board::kPinBattery);
     lv_display_t* disp = lvgl_start(lcd, swap_bytes);

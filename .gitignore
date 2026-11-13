@@ -48,3 +48,6 @@ build_host/
 sdkconfig
 sdkconfig.old
 managed_components/
+
+# Blender biztonsági másolatok
+*.blend1

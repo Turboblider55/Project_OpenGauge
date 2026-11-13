@@ -132,6 +132,19 @@ static void display_countdown_shown_only_without_data() {
     CHECK(f.counting_down(12000));
 }
 
+static void display_sleep_time_can_be_set_and_reset_to_default() {
+    DisplayPowerConfig c;
+    c.sleep_after_ms = 20000;
+    DisplayPowerFsm f(c);
+    f.on_wake(1000);
+    CHECK(!f.should_sleep(1000 + 19999) && f.should_sleep(1000 + 20000));
+    f.set_sleep_after_ms(60000);  // a beállításból
+    CHECK(!f.should_sleep(1000 + 59999) && f.should_sleep(1000 + 60000));
+    CHECK(f.seconds_left(1000 + 30000) == 30);
+    f.set_sleep_after_ms(0);  // 0: gyári érték
+    CHECK(f.should_sleep(1000 + 20000));
+}
+
 int main() {
     RUN(sleeps_only_after_idle_time);
     RUN(startup_grace_delays_first_sleep);
@@ -147,5 +160,6 @@ int main() {
     RUN(display_engine_stopped_starts_countdown_from_message);
     RUN(display_grace_period_blocks_early_sleep);
     RUN(display_countdown_shown_only_without_data);
+    RUN(display_sleep_time_can_be_set_and_reset_to_default);
     TEST_MAIN_END();
 }

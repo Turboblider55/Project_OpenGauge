@@ -51,3 +51,7 @@ CONFIG_BT_NIMBLE_NVS_PERSIST=y
 CONFIG_LV_MEM_SIZE=73728
 # Az LVGL memóriakezelője a PSRAM-ban fut (main/lv_mem_psram.c): a beépített 72 kB-os kupac a belső RAM-ot vitte el.
 CONFIG_LV_USE_CUSTOM_MALLOC=y
+# Alvás a műszerfalban: tétlenség (nincs érintés és adat) után light sleep, ébredés érintésre vagy az OBD-egység BLE-hirdetésére.
+# Fejlesztéskor az indulás utáni türelmi idő (OG_DISP_SLEEP_GRACE_S, 60 s) alatt a lapka még programozható; alvás után az USB-soros
+# kapcsolat nem tér vissza (H-33). Az elalvási idő a beállításokban is állítható.
+CONFIG_OG_DISP_SLEEP=y
