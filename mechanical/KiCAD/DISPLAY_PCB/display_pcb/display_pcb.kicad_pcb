@@ -12906,7 +12906,7 @@
 			(extension_offset 0.5)
 			(keep_text_aligned yes)
 		)
-		(gr_text "56,4422"
+		(gr_text "56.4422"
 			(at 150 86.949352 90)
 			(layer "Dwgs.User")
 			(uuid "6515e825-03d1-4665-9a02-a2d5ee00a0bc")

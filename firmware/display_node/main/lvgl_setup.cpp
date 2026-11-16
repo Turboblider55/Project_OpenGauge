@@ -93,6 +93,12 @@ lv_display_t* lvgl_start(LcdPanel& lcd, bool swap_bytes) {
     dc.color_format = LV_COLOR_FORMAT_RGB565;
     dc.flags.buff_dma = 1;
     dc.flags.swap_bytes = swap_bytes ? 1 : 0;
+#ifdef CONFIG_OG_DISP_ROTATE_180
+    // A port az add_disp-ben a rotation mezőből újraállítja a panel tükrözését (nullákkal felülírná az LcdPanel
+    // inicializáláskori beállítását), ezért a 180°-os forgatást itt kell megadni.
+    dc.rotation.mirror_x = true;
+    dc.rotation.mirror_y = true;
+#endif
     lv_display_t* disp = lvgl_port_add_disp(&dc);
     if (!disp) {
         ESP_LOGE(TAG, "lvgl_port_add_disp sikertelen");

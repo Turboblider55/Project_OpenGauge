@@ -134,6 +134,11 @@ extern "C" void app_main(void) {
 #ifdef CONFIG_OG_TOUCH_MIRROR_Y
     tc.mirror_y = true;
 #endif
+#ifdef CONFIG_OG_DISP_ROTATE_180
+    // 180°-os forgatásnál az érintő mindkét tengelye megfordul az alapbeállításhoz képest.
+    tc.mirror_x = !tc.mirror_x;
+    tc.mirror_y = !tc.mirror_y;
+#endif
 #ifdef CONFIG_OG_TOUCH_USE_INT
     tc.use_interrupt = true;
 #endif
@@ -156,6 +161,9 @@ extern "C" void app_main(void) {
 #endif
 #ifdef CONFIG_OG_LCD_BGR
     cfg.bgr = true;
+#endif
+#ifdef CONFIG_OG_DISP_ROTATE_180
+    cfg.rotate_180 = true;
 #endif
 #ifdef CONFIG_OG_LCD_INIT_COMPONENT_DEFAULT
     cfg.init = og::LcdInit::ComponentDefault;

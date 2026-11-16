@@ -126,8 +126,22 @@ uint32_t g_last_rx = 0;
 constexpr uint32_t kBleWakeMs = 10000;
 constexpr uint32_t kBleWakeIntervalMs = 20;
 std::atomic<uint32_t> g_ble_wake_until{0};
+std::atomic<bool> g_peer_alive{false};  // a kijelző életjele friss (a status_task frissíti)
 
 inline uint32_t now_ms() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
+
+// Mit csinál: BLE-ébresztő hirdetést indít az (esetleg alvó) kijelzőnek, ha még nem fut; a status_task állítja le, amint a
+//             kijelző életjelet küld, vagy kBleWakeMs után.
+// Miért:      az alvó kijelző csak a BLE-hirdetésre ébred (az ESP-NOW-t alvás alatt kikapcsolja). A hirdetés nemcsak az alvásból
+//             való ébredéskor kell, hanem akkor is, ha az OBD-egység hidegen indul (áramvesztés után), vagy új ECU-munkamenet
+//             épül fel, miközben a kijelző alszik: addig a kijelző nem kap rá okot, hogy felkeljen.
+void start_ble_wake(const char* why) {
+    if (g_ble_wake_until.load(std::memory_order_relaxed) != 0) return;  // már hirdet
+    if (og::ble_start_advertising(og::BleRole::ObdNode, kBleWakeIntervalMs)) {
+        g_ble_wake_until.store(now_ms() + kBleWakeMs, std::memory_order_relaxed);
+        ESP_LOGI(TAG, "BLE-ébresztő hirdetés indul (%s)", why);
+    }
+}
 
 // Mit csinál: a buszon vett keretek számának változásából és az élő munkamenetből aktivitást jelez.
 // Miért:      csak a más csomópontoktól vett keretek számítanak (a saját adás nem növeli az rx-et).
@@ -195,10 +209,9 @@ void sleep_until_bus_activity(og::TwaiBus& bus) {
     g_led.set_enabled(true);
     g_last_rx = bus.stats().rx;
     // Az alvó kijelzőt BLE-hirdetéssel ébresztjük; az életjelének megérkezésekor leáll (status_task).
-    if (og::ble_start_advertising(og::BleRole::ObdNode, kBleWakeIntervalMs))
-        g_ble_wake_until.store(now_ms() + kBleWakeMs, std::memory_order_relaxed);
-    ESP_LOGI(TAG, "Ébredés: busz-forgalom a(z) %lu. figyelőablakban, alvás %lu ms után",
-             (unsigned long)g_power.windows(), (unsigned long)(now_ms() - t0));
+    start_ble_wake("ébredés busz-forgalomra");
+    ESP_LOGI(TAG, "Ébredés: busz-forgalom a(z) %lu. figyelőablakban, alvás %lu ms után (CAN-RX szint: %d)",
+             (unsigned long)g_power.windows(), (unsigned long)(now_ms() - t0), gpio_get_level(rx));
 }
 #endif
 
@@ -236,6 +249,7 @@ void status_task(void* arg) {
         if (static_cast<int32_t>(now - next) >= 0) next = now + og::kHeartbeatPeriodMs;
 
         const bool alive = heard && now - last_heard <= og::kPeerTimeoutMs;
+        g_peer_alive.store(alive, std::memory_order_relaxed);
 #if defined(CONFIG_OG_OBD_POWER_SAVE)
         const uint32_t ble_until = g_ble_wake_until.load(std::memory_order_relaxed);
         if (ble_until && (alive || static_cast<int32_t>(now - ble_until) >= 0)) {
@@ -436,10 +450,22 @@ extern "C" void app_main(void) {
     xTaskCreate(status_task, "og_status", 6144, &bus, 4, nullptr);
 #if defined(CONFIG_OG_OBD_POWER_SAVE)
     g_power.on_activity(now_ms());
+    start_ble_wake("hideg indulás");  // az alvó kijelző csak erre ébred; ha ébren van, az életjele leállítja
 #endif
     for (;;) {
 #if defined(CONFIG_OG_OBD_POWER_SAVE)
         note_activity(bus);
+        {   // Diagnosztika: 10 s-onként kiírja, mi tartja ébren az egységet (csend ideje, határ, türelmi idő, vett keretek, munkamenet).
+            static uint32_t next_diag = 0;
+            const uint32_t t = now_ms();
+            if (static_cast<int32_t>(t - next_diag) >= 0) {
+                next_diag = t + 10000;
+                ESP_LOGI(TAG, "Alvási feltétel: csend %lu s (határ %lu s), indulás óta %lu s (türelmi idő %lu s), vett keretek %lu, munkamenet %s",
+                         (unsigned long)(g_power.idle_ms(t) / 1000), (unsigned long)(g_power.config().idle_to_sleep_ms / 1000),
+                         (unsigned long)(t / 1000), (unsigned long)(g_power.config().startup_grace_ms / 1000),
+                         (unsigned long)bus.stats().rx, g_in_session.load(std::memory_order_relaxed) ? "él" : "nincs");
+            }
+        }
         if (g_power.should_sleep(now_ms())) sleep_until_bus_activity(bus);
 #endif
         g_in_session.store(false, std::memory_order_relaxed);
@@ -460,6 +486,9 @@ extern "C" void app_main(void) {
             continue;
         }
         log_protocol(info);
+#if defined(CONFIG_OG_OBD_POWER_SAVE)
+        if (!g_peer_alive.load(std::memory_order_relaxed)) start_ble_wake("új ECU-munkamenet, a kijelző nem ad életjelet");
+#endif
         run_session(bus, info);
         send_sleep_msg(og::SleepReason::EngineStopped);  // az ECU elnémult: a kijelző számolhat vissza
 #if defined(CONFIG_OG_OBD_POWER_SAVE)

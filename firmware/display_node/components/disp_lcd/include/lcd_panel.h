@@ -36,6 +36,7 @@ struct LcdConfig {
     uint32_t pclk_hz = 20 * 1000 * 1000;
     bool swap_bytes = true;  // RGB565 bájtcsere: a panel nagy-endián sorrendet vár
     bool bgr = false;        // BGR színsorrend a panelen
+    bool rotate_180 = false; // a kép 180°-os elforgatása (a panel X és Y tükrözése); az érintőt külön kell igazítani
 };
 
 // RGB565 szín 8 bites komponensekből.

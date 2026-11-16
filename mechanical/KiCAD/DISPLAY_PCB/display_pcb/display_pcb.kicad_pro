@@ -544,7 +544,7 @@
       "netlist": "",
       "plot": "",
       "specctra_dsn": "",
-      "step": "",
+      "step": "display_pcb.stl",
       "vrml": ""
     },
     "page_layout_descr_file": ""

@@ -152,6 +152,7 @@ std::atomic<bool> g_gear_neutral{false};  // tartós gurulás üresben ("N")
 uint32_t g_gear_saved_ms = 0;       // a tanult adat utolsó mentésének ideje
 bool g_gear_unsaved = false;        // van mentetlen változás
 
+std::atomic<uint32_t> g_last_fresh_ms{0};                 // az utolsó friss telemetria vételének ideje (naplózáshoz)
 std::atomic<int> g_sleep_in_s{-1};                      // az alvásig hátralévő idő a kijelzőre (-1: nem mutatjuk)
 #if defined(CONFIG_OG_DISP_SLEEP)
 DisplayPowerFsm g_power(DisplayPowerConfig{CONFIG_OG_DISP_SLEEP_AFTER_S * 1000u, CONFIG_OG_DISP_SLEEP_GRACE_S * 1000u});
@@ -754,6 +755,7 @@ struct NeedleTachView : NeedleGaugeBase {
         lv_obj_t* fine = add_scale(host, fine_step);
         const int32_t fine_top = gmax / fine_step * fine_step;
         lv_scale_set_major_tick_every(fine, static_cast<uint32_t>(fine_top / fine_step + 1));  // csak a 0. osztás "nagy"
+        lv_scale_set_label_show(fine, false);  // a 0. osztás ne kapjon saját (halvány) feliratot: a számokat az add_label teszi ki
         lv_obj_set_style_line_width(fine, 2, LV_PART_ITEMS);
         lv_obj_set_style_line_color(fine, g_dim, LV_PART_ITEMS);
         lv_obj_set_style_length(fine, 8, LV_PART_ITEMS);
@@ -860,6 +862,7 @@ struct NeedleSpeedView : NeedleGaugeBase {
         // 1. réteg: kis osztások.
         lv_obj_t* fine = add_scale(host, fine_step);
         lv_scale_set_major_tick_every(fine, static_cast<uint32_t>(gmax / fine_step + 1));  // csak a 0. osztás "nagy"
+        lv_scale_set_label_show(fine, false);  // lásd a fordulatszámmérőt: a 0. osztásnak ne legyen saját felirata
         lv_obj_set_style_line_width(fine, 2, LV_PART_ITEMS);
         lv_obj_set_style_line_color(fine, g_dim, LV_PART_ITEMS);
         lv_obj_set_style_length(fine, 8, LV_PART_ITEMS);
@@ -974,6 +977,7 @@ struct NeedleDualView : NeedleGaugeBase {
 
         lv_obj_t* f = add_scale(host, fine);
         lv_scale_set_major_tick_every(f, static_cast<uint32_t>(span / fine + 1));  // csak a 0. osztás "nagy"
+        lv_scale_set_label_show(f, false);  // különben a 0. osztás halvány "0" feliratot kap (a feszültség elején, a hőmérséklet végén)
         lv_obj_set_style_line_width(f, 2, LV_PART_ITEMS);
         lv_obj_set_style_line_color(f, g_dim, LV_PART_ITEMS);
         lv_obj_set_style_length(f, 8, LV_PART_ITEMS);
@@ -1561,6 +1565,8 @@ void battery_tick(PersistFilter& power_fault, uint32_t second) {
 }
 
 #if defined(CONFIG_OG_DISP_SLEEP)
+void play_wake_logo();  // az ébredés utáni indító logó (lásd lejjebb; az LVGL-zár alatt hívandó)
+
 // Mit csinál: light sleepbe teszi a kijelzőegységet; érintésre vagy az OBD-egység BLE-hirdetésére ébred.
 // Hogyan:     az LVGL leáll, a háttérvilágítás és a panel kikapcsol, az ESP-NOW leáll. Az alvási szakaszok
 //             (OG_WAKE_SCAN_PERIOD_MS) után rövid BLE-szkennelő ablak jön; az érintő megszakítás-lába
@@ -1569,7 +1575,8 @@ void battery_tick(PersistFilter& power_fault, uint32_t second) {
 //             a gyújtás bekapcsolására (a C3 BLE-hirdetésével) azonnal ébredjen.
 void enter_sleep() {
     const gpio_num_t ti = static_cast<gpio_num_t>(board::kTouch.intr);
-    ESP_LOGI(TAG, "Alvás indul: %d s tétlenség után; ébredés érintésre vagy BLE-hirdetésre", CONFIG_OG_DISP_SLEEP_AFTER_S);
+    ESP_LOGI(TAG, "Alvás indul: %d s tétlenség után; ébredés érintésre vagy BLE-hirdetésre (érintő megszakítás-láb szintje: %d)", CONFIG_OG_DISP_SLEEP_AFTER_S,
+             gpio_get_level(ti));
     g_led->set_enabled(false);
 #if defined(CONFIG_OG_DISP_MUSIC)
     ble_stop();  // a telefonos kapcsolat megszűnik; az ébresztő ablakok saját BLE-indítást használnak
@@ -1628,6 +1635,7 @@ void enter_sleep() {
     if (lvgl_port_lock(200)) {
         lv_obj_invalidate(lv_screen_active());
         lv_display_trigger_activity(nullptr);  // az ébresztő érintés ne számítson régi tétlenségnek
+        play_wake_logo();                      // az ébredés egyenértékű az indítással: az indító logó is lejátszódik
         lvgl_port_unlock();
     }
     g_led->set_enabled(true);
@@ -1635,8 +1643,8 @@ void enter_sleep() {
     ble_ams_start("OpenGauge");  // az iPhone a kötött eszközhöz magától újracsatlakozik
 #endif
     g_power.on_wake(now_ms());
-    ESP_LOGI(TAG, "Ébredés: %s, %lu alvási szakasz, %lu ms után", touched ? "érintés" : "az OBD-egység hirdetése",
-             (unsigned long)cycles, (unsigned long)(now_ms() - t0));
+    ESP_LOGI(TAG, "Ébredés: %s, %lu alvási szakasz, %lu ms után (érintő megszakítás-láb szintje: %d)", touched ? "érintés" : "az OBD-egység hirdetése",
+             (unsigned long)cycles, (unsigned long)(now_ms() - t0), gpio_get_level(ti));
 }
 #endif
 
@@ -1681,7 +1689,10 @@ void link_task(void*) {
                 last_vin_save(vin);
             }
 #if defined(CONFIG_OG_DISP_SLEEP)
-            if (fresh) g_power.on_data(p.rx_ms);
+            if (fresh) {
+                g_power.on_data(p.rx_ms);
+                g_last_fresh_ms.store(p.rx_ms, std::memory_order_relaxed);
+            }
             g_power.sync_engine(stopped, stopped_ms);
 #else
             (void)fresh; (void)stopped; (void)stopped_ms;
@@ -1718,12 +1729,22 @@ void link_task(void*) {
         {
             // Az érintés ideje az LVGL tétlenségi számlálójából; az alvásig hátralévő idő a kijelzőre megy.
             uint32_t idle = 0;
+            bool lock_ok = false;
             if (lvgl_port_lock(100)) {
                 idle = lv_display_get_inactive_time(nullptr);
                 lvgl_port_unlock();
+                lock_ok = true;
             }
-            g_power.on_touch(now > idle ? now - idle : 0);
-            g_sleep_in_s.store(g_power.counting_down(now) ? g_power.seconds_left(now) : -1, std::memory_order_relaxed);
+            // Ha az LVGL-zár nem volt megszerezhető, nem tudjuk a tétlenséget: ez nem számít érintésnek (különben a
+            // visszaszámlálás újraindulna), a következő másodperc új mérést ad.
+            if (lock_ok) g_power.on_touch(now > idle ? now - idle : 0);
+            const int left = g_power.counting_down(now) ? g_power.seconds_left(now) : -1;
+            static int prev_left = -1;
+            if (prev_left >= 0 && left > prev_left + 1)  // a visszaszámlálás újraindult: kiderül, mi indította
+                ESP_LOGW(TAG, "A visszaszámlálás újraindult (%d -> %d s): LVGL tétlenség %lu ms%s, utolsó friss adat óta %lu ms",
+                         prev_left, left, (unsigned long)idle, lock_ok ? "" : " (LVGL-zár nem sikerült)", (unsigned long)(now - g_last_fresh_ms.load()));
+            prev_left = left;
+            g_sleep_in_s.store(left, std::memory_order_relaxed);
             if (g_power.should_sleep(now)) {
                 enter_sleep();
                 g_sleep_in_s.store(-1, std::memory_order_relaxed);
@@ -1829,6 +1850,10 @@ void bench_task(void*) {
 lv_obj_t* g_logo_scr = nullptr;
 
 lv_obj_t* g_logo_img = nullptr;
+lv_timer_t* g_logo_timer = nullptr;  // a logó tartási időzítője (a kihagyáskor törlendő)
+bool g_logo_active = false;          // a logó képernyő látszik / animál
+uint32_t g_logo_start_ms = 0;        // a logó indulása (az ébresztő érintés ne hagyja ki rögtön)
+constexpr uint32_t kLogoSkipGuardMs = 700;
 
 // Mit csinál: a logó átlátszóságát állítja az animációból (a képre közvetlenül, nem külön rétegre).
 // Miért:      a teljes képernyő áttűnése (FADE_ON) két teljes képernyőt számol pixelenként; a fekete háttéren
@@ -1836,11 +1861,30 @@ lv_obj_t* g_logo_img = nullptr;
 void logo_opa_cb(void* img, int32_t v) { lv_obj_set_style_opa(static_cast<lv_obj_t*>(img), static_cast<lv_opa_t>(v), 0); }
 
 // Mit csinál: a logó eltűnése után azonnal betölti a műszerfalat, és törli a logó képernyőt.
-void logo_faded_out(lv_anim_t*) { lv_screen_load_anim(g_main.scr, LV_SCREEN_LOAD_ANIM_NONE, 0, 0, true); }
+void logo_faded_out(lv_anim_t*) {
+    g_logo_active = false;
+    lv_screen_load_anim(g_screens[g_active[g_pos]], LV_SCREEN_LOAD_ANIM_NONE, 0, 0, true);  // indulásnál a főképernyő, ébredésnél az utolsó
+}
+
+// Mit csinál: koppintásra az indító logó animációját átugorja, és azonnal a képernyőkre vált.
+// Hogyan:     az animációt és az időzítőt törli, a logó képernyőt a váltás után az LVGL törli; az ébresztő érintés (az
+//             indulás utáni első kLogoSkipGuardMs) nem számít kihagyásnak.
+void logo_tap(lv_event_t*) {
+    if (!g_logo_active || now_ms() - g_logo_start_ms < kLogoSkipGuardMs) return;
+    g_logo_active = false;
+    if (g_logo_timer) {
+        lv_timer_delete(g_logo_timer);
+        g_logo_timer = nullptr;
+    }
+    lv_anim_delete(g_logo_img, logo_opa_cb);
+    g_pause_until = now_ms() + kTouchPauseMs;
+    lv_screen_load_anim(g_screens[g_active[g_pos]], LV_SCREEN_LOAD_ANIM_NONE, 0, 0, true);
+}
 
 // Mit csinál: a logó időzítőjének lejártakor elhalványítja a logót, majd a műszerfalra vált.
 // Miért:      a logó csak indulásnál kell; a felszabadított képernyő nem foglal memóriát.
 void logo_done(lv_timer_t* t) {
+    g_logo_timer = nullptr;
     lv_anim_t a;
     lv_anim_init(&a);
     lv_anim_set_var(&a, g_logo_img);
@@ -1867,6 +1911,9 @@ void show_boot_logo(const lv_image_dsc_t* logo) {
     lv_obj_set_style_image_recolor_opa(img, LV_OPA_COVER, 0);
     lv_obj_center(img);
     lv_obj_set_style_opa(img, LV_OPA_TRANSP, 0);
+    lv_obj_add_event_cb(g_logo_scr, logo_tap, LV_EVENT_CLICKED, nullptr);
+    g_logo_active = true;
+    g_logo_start_ms = now_ms();
     lv_screen_load(g_logo_scr);
     lv_anim_t a;
     lv_anim_init(&a);
@@ -1875,9 +1922,22 @@ void show_boot_logo(const lv_image_dsc_t* logo) {
     lv_anim_set_values(&a, LV_OPA_TRANSP, LV_OPA_COVER);
     lv_anim_set_duration(&a, kLogoFadeInMs);
     lv_anim_start(&a);
-    lv_timer_create(logo_done, kLogoFadeInMs + kLogoHoldMs, nullptr);
+    g_logo_timer = lv_timer_create(logo_done, kLogoFadeInMs + kLogoHoldMs, nullptr);
     g_pause_until = now_ms() + kLogoFadeInMs + kLogoHoldMs + kLogoFadeOutMs + g_cfg.switch_period_s * 1000u;
 }
+#endif
+
+#if defined(CONFIG_OG_DISP_SLEEP) && defined(CONFIG_OG_DISP_BOOT_LOGO)
+// Mit csinál: ébredés után lejátssza az indító logót (az utoljára látott VIN márkájáét), ha a beállítás nem kéri a kihagyását.
+// Miért:      az ébredés egyenértékű az indítással: a vezető ugyanazt a bevezető animációt látja; koppintásra átugorható.
+void play_wake_logo() {
+    if (g_cfg.skip_logo || g_logo_active) return;
+    char saved[18];
+    const lv_image_dsc_t* logo = last_vin_load(saved) ? logo_for_brand(vin_brand_id(saved)) : nullptr;
+    if (logo) show_boot_logo(logo);
+}
+#elif defined(CONFIG_OG_DISP_SLEEP)
+void play_wake_logo() {}  // logó nélküli fordításban nincs mit lejátszani
 #endif
 
 // Mit csinál: az indulás utáni első LVGL-ütemben előállítja a mutatós fordulatszámmérő skálájának képét.

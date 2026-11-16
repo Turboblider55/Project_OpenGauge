@@ -142,6 +142,14 @@ menu "OpenGauge: kijelzőegység"
         bool "Érintő: Y tengely tükrözése"
         default n
 
+    config OG_DISP_ROTATE_180
+        bool "A kép 180°-os elforgatása (házba épített, fejjel lefelé álló modul)"
+        default y
+        help
+            A panel X és Y tükrözésével forgatja a képet, és az érintő mindkét tengelyét is
+            megfordítja, így a kép és az érintés együtt marad. A házban a modul fejjel lefelé
+            áll (a kábel felül), ezért az alapérték bekapcsolt.
+
     config OG_LCD_SWAP_BYTES
         bool "RGB565 bájtcsere (a panel nagy-endián sorrendet vár)"
         default y

@@ -52,6 +52,9 @@ public:
         return true;
     }
 
+    // Mit csinál: az utolsó aktivitás óta eltelt idő (ms); a naplózáshoz és a diagnosztikához.
+    uint32_t idle_ms(uint32_t now_ms) const { return now_ms - last_activity_ms_; }
+
     PowerState state() const { return state_; }
     uint32_t windows() const { return windows_; }  // az utolsó alvás ablakainak száma
     const PowerConfig& config() const { return cfg_; }
