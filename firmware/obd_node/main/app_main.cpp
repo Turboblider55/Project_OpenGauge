@@ -4,25 +4,36 @@
 //             kiolvassa a VIN-t és a hibakódok számát, majd a PID-terv szerint ciklikusan
 //             lekérdezi a fordulatszámot, sebességet stb., és másodpercenként összesítést ír.
 //             Az értékekből 100 ms-onként TelemetryMsg-t küld ESP-NOW-n a kijelzőnek.
-//             Minden CAN-keretet naplóz (TwaiBus).
+//             Minden CAN-keretet naplóz (TwaiBus). A LED-ekkel jelzi az állapotot, és
+//             másodpercenként életjelet küld a kijelzőnek, illetve figyeli a kijelzőét.
 // Hogyan:     ugyanazok az osztályok (obd_detect, IsoTp, ObdClient, PidScheduler), mint a
 //             PC-s teszteken, csak a VirtualBus helyett TwaiBus-szal. Ha a fordulatszám
 //             egymás után sokszor nem jön, a felismerés újraindul (pl. kihúzott kábel).
 // Miért:      az asztali teszt (S2 ECU-szimulátor <-> C3 -> S3 kijelző) azt igazolja, hogy a PC-n
 //             tesztelt logika a valódi buszon és rádión is működik.
+#include <atomic>
+
+#include "ble_radio.h"
 #include "board_pins.h"
 #include "driver/gpio.h"
+#include "esp_rom_sys.h"
+#include "esp_sleep.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "espnow_link.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "isotp.h"
 #include "obd_client.h"
+#include "led_pattern.h"
 #include "obd_detect.h"
 #include "og_codec.h"
+#include "og_vin.h"
 #include "pid_scheduler.h"
+#include "power_fsm.h"
 #include "pid_table.h"
 #include "sdkconfig.h"
+#include "status_led.h"
 #include "telemetry_builder.h"
 #include "twai_bus.h"
 
@@ -52,9 +63,48 @@ constexpr uint32_t kLostAfterFailures = 10;
 // A telemetria küldési periódusa (10 Hz, a fordulatszám lekérdezéséhez igazítva; S-04).
 constexpr uint32_t kTelemetryPeriodMs = 100;
 
+// Hibák tartóssági feltételei (a LED-táblázat szerint): ennél rövidebb kimaradás nem hiba.
+// Az ECU hallgatása lehet leállított jármű is, ezért jóval hosszabb a határ, mint a rádióé.
+constexpr uint32_t kEcuFaultMs = 30000;
+constexpr uint32_t kRadioFaultMs = 3000;
+constexpr uint32_t kFaultClearMs = 1000;
+constexpr uint32_t kCanFaultHoldMs = 10000;  // bus-off után a jelzés legalább ennyi ideig marad
+
 og::EspNowLink g_link;
+og::StatusLed g_led;
 bool g_link_ok = false;
 uint16_t g_seq = 0;
+std::atomic<bool> g_in_session{false};       // van-e élő lekérdezési ciklus az ECU-val
+std::atomic<uint32_t> g_peer_rx{0};          // a kijelzőtől vett életjelek
+std::atomic<int> g_peer_rssi{0};             // az utolsó életjel térereje (dBm)
+
+// Mit csinál: háromszor elküldi a kijelzőnek az ALVÁS üzenetet a megadott okkal (a szórásnak nincs nyugtája).
+// Miért:      reason = EngineStopped: a kijelző visszaszámlálhat az alvásig; reason = Sleep: az OBD-egység alszik.
+void send_sleep_msg(og::SleepReason reason) {
+    if (!g_link_ok) return;
+    static uint16_t sleep_seq = 0;
+    for (int i = 0; i < 3; ++i) {
+        og::SleepMsg m = {};
+        m.h = og::make_header(og::MsgType::Sleep, sleep_seq++);
+        m.reason = static_cast<uint8_t>(reason);
+        g_link.send(&m, sizeof m);
+        vTaskDelay(pdMS_TO_TICKS(30));
+    }
+}
+
+// A VIN ismétlésének periódusa. A szórásnak nincs nyugtája, ezért a VIN-t időnként újra elküldjük,
+// így a később induló vagy a csomagot elvesztő kijelző is megkapja.
+constexpr uint32_t kVinPeriodMs = 2000;
+
+// Mit csinál: elküldi a kijelzőnek a VIN-t.
+void send_vin(const char vin[18]) {
+    if (!g_link_ok) return;
+    static uint16_t vin_seq = 0;
+    og::VinMsg m = {};
+    m.h = og::make_header(og::MsgType::Vin, vin_seq++);
+    std::memcpy(m.vin, vin, sizeof m.vin);
+    g_link.send(&m, sizeof m);
+}
 
 // Mit csinál: a CAN-adó-vevőt nagy sebességű (normál) üzemmódba kapcsolja, ha van RS lába.
 // Miért:      az SN65HVD231 RS lába HIGH szinten készenlétbe teszi az adó-vevőt; a saját
@@ -65,6 +115,166 @@ void transceiver_enable() {
     gpio_reset_pin(rs);
     gpio_set_direction(rs, GPIO_MODE_OUTPUT);
     gpio_set_level(rs, 0);
+}
+
+#if defined(CONFIG_OG_OBD_POWER_SAVE)
+og::PowerFsm g_power(og::PowerConfig{CONFIG_OG_OBD_IDLE_TO_SLEEP_S * 1000u, CONFIG_OG_OBD_SLEEP_PERIOD_MS,
+                                     CONFIG_OG_OBD_LISTEN_MS, CONFIG_OG_OBD_SLEEP_GRACE_S * 1000u});
+uint32_t g_last_rx = 0;
+
+// Az ébredés után ennyi ideig hirdet a C3 a (alvó) kijelzőnek, ha az nem válaszol az életjellel.
+constexpr uint32_t kBleWakeMs = 10000;
+constexpr uint32_t kBleWakeIntervalMs = 20;
+std::atomic<uint32_t> g_ble_wake_until{0};
+std::atomic<bool> g_peer_alive{false};  // a kijelző életjele friss (a status_task frissíti)
+
+inline uint32_t now_ms() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
+
+// Mit csinál: BLE-ébresztő hirdetést indít az (esetleg alvó) kijelzőnek, ha még nem fut; a status_task állítja le, amint a
+//             kijelző életjelet küld, vagy kBleWakeMs után.
+// Miért:      az alvó kijelző csak a BLE-hirdetésre ébred (az ESP-NOW-t alvás alatt kikapcsolja). A hirdetés nemcsak az alvásból
+//             való ébredéskor kell, hanem akkor is, ha az OBD-egység hidegen indul (áramvesztés után), vagy új ECU-munkamenet
+//             épül fel, miközben a kijelző alszik: addig a kijelző nem kap rá okot, hogy felkeljen.
+void start_ble_wake(const char* why) {
+    if (g_ble_wake_until.load(std::memory_order_relaxed) != 0) return;  // már hirdet
+    if (og::ble_start_advertising(og::BleRole::ObdNode, kBleWakeIntervalMs)) {
+        g_ble_wake_until.store(now_ms() + kBleWakeMs, std::memory_order_relaxed);
+        ESP_LOGI(TAG, "BLE-ébresztő hirdetés indul (%s)", why);
+    }
+}
+
+// Mit csinál: a buszon vett keretek számának változásából és az élő munkamenetből aktivitást jelez.
+// Miért:      csak a más csomópontoktól vett keretek számítanak (a saját adás nem növeli az rx-et).
+void note_activity(const og::TwaiBus& bus) {
+    const uint32_t rx = bus.stats().rx;
+    if (rx != g_last_rx || g_in_session.load(std::memory_order_relaxed)) {
+        g_last_rx = rx;
+        g_power.on_activity(now_ms());
+    }
+}
+
+// Mit csinál: igaz, ha a figyelőablakban a buszon (az RX-lábon) domináns szint volt.
+// Hogyan:     az RS lábat alacsonyra húzza (a vevő felébred), kis várakozás után lekérdezi az
+//             RX-lábat; recesszív szint = 1, bármilyen keret domináns biteket tartalmaz.
+// Miért:      az SN65HVD231 alvó módban a vevőt is kikapcsolja (H-11), ezért időzített ablak kell.
+bool listen_window() {
+    const int rs = og::board::kPinCanRs;
+    const gpio_num_t rx = static_cast<gpio_num_t>(og::board::kPinCanRx);
+    if (rs >= 0) {
+        gpio_set_level(static_cast<gpio_num_t>(rs), 0);
+        esp_rom_delay_us(2000);  // az adó-vevő felébredési ideje
+    }
+    bool activity = false;
+    const int64_t end = esp_timer_get_time() + static_cast<int64_t>(CONFIG_OG_OBD_LISTEN_MS) * 1000;
+    while (esp_timer_get_time() < end) {
+        if (gpio_get_level(rx) == 0) {
+            activity = true;
+            break;
+        }
+        esp_rom_delay_us(20);
+    }
+    if (rs >= 0) gpio_set_level(static_cast<gpio_num_t>(rs), 1);
+    return activity;
+}
+
+// Mit csinál: light sleepbe teszi az egységet, és időzített figyelőablakokkal várja a busz-forgalmat.
+// Hogyan:     a LED-ek kialszanak, a rádió és a TWAI leáll; az RX láb szabad bemenet marad. Az
+//             időzített ébredések között a CPU alszik; ha az ablakban forgalom van, visszatér.
+// Miért:      a kikapcsolt gyújtású autóban az egység áramfelvétele minimális legyen (S-12).
+void sleep_until_bus_activity(og::TwaiBus& bus) {
+    const uint32_t t0 = now_ms();
+    ESP_LOGI(TAG, "Alvás indul: %lu s óta nincs busz-forgalom és ECU-munkamenet",
+             (unsigned long)(g_power.config().idle_to_sleep_ms / 1000));
+    g_in_session.store(false, std::memory_order_relaxed);
+    send_sleep_msg(og::SleepReason::Sleep);  // még a rádió leállása előtt
+    g_led.set_enabled(false);
+    g_link.suspend();
+    bus.release();
+    const gpio_num_t rx = static_cast<gpio_num_t>(og::board::kPinCanRx);
+    gpio_reset_pin(rx);
+    gpio_set_direction(rx, GPIO_MODE_INPUT);
+    if (og::board::kPinCanRs >= 0) {
+        const gpio_num_t rs = static_cast<gpio_num_t>(og::board::kPinCanRs);
+        gpio_set_direction(rs, GPIO_MODE_OUTPUT);
+        gpio_set_level(rs, 1);  // készenlét: a vevő is kikapcsol (SN65HVD231)
+    }
+    g_power.enter_sleep();
+    for (;;) {
+        esp_sleep_enable_timer_wakeup(static_cast<uint64_t>(g_power.config().sleep_period_ms) * 1000);
+        esp_light_sleep_start();
+        if (g_power.on_window(listen_window(), now_ms())) break;
+    }
+    transceiver_enable();
+    g_link.resume();
+    g_led.set_enabled(true);
+    g_last_rx = bus.stats().rx;
+    // Az alvó kijelzőt BLE-hirdetéssel ébresztjük; az életjelének megérkezésekor leáll (status_task).
+    start_ble_wake("ébredés busz-forgalomra");
+    ESP_LOGI(TAG, "Ébredés: busz-forgalom a(z) %lu. figyelőablakban, alvás %lu ms után (CAN-RX szint: %d)",
+             (unsigned long)g_power.windows(), (unsigned long)(now_ms() - t0), gpio_get_level(rx));
+}
+#endif
+
+// Mit csinál: életjelet küld, figyeli a kijelző életjelét, és frissíti a LED-állapotot.
+// Hogyan:     saját feladatban fut, a rádió vételi sorára vár. A hibákat PersistFilter szűri.
+// Miért:      a CAN-feladat a felismerés alatt másodpercekig blokkolódik; az életjel és a
+//             LED-ek állapota ettől nem függhet.
+void status_task(void* arg) {
+    const og::TwaiBus& bus = *static_cast<og::TwaiBus*>(arg);
+    og::PersistFilter ecu_fault(kEcuFaultMs, kFaultClearMs);
+    og::PersistFilter radio_fault(kRadioFaultMs, kFaultClearMs);
+    bool heard = false;
+    uint32_t last_heard = 0, can_hold_until = 0, last_bus_off = 0;
+    uint16_t hb_seq = 0;
+    uint32_t next = static_cast<uint32_t>(esp_timer_get_time() / 1000);
+    for (;;) {
+        uint32_t now = static_cast<uint32_t>(esp_timer_get_time() / 1000);
+        const int32_t rem = static_cast<int32_t>(next - now);
+        if (rem > 0) {
+            og::EspNowLink::Packet p;
+            if (!g_link_ok) {
+                vTaskDelay(pdMS_TO_TICKS(rem));
+            } else if (g_link.recv(p, static_cast<uint32_t>(rem))) {
+                og::HeartbeatMsg hb;
+                if (og::decode(p.data, p.len, hb)) {
+                    heard = true;
+                    last_heard = p.rx_ms;
+                    g_peer_rx.fetch_add(1, std::memory_order_relaxed);
+                    g_peer_rssi.store(p.rssi, std::memory_order_relaxed);
+                }
+            }
+            continue;
+        }
+        next += og::kHeartbeatPeriodMs;
+        if (static_cast<int32_t>(now - next) >= 0) next = now + og::kHeartbeatPeriodMs;
+
+        const bool alive = heard && now - last_heard <= og::kPeerTimeoutMs;
+        g_peer_alive.store(alive, std::memory_order_relaxed);
+#if defined(CONFIG_OG_OBD_POWER_SAVE)
+        const uint32_t ble_until = g_ble_wake_until.load(std::memory_order_relaxed);
+        if (ble_until && (alive || static_cast<int32_t>(now - ble_until) >= 0)) {
+            og::ble_stop();
+            g_ble_wake_until.store(0, std::memory_order_relaxed);
+            ESP_LOGI(TAG, "BLE-ébresztő hirdetés leállt (%s)", alive ? "a kijelző életjelet küldött" : "időtúllépés");
+        }
+#endif
+        if (g_link_ok) {
+            og::HeartbeatMsg hb = {};
+            hb.h = og::make_header(og::MsgType::Heartbeat, hb_seq++);
+            hb.uptime_s = now / 1000;
+            g_link.send(&hb, sizeof hb);
+            g_led.set_link(alive ? og::LinkLed::Ok : og::LinkLed::Waiting);
+            g_led.set_fault(og::Fault::Radio, radio_fault.update(!alive, now));
+        }
+        g_led.set_fault(og::Fault::Ecu, ecu_fault.update(!g_in_session.load(std::memory_order_relaxed), now));
+
+        const uint32_t bus_off = bus.stats().bus_off;
+        if (bus_off != last_bus_off) {
+            last_bus_off = bus_off;
+            can_hold_until = now + kCanFaultHoldMs;
+        }
+        g_led.set_fault(og::Fault::Can, static_cast<int32_t>(can_hold_until - now) > 0);
+    }
 }
 
 // Mit csinál: megmondja, hogy a felismeréskor kiolvasott bitmap szerint támogatott-e a PID.
@@ -127,12 +337,16 @@ void run_session(og::TwaiBus& bus, const og::ProtocolInfo& info) {
     og::ObdClient cl(tp);
     cl.set_target(info.primary_request_id);
 
+    // A VIN-t minden munkamenet elején újra olvassuk (újracsatlakozáskor is): másik autóra is rácsatlakozhatunk.
     char vin[18];
     og::Err e = cl.read_vin(vin);
-    if (e == og::Err::Ok)
-        ESP_LOGI(TAG, "VIN: %s", vin);
-    else
+    const bool vin_ok = e == og::Err::Ok;
+    if (vin_ok) {
+        ESP_LOGI(TAG, "VIN: %s (%s)", vin, og::vin_brand_id(vin) >= 0 ? og::vin_brand_name(og::vin_brand_id(vin)) : "ismeretlen márka");
+        send_vin(vin);
+    } else {
         ESP_LOGW(TAG, "VIN nem olvasható: %s", og::err_name(e));
+    }
 
     uint8_t dtc = 0;
     e = cl.read_dtc_count(dtc);
@@ -157,8 +371,11 @@ void run_session(og::TwaiBus& bus, const og::ProtocolInfo& info) {
         return;
     }
 
+    g_in_session.store(true, std::memory_order_relaxed);
+    g_led.set_searching(false);
     uint32_t next_log = start + 1000;
     uint32_t next_tx = start + kTelemetryPeriodMs;
+    uint32_t next_vin = start + kVinPeriodMs;
     for (;;) {
         og::Err err;
         if (!s.step(cl, err)) {
@@ -176,6 +393,10 @@ void run_session(og::TwaiBus& bus, const og::ProtocolInfo& info) {
             next_tx += kTelemetryPeriodMs;
             if (static_cast<int32_t>(now - next_tx) >= 0) next_tx = now + kTelemetryPeriodMs;  // ne pótolja a kimaradtakat
         }
+        if (vin_ok && static_cast<int32_t>(now - next_vin) >= 0) {
+            send_vin(vin);
+            next_vin = now + kVinPeriodMs;
+        }
         if (static_cast<int32_t>(now - next_log) >= 0) {
             log_values(s, now);
             const og::TwaiBus::Stats& st = bus.stats();
@@ -184,8 +405,10 @@ void run_session(og::TwaiBus& bus, const og::ProtocolInfo& info) {
                      (unsigned long)st.rx, (unsigned long)st.restarts);
             if (g_link_ok) {
                 const og::EspNowLink::Stats ls = g_link.stats();
-                ESP_LOGI(TAG, "ESP-NOW: seq %u, elküldve %lu, sikertelen %lu", g_seq, (unsigned long)ls.tx_ok,
-                         (unsigned long)ls.tx_fail);
+                ESP_LOGI(TAG, "ESP-NOW: seq %u, elküldve %lu, sikertelen %lu | kijelző életjele: %lu, RSSI %d dBm",
+                         g_seq, (unsigned long)ls.tx_ok, (unsigned long)ls.tx_fail,
+                         (unsigned long)g_peer_rx.load(std::memory_order_relaxed),
+                         g_peer_rssi.load(std::memory_order_relaxed));
             }
             next_log = now + 1000;
         }
@@ -202,15 +425,55 @@ void run_session(og::TwaiBus& bus, const og::ProtocolInfo& info) {
 extern "C" void app_main(void) {
     ESP_LOGI(TAG, "OpenGauge OBD-egység indul; protokoll v%d, Telemetry = %u B", og::kProtoVersion,
              (unsigned)sizeof(og::TelemetryMsg));
+    if (!g_led.start(og::board::kLeds)) ESP_LOGE(TAG, "A LED-ek nem indultak el");
+#if defined(CONFIG_OG_OBD_TEST_BLE)
+    // BLE-hirdetési teszt: se CAN, se ESP-NOW; a LED-ek csak az indulást mutatják.
+    if (!og::ble_start_advertising(og::BleRole::ObdNode, CONFIG_OG_BLE_ADV_INTERVAL_MS)) {
+        g_led.set_fault(og::Fault::Init, true);
+    }
+    return;
+#endif
     transceiver_enable();
     g_link_ok = g_link.init(CONFIG_OG_ESPNOW_CHANNEL);
-    if (!g_link_ok) ESP_LOGE(TAG, "Az ESP-NOW nem indult el; a CAN-oldal rádió nélkül fut tovább");
+    if (!g_link_ok) {
+        ESP_LOGE(TAG, "Az ESP-NOW nem indult el; a CAN-oldal rádió nélkül fut tovább");
+        g_led.set_fault(og::Fault::Init, true);
+    }
+#if defined(CONFIG_OG_OBD_BLE_BEACON)
+    // Koegzisztencia-teszt: a BLE-hirdetés az ESP-NOW és a CAN mellett fut (H-16).
+    if (!og::ble_start_advertising(og::BleRole::ObdNode, CONFIG_OG_BLE_ADV_INTERVAL_MS)) {
+        g_led.set_fault(og::Fault::Init, true);
+    }
+#endif
 
-    og::TwaiBus bus(og::board::kPinCanTx, og::board::kPinCanRx, "can");
+    static og::TwaiBus bus(og::board::kPinCanTx, og::board::kPinCanRx, "can");
+    xTaskCreate(status_task, "og_status", 6144, &bus, 4, nullptr);
+#if defined(CONFIG_OG_OBD_POWER_SAVE)
+    g_power.on_activity(now_ms());
+    start_ble_wake("hideg indulás");  // az alvó kijelző csak erre ébred; ha ébren van, az életjele leállítja
+#endif
     for (;;) {
+#if defined(CONFIG_OG_OBD_POWER_SAVE)
+        note_activity(bus);
+        {   // Diagnosztika: 10 s-onként kiírja, mi tartja ébren az egységet (csend ideje, határ, türelmi idő, vett keretek, munkamenet).
+            static uint32_t next_diag = 0;
+            const uint32_t t = now_ms();
+            if (static_cast<int32_t>(t - next_diag) >= 0) {
+                next_diag = t + 10000;
+                ESP_LOGI(TAG, "Alvási feltétel: csend %lu s (határ %lu s), indulás óta %lu s (türelmi idő %lu s), vett keretek %lu, munkamenet %s",
+                         (unsigned long)(g_power.idle_ms(t) / 1000), (unsigned long)(g_power.config().idle_to_sleep_ms / 1000),
+                         (unsigned long)(t / 1000), (unsigned long)(g_power.config().startup_grace_ms / 1000),
+                         (unsigned long)bus.stats().rx, g_in_session.load(std::memory_order_relaxed) ? "él" : "nincs");
+            }
+        }
+        if (g_power.should_sleep(now_ms())) sleep_until_bus_activity(bus);
+#endif
+        g_in_session.store(false, std::memory_order_relaxed);
+        g_led.set_searching(true);
         ESP_LOGI(TAG, "Protokoll-felismerés...");
         og::ProtocolInfo info;
         const og::Err e = og::obd_detect(bus, og::DetectConfig(), info);
+        g_led.set_fault(og::Fault::Init, !g_link_ok || !bus.installed());
         if (e == og::Err::NotSupported) {
             log_protocol(info);
             ESP_LOGW(TAG, "OBDonUDS (J1979-2) jármű: az eszköz ezt nem támogatja");
@@ -223,6 +486,13 @@ extern "C" void app_main(void) {
             continue;
         }
         log_protocol(info);
+#if defined(CONFIG_OG_OBD_POWER_SAVE)
+        if (!g_peer_alive.load(std::memory_order_relaxed)) start_ble_wake("új ECU-munkamenet, a kijelző nem ad életjelet");
+#endif
         run_session(bus, info);
+        send_sleep_msg(og::SleepReason::EngineStopped);  // az ECU elnémult: a kijelző számolhat vissza
+#if defined(CONFIG_OG_OBD_POWER_SAVE)
+        g_power.on_activity(now_ms());  // a munkamenet vége is aktivitás: az idő innen számít
+#endif
     }
 }

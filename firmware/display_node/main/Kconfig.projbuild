@@ -22,7 +22,83 @@ menu "OpenGauge: kijelzőegység"
             bool "Színteszt (M2): egyszínű képek, színsávok, tájolás, átmenetek"
         config OG_DISP_TEST_ESPNOW
             bool "ESP-NOW vétel (M4): telemetria és csomagvesztés naplózása, kijelző nélkül"
+        config OG_DISP_TEST_BLE
+            bool "BLE-szkennelés (S-13): az OBD-egység hirdetésének vétele, kijelző nélkül"
+        config OG_DISP_TEST_WAKE
+            bool "Alvás/ébresztés (S-12/S-13): ALVÁS üzenetre light sleep, ébredés az OBD-egység BLE-hirdetésére"
+        config OG_DISP_TEST_COEX
+            bool "Koegzisztencia (H-16): ESP-NOW vétel + BLE-szkennelés + csatlakoztatható BLE-hirdetés"
+        config OG_DISP_TEST_AMS
+            bool "iOS zene (S-14): AMS-kliens BLE-n (párosítás, Most játszik adatok, vezérlés) + ESP-NOW vétel, kijelző nélkül"
     endchoice
+
+    config OG_AMS_DEMO_COMMANDS
+        bool "Az AMS-teszt időnként lejátszásvezérlő parancsot küld (szünet/lejátszás, következő, előző)"
+        default y
+        depends on OG_DISP_TEST_AMS
+
+    config OG_DISP_MUSIC
+        bool "Zene képernyő a műszerfalban: iOS Most játszik adatok (AMS) és vezérlés BLE-n"
+        default n
+        depends on OG_DISP_TEST_DASH
+
+    config OG_DISP_BOOT_LOGO
+        bool "Indító logó a műszerfal előtt (1 s felúszás, 2 s látszik, 1 s áttűnés a műszerfalra)"
+        default y
+        depends on OG_DISP_TEST_DASH
+
+    config OG_DISP_BENCH
+        bool "Rajzolási mérés: indulás után a képernyők közti váltások ideje a naplóba (BENCH sorok)"
+        default n
+        depends on OG_DISP_TEST_DASH
+        help
+            Az indító logó lejárta után körbe lapoz a képernyőkön, és minden átmenetre kiírja a képkockák
+            számát, átlagos és legnagyobb idejét, valamint a flush-ra várakozás és a rajzolás arányát.
+
+    config OG_DISP_MEMPROF
+        bool "Memóriaprofil: a belső RAM, a PSRAM, az LVGL-kupac és a feladatok vermének naplózása az indulás lépései szerint (MEMPROF sorok)"
+        default n
+        depends on OG_DISP_TEST_DASH
+        help
+            Az indulás lépései (LVGL indítása, képernyők felépítése, skálarajzolás) után, majd 20 s-onként
+            kiírja a szabad és a valaha mért legkisebb szabad memóriát, az LVGL-kupac állapotát, és ha a
+            FreeRTOS nyomkövetés be van kapcsolva, a feladatok verméből még soha nem használt részt.
+
+    config OG_DISP_SLEEP
+        bool "Alvás a műszerfalban: tétlenség után light sleep, ébredés érintésre vagy az OBD-egység BLE-hirdetésére"
+        default n
+        depends on OG_DISP_TEST_DASH
+
+    config OG_DISP_SLEEP_AFTER_S
+        int "Ennyi másodperc tétlenség (nincs érintés és adat; motor leállt jelzés után a jelzéstől) után alszik el"
+        range 5 600
+        default 20
+        depends on OG_DISP_SLEEP
+
+    config OG_DISP_SLEEP_GRACE_S
+        int "Indulás után ennyi másodpercig nem alszik el (programozás és hibakeresés)"
+        range 0 600
+        default 60
+        depends on OG_DISP_SLEEP
+        help
+            Light sleep után az USB-s soros/JTAG-kapcsolat nem tér vissza (H-33); a türelmi idő alatt
+            a lapka még programozható.
+
+    config OG_WAKE_SCAN_PERIOD_MS
+        int "Alvási szakasz hossza két szkennelő ablak között (ms)"
+        range 200 10000
+        default 1500
+
+    config OG_WAKE_SCAN_WINDOW_MS
+        int "A szkennelő ablak hossza (ms)"
+        range 20 1000
+        default 80
+
+    config OG_BLE_SCAN_WINDOW_PCT
+        int "BLE szkennelési ablak (a 100 ms-os periódus %-a)"
+        range 1 100
+        default 100
+        depends on OG_DISP_TEST_BLE || OG_DISP_TEST_COEX
 
     choice OG_LCD_INIT
         prompt "ST77916 init-sorozat"
@@ -66,6 +142,14 @@ menu "OpenGauge: kijelzőegység"
         bool "Érintő: Y tengely tükrözése"
         default n
 
+    config OG_DISP_ROTATE_180
+        bool "A kép 180°-os elforgatása (házba épített, fejjel lefelé álló modul)"
+        default y
+        help
+            A panel X és Y tükrözésével forgatja a képet, és az érintő mindkét tengelyét is
+            megfordítja, így a kép és az érintés együtt marad. A házban a modul fejjel lefelé
+            áll (a kábel felül), ezért az alapérték bekapcsolt.
+
     config OG_LCD_SWAP_BYTES
         bool "RGB565 bájtcsere (a panel nagy-endián sorrendet vár)"
         default y
@@ -73,6 +157,15 @@ menu "OpenGauge: kijelzőegység"
     config OG_LCD_BGR
         bool "BGR színsorrend (ha a piros és a kék fel van cserélve)"
         default n
+
+    config OG_BAT_SCALE_PERMILLE
+        int "Akkumulátormérés: osztásarány ezrelékben (a 2000 a névleges 1:2)"
+        range 1800 2200
+        default 2000
+        help
+            Az osztó ellenállásainak tűrése miatt a mért érték néhány tíz mV-tal eltérhet.
+            Multiméterrel mért cellafeszültséghez így igazítható: új érték =
+            régi érték * mért feszültség / a naplóban látható feszültség.
 
     config OG_LCD_BACKLIGHT_PERCENT
         int "Háttérvilágítás (%)"

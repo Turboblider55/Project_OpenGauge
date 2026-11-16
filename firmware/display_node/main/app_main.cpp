@@ -3,27 +3,117 @@
 // Mit csinál: inicializálja a kerek kijelzőt (ST77916, QSPI), bekapcsolja a háttérvilágítást, és a
 //             menuconfigban választott módot futtatja: műszerfal (valós telemetria, érintéssel),
 //             érintésteszt, színteszt (M2), LVGL-teszt (M3) vagy ESP-NOW vételi teszt (M4,
-//             kijelző nélkül).
+//             kijelző nélkül). Elsőként a LED-eket indítja, hogy az indítási hibák is látsszanak.
 // Hogyan:     a lábkiosztás a board_pins.h-ból, a kijelzőbeállítások a menuconfigból jönnek.
 // Miért:      a kijelzős tesztek ugyanazt a panelinicializálást használják; a színteszt új hardveren
 //             (pl. a saját NYÁK-on) az első lépés marad, az LVGL-teszt a felület alapja.
+#include "ble_ams.h"
+#include "ble_radio.h"
 #include "board_pins.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "color_test.h"
 #include "dash_app.h"
 #include "esp_log.h"
 #include "espnow_rx_test.h"
 #include "lcd_panel.h"
+#include "led_pattern.h"
 #include "lvgl_test.h"
 #include "touch_test.h"
+#include "wake_test.h"
 #include "og_codec.h"
 #include "sdkconfig.h"
+#include "status_led.h"
 
 namespace {
 const char* TAG = "og_disp";
+og::StatusLed g_led;
 }
+
+#if defined(CONFIG_OG_DISP_TEST_BLE) || defined(CONFIG_OG_DISP_TEST_COEX)
+// Mit csinál: másodpercenként naplózza a BLE szkennelés és (ha van) a kapcsolat statisztikáját.
+// Miért:      a koegzisztencia-teszt mellett az ESP-NOW vételi teszt is naplóz, a két sor együtt mutatja,
+//             hogy a BLE terhelése mikor rontja a rádióvételt (H-16).
+void ble_report_task(void*) {
+    uint32_t prev = 0;
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        const og::BleScanStats s = og::ble_scan_stats();
+        ESP_LOGI(TAG, "BLE szkenner: %lu hirdetés/s, számláló %ld, látott mp %lu, kimaradt mp %lu, RSSI %d dBm",
+                 static_cast<unsigned long>(s.adverts - prev), static_cast<long>(s.last_counter),
+                 static_cast<unsigned long>(s.seconds_seen), static_cast<unsigned long>(s.seconds_lost), s.rssi);
+        prev = s.adverts;
+#if defined(CONFIG_OG_DISP_TEST_COEX)
+        const og::BleConnStats c = og::ble_conn_stats();
+        ESP_LOGI(TAG, "BLE kapcsolat: %s, értesítés %s, periódus %lu us, kapcsolódás %lu, bontás %lu (ok %d), értesítés ok/hiba %lu/%lu",
+                 c.connected ? "VAN" : "nincs", c.subscribed ? "igen" : "nem", static_cast<unsigned long>(c.itvl_us),
+                 static_cast<unsigned long>(c.connects), static_cast<unsigned long>(c.disconnects), c.last_reason,
+                 static_cast<unsigned long>(c.notify_ok), static_cast<unsigned long>(c.notify_fail));
+#endif
+    }
+}
+#endif
+
+#if defined(CONFIG_OG_DISP_TEST_AMS)
+// Mit csinál: az AMS-kliens állapotát naplózza (változáskor azonnal, egyébként 5 s-onként), és ha kérték,
+//             15 s-onként lejátszásvezérlő parancsot küld az iPhone-nak (szünet/lejátszás, következő, előző).
+// Miért:      a telefonon látszik a vezérlés hatása, a naplóban pedig az, mit olvasott ki az eszköz.
+void ams_report_task(void*) {
+    uint32_t last_updates = 0xFFFFFFFF;
+    int tick = 0;
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        const og::AmsInfo i = og::ble_ams_info();
+        if (i.updates != last_updates || tick % 5 == 0) {
+            last_updates = i.updates;
+            ESP_LOGI(TAG, "AMS: kapcsolat %s, titkosított %s, kész %s | %s | %s - %s (%s) | állapot %d, sebesség %.1f, eltelt %.0f/%.0f s, hangerő %.2f",
+                     i.connected ? "van" : "nincs", i.encrypted ? "igen" : "nem", i.ready ? "igen" : "nem", i.player, i.artist,
+                     i.title, i.album, i.playback, i.rate, i.elapsed_s, i.duration_s, i.volume);
+        }
+#if defined(CONFIG_OG_AMS_DEMO_COMMANDS)
+        if (i.ready && ++tick % 15 == 0) {
+            static const og::AmsCommand kSeq[] = {og::AmsCommand::TogglePlayPause, og::AmsCommand::TogglePlayPause,
+                                                  og::AmsCommand::NextTrack, og::AmsCommand::PreviousTrack};
+            static unsigned idx = 0;
+            const og::AmsCommand c = kSeq[idx++ % 4];
+            ESP_LOGI(TAG, "AMS parancs: %d -> %s", static_cast<int>(c), og::ble_ams_command(c) ? "elküldve" : "sikertelen");
+        }
+#else
+        ++tick;
+#endif
+    }
+}
+#endif
 
 extern "C" void app_main(void) {
     ESP_LOGI(TAG, "OpenGauge kijelzőegység indul; protokoll v%d", og::kProtoVersion);
+    if (!g_led.start(og::board::kLeds)) ESP_LOGE(TAG, "A LED-ek nem indultak el");
+#if defined(CONFIG_OG_DISP_TEST_WAKE)
+    og::run_wake_test(g_led);
+    return;
+#endif
+#if defined(CONFIG_OG_DISP_TEST_BLE)
+    // BLE-szkennelési teszt: a kijelző nem indul; másodpercenként a vételi statisztika kerül a naplóba.
+    if (!og::ble_start_scanning(CONFIG_OG_BLE_SCAN_WINDOW_PCT)) g_led.set_fault(og::Fault::Init, true);
+    ble_report_task(nullptr);
+#endif
+#if defined(CONFIG_OG_DISP_TEST_AMS)
+    // iOS zene: az AMS-kliens a BLE-n, mellette az ESP-NOW vételi teszt (a koegzisztencia is látszik a naplóban).
+    if (!og::ble_ams_start("OpenGauge")) g_led.set_fault(og::Fault::Init, true);
+    xTaskCreate(ams_report_task, "ams_report", 4096, nullptr, 2, nullptr);
+    og::run_espnow_rx_test();
+    return;
+#endif
+#if defined(CONFIG_OG_DISP_TEST_COEX)
+    // Koegzisztencia: a BLE (periféria + szkenner) a 0. magon fut, mellette az ESP-NOW vételi teszt.
+    // A periféria indul előbb (a GATT-táblát a verem indulása előtt kell felvenni).
+    if (!og::ble_start_peripheral("OpenGauge") || !og::ble_start_scanning(CONFIG_OG_BLE_SCAN_WINDOW_PCT)) {
+        g_led.set_fault(og::Fault::Init, true);
+    }
+    xTaskCreate(ble_report_task, "ble_report", 4096, nullptr, 2, nullptr);
+    og::run_espnow_rx_test();
+    return;
+#endif
 #if defined(CONFIG_OG_DISP_TEST_ESPNOW)
     // A kijelzőt nem inicializáljuk: a panel nem kap képet, a vételi teszt csak naplóz.
     og::run_espnow_rx_test();
@@ -44,12 +134,20 @@ extern "C" void app_main(void) {
 #ifdef CONFIG_OG_TOUCH_MIRROR_Y
     tc.mirror_y = true;
 #endif
+#ifdef CONFIG_OG_DISP_ROTATE_180
+    // 180°-os forgatásnál az érintő mindkét tengelye megfordul az alapbeállításhoz képest.
+    tc.mirror_x = !tc.mirror_x;
+    tc.mirror_y = !tc.mirror_y;
+#endif
 #ifdef CONFIG_OG_TOUCH_USE_INT
     tc.use_interrupt = true;
 #endif
     static og::TouchPanel touch;
     const bool touch_ok = touch.init(tc);
-    if (!touch_ok) ESP_LOGW(TAG, "Az érintővezérlő nem érhető el");
+    if (!touch_ok) {
+        ESP_LOGW(TAG, "Az érintővezérlő nem érhető el");
+        g_led.set_fault(og::Fault::Init, true);
+    }
 #endif
 
 
@@ -64,6 +162,9 @@ extern "C" void app_main(void) {
 #ifdef CONFIG_OG_LCD_BGR
     cfg.bgr = true;
 #endif
+#ifdef CONFIG_OG_DISP_ROTATE_180
+    cfg.rotate_180 = true;
+#endif
 #ifdef CONFIG_OG_LCD_INIT_COMPONENT_DEFAULT
     cfg.init = og::LcdInit::ComponentDefault;
 #endif
@@ -71,6 +172,7 @@ extern "C" void app_main(void) {
     static og::LcdPanel lcd;
     if (!lcd.init(cfg)) {
         ESP_LOGE(TAG, "A kijelző nem indult el; a bekötést és a tápot kell ellenőrizni");
+        g_led.set_fault(og::Fault::Init, true);
         return;
     }
     lcd.fill_rect(0, 0, og::LcdPanel::kWidth, og::LcdPanel::kHeight, 0);  // induláskor véletlenszerű a panel memóriája
@@ -83,7 +185,7 @@ extern "C" void app_main(void) {
 #endif
 
 #if defined(CONFIG_OG_DISP_TEST_DASH)
-    og::run_dash_app(lcd, cfg.swap_bytes, touch_ok ? &touch : nullptr);
+    og::run_dash_app(lcd, cfg.swap_bytes, touch_ok ? &touch : nullptr, g_led);
 #elif defined(CONFIG_OG_DISP_TEST_TOUCH)
     og::run_touch_test(lcd, cfg.swap_bytes, touch);
 #elif defined(CONFIG_OG_DISP_TEST_COLORS)

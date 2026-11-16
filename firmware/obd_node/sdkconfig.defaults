@@ -1,5 +1,15 @@
 # ESP32-C3 (célhardver: idf.py set-target esp32c3)
 CONFIG_FREERTOS_HZ=1000
+# A C3-WROOM-02 a NYÁK-on és a SuperMini is 4 MB-os flasht tartalmaz (esptool flash_id).
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 # A SuperMini és a saját NYÁK is a natív USB-Serial/JTAG-on át programozható és naplóz.
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=6144
+
+# BLE (NimBLE): az ébresztő hirdetés/szkennelés (S-13) miatt; a tesztmódokon kívül nem indul el.
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+
+
+# Az alkalmazás (Wi-Fi + ESP-NOW + BLE + TWAI) az alapértelmezett 1 MB-ot már kitölti; 1,5 MB-os partíció.
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y

@@ -10,6 +10,7 @@
 //             LVGL nélkül, PC-n tesztelhető; a nézetek csak kirajzolják az eredményt.
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 #include "og_link_stats.h"
 #include "og_protocol.h"
@@ -36,6 +37,7 @@ struct DashValues {
 struct DashLink {
     uint32_t received = 0, lost = 0, stale = 0, resyncs = 0, invalid = 0;
     float loss_ratio = 0.f;
+    float loss_ratio_window = 0.f;  // az utolsó kWindowS másodperc vesztesége (0..1): a pillanatnyi kapcsolatminőség
     uint16_t last_seq = 0;
     uint32_t per_sec = 0;  // az utolsó lezárt másodperc csomagszáma
     int rssi_dbm = 0;      // az utolsó lezárt másodperc átlagos térereje (0, ha nem jött csomag)
@@ -45,6 +47,8 @@ class DashModel {
 public:
     // Ennél régebbi adat már nem számít frissnek (5 kimaradt csomag 10 Hz-en).
     static constexpr uint32_t kStaleMs = 500;
+    // A gördülő veszteségarány ablaka másodpercben.
+    static constexpr int kWindowS = 60;
 
     explicit DashModel(uint32_t sample_period_ms = 100) : rpm_(sample_period_ms), speed_(sample_period_ms) {}
 
@@ -53,19 +57,54 @@ public:
     //             értékei kerülnek a modellbe, a duplikált vagy késve érkezett nem.
     bool on_packet(const uint8_t* data, size_t len, int8_t rssi, uint32_t now_ms);
 
+    // Mit csinál: igaz, ha kPeerTimeoutMs-on belül jött érvényes csomag (telemetria vagy életjel).
+    // Miért:      a "friss adat" (fresh) a CAN-oldaltól is függ; az életjel azt mutatja meg, hogy
+    //             a rádiókapcsolat él akkor is, ha az OBD-egység éppen nem kap adatot az ECU-tól.
+    bool peer_alive(uint32_t now_ms) const {
+        return heard_ && now_ms - last_heard_ms_ <= kPeerTimeoutMs;
+    }
+
+    // Mit csinál: igaz, ha az OBD-egység jelezte, hogy a motor leállt, és azóta nem jött új telemetria.
+    // Miért:      a kijelző ekkor számolhat vissza az alvásig; az új telemetria törli a jelzést.
+    bool engine_stopped() const { return engine_stopped_; }
+    uint32_t stopped_ms() const { return stopped_ms_; }
+
     // Mit csinál: lezár egy másodpercet: a csomag/s és az átlagos térerő ebből számolódik.
     void on_second();
+
+    // Mit csinál: a legutóbb vett érvényes VIN (üres, ha még nem jött). A VIN-t az OBD-egység időnként
+    //             ismétli; csak a változás számít újnak.
+    const char* vin() const { return vin_; }
+
+    // Mit csinál: igaz (és kiadja a VIN-t), ha az utolsó lekérdezés óta új vagy megváltozott VIN jött.
+    // Miért:      a hívó ilyenkor menti el (NVS) az utolsó márkát; ismétlődő azonos VIN-nél nem ír újra.
+    bool take_new_vin(char out[18]) {
+        if (!vin_dirty_) return false;
+        std::memcpy(out, vin_, sizeof vin_);
+        vin_dirty_ = false;
+        return true;
+    }
 
     DashValues values(uint32_t now_ms) const;
     DashLink link() const;
 
 private:
     LinkStats stats_;
+    // Másodpercenkénti vett/elveszett csomagszám körpuffere a gördülő ablakhoz.
+    uint32_t win_rx_[kWindowS] = {}, win_lost_[kWindowS] = {};
+    int win_pos_ = 0;
+    uint32_t win_prev_rx_ = 0, win_prev_lost_ = 0;
     TelemetryMsg last_ = {};
     bool has_data_ = false;
     uint32_t last_ms_ = 0;
+    bool engine_stopped_ = false;
+    uint32_t stopped_ms_ = 0;
+    bool heard_ = false;
+    uint32_t last_heard_ms_ = 0;
     Smoother rpm_, speed_;
     uint32_t invalid_ = 0;
+    char vin_[18] = {};
+    bool vin_dirty_ = false;
     uint32_t sec_count_ = 0, per_sec_ = 0;
     int32_t sec_rssi_sum_ = 0;
     int rssi_avg_ = 0;

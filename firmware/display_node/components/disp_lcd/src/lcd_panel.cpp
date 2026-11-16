@@ -64,7 +64,9 @@ bool LcdPanel::init(const LcdConfig& cfg) {
         t.speed_mode = kBlMode;
         t.duty_resolution = LEDC_TIMER_10_BIT;
         t.timer_num = kBlTimer;
-        t.freq_hz = 5000;
+        // 25 kHz: a hallható tartomány fölött van, így a PWM-áramlöketek nem keltenek hangot a kerámia
+        // kondenzátorokban (Q-65). 10 bites felbontás mellett az LEDC 80 MHz-es órájával ez még belefér.
+        t.freq_hz = 25000;
         t.clk_cfg = LEDC_AUTO_CLK;
         OG_CHECK(ledc_timer_config(&t));
         ledc_channel_config_t c = {};
@@ -120,6 +122,10 @@ bool LcdPanel::init(const LcdConfig& cfg) {
     OG_CHECK(esp_lcd_new_panel_st77916(io_, &dev, &panel_));
     OG_CHECK(esp_lcd_panel_reset(panel_));
     OG_CHECK(esp_lcd_panel_init(panel_));
+    // 180°-os forgatás: a MADCTL X és Y tükrözése (a ház miatt fejjel lefelé beépített modulhoz); az init-sorozat után kell.
+    if (cfg.rotate_180) {
+        OG_CHECK(esp_lcd_panel_mirror(panel_, true, true));
+    }
     OG_CHECK(esp_lcd_panel_disp_on_off(panel_, true));
 
     ESP_LOGI(TAG, "ST77916 kész: %dx%d, QSPI %lu MHz, bájtcsere %s, %s, init: %s", kWidth, kHeight,
@@ -140,6 +146,10 @@ void LcdPanel::set_backlight(uint8_t percent) {
 bool LcdPanel::send_strip(int x, int y, int w, int h) {
     if (esp_lcd_panel_draw_bitmap(panel_, x, y, x + w, y + h, buf_) != ESP_OK) return false;
     return xSemaphoreTake(static_cast<SemaphoreHandle_t>(done_), pdMS_TO_TICKS(1000)) == pdTRUE;
+}
+
+void LcdPanel::display_on(bool on) {
+    if (panel_) esp_lcd_panel_disp_on_off(panel_, on);
 }
 
 bool LcdPanel::fill_rect(int x, int y, int w, int h, uint16_t color) {

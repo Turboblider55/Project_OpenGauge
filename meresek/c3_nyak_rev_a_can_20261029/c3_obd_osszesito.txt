@@ -1,0 +1,454 @@
+[2026-10-29 20:47:38.339] === Naplózás indul: COM8, 2 perc ===
+[2026-10-29 20:47:38.379] === Port megnyitva ===
+[2026-10-29 20:47:38.482] I (8813) og_obd: Protokoll-felismerés...
+[2026-10-29 20:47:38.482] ESP-ROM:esp32c3-api1-20210207
+[2026-10-29 20:47:38.482] Build:Feb  7 2021
+[2026-10-29 20:47:38.483] rst:0x15 (USB_UART_CHIP_RESET),boot:0x8 (SPI_FAST_FLASH_BOOT)
+[2026-10-29 20:47:38.483] Saved PC:0x40383e8c
+[2026-10-29 20:47:38.483] SPIWP:0xee
+[2026-10-29 20:47:38.483] mode:DIO, clock div:1
+[2026-10-29 20:47:38.484] load:0x3fcd5830,len:0x1584
+[2026-10-29 20:47:38.484] load:0x403cbf10,len:0xc44
+[2026-10-29 20:47:38.484] load:0x403ce710,len:0x2ff8
+[2026-10-29 20:47:38.485] entry 0x403cbf1a
+[2026-10-29 20:47:38.485] I (24) boot: ESP-IDF v5.5.3 2nd stage bootloader
+[2026-10-29 20:47:38.493] I (24) boot: compile time Oct 28 2026 23:06:40
+[2026-10-29 20:47:38.493] I (24) boot: chip revision: v0.4
+[2026-10-29 20:47:38.493] I (25) boot: efuse block revision: v1.3
+[2026-10-29 20:47:38.495] I (25) boot.esp32c3: SPI Speed      : 80MHz
+[2026-10-29 20:47:38.495] I (25) boot.esp32c3: SPI Mode       : DIO
+[2026-10-29 20:47:38.495] I (25) boot.esp32c3: SPI Flash Size : 4MB
+[2026-10-29 20:47:38.495] I (25) boot: Enabling RNG early entropy source...
+[2026-10-29 20:47:38.495] I (25) boot: Partition Table:
+[2026-10-29 20:47:38.496] I (25) boot: ## Label            Usage          Type ST Offset   Length
+[2026-10-29 20:47:38.496] I (26) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+[2026-10-29 20:47:38.496] I (26) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+[2026-10-29 20:47:38.496] I (26) boot:  2 factory          factory app      00 00 00010000 00100000
+[2026-10-29 20:47:38.497] I (26) boot: End of partition table
+[2026-10-29 20:47:38.497] I (27) esp_image: segment 0: paddr=00010020 vaddr=3c0a0020 size=189d4h (100820) map
+[2026-10-29 20:47:38.497] I (43) esp_image: segment 1: paddr=000289fc vaddr=3fc93e00 size=030d4h ( 12500) load
+[2026-10-29 20:47:38.498] I (46) esp_image: segment 2: paddr=0002bad8 vaddr=40380000 size=04540h ( 17728) load
+[2026-10-29 20:47:38.498] I (49) esp_image: segment 3: paddr=00030020 vaddr=42000020 size=934c8h (603336) map
+[2026-10-29 20:47:38.564] I (146) esp_image: segment 4: paddr=000c34f0 vaddr=40384540 size=0f754h ( 63316) load
+[2026-10-29 20:47:38.565] I (157) esp_image: segment 5: paddr=000d2c4c vaddr=50000000 size=00020h (    32) load
+[2026-10-29 20:47:38.565] I (164) boot: Loaded app from partition at offset 0x10000
+[2026-10-29 20:47:38.565] I (164) boot: Disabling RNG early entropy source...
+[2026-10-29 20:47:38.565] I (165) cpu_start: Unicore app
+[2026-10-29 20:47:38.566] I (173) cpu_start: Pro cpu start user code
+[2026-10-29 20:47:38.566] I (173) cpu_start: cpu freq: 160000000 Hz
+[2026-10-29 20:47:38.566] I (173) app_init: Application information:
+[2026-10-29 20:47:38.566] I (174) app_init: Project name:     og_obd_node
+[2026-10-29 20:47:38.567] I (174) app_init: App version:      103fa73
+[2026-10-29 20:47:38.567] I (174) app_init: Compile time:     Oct 28 2026 23:06:13
+[2026-10-29 20:47:38.567] I (174) app_init: ELF file SHA256:  e06796832...
+[2026-10-29 20:47:38.567] I (174) app_init: ESP-IDF:          v5.5.3
+[2026-10-29 20:47:38.567] I (174) efuse_init: Min chip rev:     v0.3
+[2026-10-29 20:47:38.568] I (174) efuse_init: Max chip rev:     v1.99 
+[2026-10-29 20:47:38.568] I (174) efuse_init: Chip rev:         v0.4
+[2026-10-29 20:47:38.568] I (174) heap_init: Initializing. RAM available for dynamic allocation:
+[2026-10-29 20:47:38.568] I (175) heap_init: At 3FC9B210 len 00024DF0 (147 KiB): RAM
+[2026-10-29 20:47:38.569] I (175) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM
+[2026-10-29 20:47:38.569] I (175) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM
+[2026-10-29 20:47:38.569] I (175) heap_init: At 50000020 len 00001FC8 (7 KiB): RTCRAM
+[2026-10-29 20:47:38.569] I (176) spi_flash: detected chip: generic
+[2026-10-29 20:47:38.569] I (176) spi_flash: flash io: dio
+[2026-10-29 20:47:38.570] I (177) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+[2026-10-29 20:47:38.570] I (177) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+[2026-10-29 20:47:38.570] I (178) main_task: Started on CPU0
+[2026-10-29 20:47:38.570] I (178) main_task: Calling app_main()
+[2026-10-29 20:47:38.571] I (178) og_obd: OpenGauge OBD-egység indul; protokoll v1, Telemetry = 15 B
+[2026-10-29 20:47:38.571] I (183) pp: pp rom version: 9387209
+[2026-10-29 20:47:38.571] I (184) net80211: net80211 rom version: 9387209
+[2026-10-29 20:47:38.571] I (185) wifi:wifi driver task: 3fca4204, prio:23, stack:6656, core=0
+[2026-10-29 20:47:38.628] I (189) wifi:wifi firmware version: 4df78f2
+[2026-10-29 20:47:38.628] I (189) wifi:wifi certification version: v7.0
+[2026-10-29 20:47:38.629] I (190) wifi:config NVS flash: enabled
+[2026-10-29 20:47:38.629] I (190) wifi:config nano formatting: disabled
+[2026-10-29 20:47:38.630] I (190) wifi:Init data frame dynamic rx buffer num: 32
+[2026-10-29 20:47:38.630] I (190) wifi:Init static rx mgmt buffer num: 5
+[2026-10-29 20:47:38.631] I (190) wifi:Init management short buffer num: 32
+[2026-10-29 20:47:38.631] I (190) wifi:Init dynamic tx buffer num: 32
+[2026-10-29 20:47:38.632] I (191) wifi:Init static tx FG buffer num: 2
+[2026-10-29 20:47:38.632] I (191) wifi:Init static rx buffer size: 1600
+[2026-10-29 20:47:38.633] I (191) wifi:Init static rx buffer num: 10
+[2026-10-29 20:47:38.633] I (191) wifi:Init dynamic rx buffer num: 32
+[2026-10-29 20:47:38.634] I (192) wifi_init: rx ba win: 6
+[2026-10-29 20:47:38.634] I (192) wifi_init: accept mbox: 6
+[2026-10-29 20:47:38.635] I (192) wifi_init: tcpip mbox: 32
+[2026-10-29 20:47:38.635] I (192) wifi_init: udp mbox: 6
+[2026-10-29 20:47:38.635] I (192) wifi_init: tcp mbox: 6
+[2026-10-29 20:47:38.636] I (192) wifi_init: tcp tx win: 5760
+[2026-10-29 20:47:38.636] I (193) wifi_init: tcp rx win: 5760
+[2026-10-29 20:47:38.636] I (193) wifi_init: tcp mss: 1440
+[2026-10-29 20:47:38.636] I (193) wifi_init: WiFi IRAM OP enabled
+[2026-10-29 20:47:38.637] I (193) wifi_init: WiFi RX IRAM OP enabled
+[2026-10-29 20:47:38.638] I (193) phy_init: phy_version 1232,d493f299,Aug 25 2025,19:01:20
+[2026-10-29 20:47:38.638] I (230) wifi:mode : sta (68:c6:3a:3b:1f:f0)
+[2026-10-29 20:47:38.638] I (231) wifi:enable tsf
+[2026-10-29 20:47:38.638] I (233) wifi:Set ps type: 0, coexist: 0
+[2026-10-29 20:47:38.639] I (234) ESPNOW: espnow [version: 2.0] init
+[2026-10-29 20:47:38.639] I (234) espnow: ESP-NOW kész: csatorna 1, saját MAC 68:c6:3a:3b:1f:f0, társ ff:ff:ff:ff:ff:ff (szórás: nincs nyugta)
+[2026-10-29 20:47:38.639] I (234) og_obd: Protokoll-felismerés...
+[2026-10-29 20:47:38.639] I (235) can: TWAI: 500 kbit/s
+[2026-10-29 20:47:38.842] I (462) og_obd: Protokoll: klasszikus J1979, 500 kbit/s, 11 bites azonosítók, 1 ECU, elsődleges kérés-azonosító 0x7E0
+[2026-10-29 20:47:38.843] I (462) og_obd:   ECU 0: válasz-azonosító 0x7E8
+[2026-10-29 20:47:38.843] I (462) og_obd:   Támogatott PID-ek 0x00: 88188001
+[2026-10-29 20:47:38.843] I (462) og_obd:   Támogatott PID-ek 0x20: 00000001
+[2026-10-29 20:47:38.843] I (462) og_obd:   Támogatott PID-ek 0x40: 40000000
+[2026-10-29 20:47:38.912] I (508) og_obd: VIN: WTEST12345678901A
+[2026-10-29 20:47:38.968] I (550) og_obd: Tárolt hibakódok (Mode 03): 2
+[2026-10-29 20:47:40.017] I (1592) og_obd: 1/perc 1975.2 | km/h 41.0 | fojtó % 40.0 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:40.017] I (1593) og_obd: Kérések: RPM 10 (hiba 0), összes TX 29, RX 30, újraindítás 0
+[2026-10-29 20:47:40.017] I (1593) og_obd: ESP-NOW: seq 10, elküldve 10, sikertelen 0
+[2026-10-29 20:47:41.047] I (2633) og_obd: 1/perc 2442.0 | km/h 55.0 | fojtó % 49.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:41.048] I (2633) og_obd: Kérések: RPM 21 (hiba 0), összes TX 49, RX 50, újraindítás 0
+[2026-10-29 20:47:41.048] I (2633) og_obd: ESP-NOW: seq 20, elküldve 20, sikertelen 0
+[2026-10-29 20:47:42.115] I (3674) og_obd: 1/perc 2796.8 | km/h 70.0 | fojtó % 58.0 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:42.116] I (3675) og_obd: Kérések: RPM 31 (hiba 0), összes TX 70, RX 71, újraindítás 0
+[2026-10-29 20:47:42.117] I (3675) og_obd: ESP-NOW: seq 31, elküldve 31, sikertelen 0
+[2026-10-29 20:47:43.100] I (4715) og_obd: 1/perc 3083.2 | km/h 80.0 | fojtó % 65.1 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:43.101] I (4715) og_obd: Kérések: RPM 42 (hiba 0), összes TX 90, RX 91, újraindítás 0
+[2026-10-29 20:47:43.102] I (4715) og_obd: ESP-NOW: seq 41, elküldve 41, sikertelen 0
+[2026-10-29 20:47:44.146] I (5756) og_obd: 1/perc 3273.8 | km/h 87.0 | fojtó % 69.8 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:44.146] I (5757) og_obd: Kérések: RPM 52 (hiba 0), összes TX 111, RX 112, újraindítás 0
+[2026-10-29 20:47:44.147] I (5757) og_obd: ESP-NOW: seq 52, elküldve 52, sikertelen 0
+[2026-10-29 20:47:45.231] I (6797) og_obd: 1/perc 3349.2 | km/h 90.0 | fojtó % 71.8 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:45.231] I (6797) og_obd: Kérések: RPM 62 (hiba 0), összes TX 132, RX 133, újraindítás 0
+[2026-10-29 20:47:45.231] I (6797) og_obd: ESP-NOW: seq 62, elküldve 62, sikertelen 0
+[2026-10-29 20:47:46.244] I (7837) og_obd: 1/perc 3291.0 | km/h 87.0 | fojtó % 71.0 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:46.244] I (7838) og_obd: Kérések: RPM 73 (hiba 0), összes TX 153, RX 154, újraindítás 0
+[2026-10-29 20:47:46.245] I (7838) og_obd: ESP-NOW: seq 72, elküldve 72, sikertelen 0
+[2026-10-29 20:47:47.312] I (8879) og_obd: 1/perc 3092.0 | km/h 81.0 | fojtó % 67.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:47.312] I (8880) og_obd: Kérések: RPM 83 (hiba 0), összes TX 173, RX 174, újraindítás 0
+[2026-10-29 20:47:47.313] I (8880) og_obd: ESP-NOW: seq 83, elküldve 83, sikertelen 0
+[2026-10-29 20:47:48.300] I (9893) og_obd: 1/perc 2808.5 | km/h 71.0 | fojtó % 61.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:48.300] I (9893) og_obd: Kérések: RPM 94 (hiba 0), összes TX 193, RX 194, újraindítás 0
+[2026-10-29 20:47:48.300] I (9893) og_obd: ESP-NOW: seq 93, elküldve 93, sikertelen 0
+[2026-10-29 20:47:49.335] I (10919) og_obd: 1/perc 2417.8 | km/h 58.0 | fojtó % 53.3 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:49.335] I (10919) og_obd: Kérések: RPM 104 (hiba 0), összes TX 213, RX 214, újraindítás 0
+[2026-10-29 20:47:49.335] I (10919) og_obd: ESP-NOW: seq 103, elküldve 103, sikertelen 0
+[2026-10-29 20:47:50.341] I (11934) og_obd: 1/perc 2067.8 | km/h 44.0 | fojtó % 40.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:50.341] I (11935) og_obd: Kérések: RPM 114 (hiba 0), összes TX 234, RX 235, újraindítás 0
+[2026-10-29 20:47:50.341] I (11935) og_obd: ESP-NOW: seq 113, elküldve 113, sikertelen 0
+[2026-10-29 20:47:51.372] I (12959) og_obd: 1/perc 1646.5 | km/h 30.0 | fojtó % 31.0 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:51.372] I (12960) og_obd: Kérések: RPM 124 (hiba 0), összes TX 254, RX 255, újraindítás 0
+[2026-10-29 20:47:51.373] I (12960) og_obd: ESP-NOW: seq 124, elküldve 124, sikertelen 0
+[2026-10-29 20:47:52.382] I (13993) og_obd: 1/perc 1308.8 | km/h 18.0 | fojtó % 23.1 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:52.382] I (13993) og_obd: Kérések: RPM 135 (hiba 0), összes TX 274, RX 275, újraindítás 0
+[2026-10-29 20:47:52.382] I (13993) og_obd: ESP-NOW: seq 134, elküldve 134, sikertelen 0
+[2026-10-29 20:47:53.393] I (14998) og_obd: 1/perc 1048.5 | km/h 8.0 | fojtó % 16.9 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:53.393] I (14999) og_obd: Kérések: RPM 145 (hiba 0), összes TX 294, RX 295, újraindítás 0
+[2026-10-29 20:47:53.393] I (14999) og_obd: ESP-NOW: seq 144, elküldve 144, sikertelen 0
+[2026-10-29 20:47:54.452] I (16039) og_obd: 1/perc 891.0 | km/h 1.0 | fojtó % 12.9 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:54.452] I (16040) og_obd: Kérések: RPM 155 (hiba 0), összes TX 315, RX 316, újraindítás 0
+[2026-10-29 20:47:54.453] I (16040) og_obd: ESP-NOW: seq 154, elküldve 154, sikertelen 0
+[2026-10-29 20:47:55.482] I (17051) og_obd: 1/perc 852.0 | km/h 0.0 | fojtó % 12.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:55.482] I (17051) og_obd: Kérések: RPM 165 (hiba 0), összes TX 335, RX 336, újraindítás 0
+[2026-10-29 20:47:55.482] I (17052) og_obd: ESP-NOW: seq 165, elküldve 165, sikertelen 0
+[2026-10-29 20:47:56.438] I (18051) og_obd: 1/perc 935.2 | km/h 4.0 | fojtó % 14.1 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:56.438] I (18051) og_obd: Kérések: RPM 175 (hiba 0), összes TX 354, RX 355, újraindítás 0
+[2026-10-29 20:47:56.438] I (18052) og_obd: ESP-NOW: seq 175, elküldve 175, sikertelen 0
+[2026-10-29 20:47:57.463] I (19051) og_obd: 1/perc 1132.2 | km/h 11.0 | fojtó % 18.8 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:57.463] I (19051) og_obd: Kérések: RPM 185 (hiba 0), összes TX 374, RX 375, újraindítás 0
+[2026-10-29 20:47:57.463] I (19052) og_obd: ESP-NOW: seq 185, elküldve 185, sikertelen 0
+[2026-10-29 20:47:58.434] I (20051) og_obd: 1/perc 1424.2 | km/h 22.0 | fojtó % 25.9 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:58.434] I (20051) og_obd: Kérések: RPM 195 (hiba 0), összes TX 393, RX 394, újraindítás 0
+[2026-10-29 20:47:58.434] I (20052) og_obd: ESP-NOW: seq 195, elküldve 195, sikertelen 0
+[2026-10-29 20:47:59.458] I (21077) og_obd: 1/perc 1820.5 | km/h 35.0 | fojtó % 34.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:47:59.458] I (21077) og_obd: Kérések: RPM 205 (hiba 0), összes TX 414, RX 415, újraindítás 0
+[2026-10-29 20:47:59.458] I (21078) og_obd: ESP-NOW: seq 205, elküldve 205, sikertelen 0
+[2026-10-29 20:48:00.477] I (22092) og_obd: 1/perc 2210.5 | km/h 49.0 | fojtó % 43.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:00.477] I (22093) og_obd: Kérések: RPM 216 (hiba 0), összes TX 434, RX 435, újraindítás 0
+[2026-10-29 20:48:00.477] I (22093) og_obd: ESP-NOW: seq 215, elküldve 215, sikertelen 0
+[2026-10-29 20:48:01.524] I (23092) og_obd: 1/perc 2590.0 | km/h 63.0 | fojtó % 52.9 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:01.524] I (23093) og_obd: Kérések: RPM 226 (hiba 0), összes TX 454, RX 455, újraindítás 0
+[2026-10-29 20:48:01.525] I (23093) og_obd: ESP-NOW: seq 225, elküldve 225, sikertelen 0
+[2026-10-29 20:48:02.508] I (24093) og_obd: 1/perc 2921.2 | km/h 75.0 | fojtó % 61.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:02.509] I (24093) og_obd: Kérések: RPM 236 (hiba 0), összes TX 473, RX 474, újraindítás 0
+[2026-10-29 20:48:02.509] I (24093) og_obd: ESP-NOW: seq 235, elküldve 235, sikertelen 0
+[2026-10-29 20:48:03.533] I (25093) og_obd: 1/perc 3172.2 | km/h 84.0 | fojtó % 67.1 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:03.534] I (25093) og_obd: Kérések: RPM 246 (hiba 0), összes TX 493, RX 494, újraindítás 0
+[2026-10-29 20:48:03.535] I (25093) og_obd: ESP-NOW: seq 245, elküldve 245, sikertelen 0
+[2026-10-29 20:48:04.486] I (26093) og_obd: 1/perc 3318.2 | km/h 89.0 | fojtó % 71.0 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:04.486] I (26093) og_obd: Kérések: RPM 256 (hiba 0), összes TX 513, RX 514, újraindítás 0
+[2026-10-29 20:48:04.487] I (26093) og_obd: ESP-NOW: seq 255, elküldve 255, sikertelen 0
+[2026-10-29 20:48:05.513] I (27092) og_obd: 1/perc 3345.0 | km/h 90.0 | fojtó % 71.8 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:05.513] I (27093) og_obd: Kérések: RPM 266 (hiba 0), összes TX 533, RX 534, újraindítás 0
+[2026-10-29 20:48:05.513] I (27093) og_obd: ESP-NOW: seq 265, elküldve 265, sikertelen 0
+[2026-10-29 20:48:06.486] I (28092) og_obd: 1/perc 3250.0 | km/h 86.0 | fojtó % 69.8 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:06.486] I (28093) og_obd: Kérések: RPM 276 (hiba 0), összes TX 552, RX 553, újraindítás 0
+[2026-10-29 20:48:06.486] I (28093) og_obd: ESP-NOW: seq 275, elküldve 275, sikertelen 0
+[2026-10-29 20:48:07.498] I (29093) og_obd: 1/perc 3042.2 | km/h 79.0 | fojtó % 65.1 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:07.498] I (29093) og_obd: Kérések: RPM 286 (hiba 0), összes TX 572, RX 573, újraindítás 0
+[2026-10-29 20:48:07.498] I (29093) og_obd: ESP-NOW: seq 285, elküldve 285, sikertelen 0
+[2026-10-29 20:48:08.499] I (30092) og_obd: 1/perc 2742.5 | km/h 68.0 | fojtó % 58.0 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:08.500] I (30093) og_obd: Kérések: RPM 296 (hiba 0), összes TX 591, RX 592, újraindítás 0
+[2026-10-29 20:48:08.500] I (30093) og_obd: ESP-NOW: seq 295, elküldve 295, sikertelen 0
+[2026-10-29 20:48:09.526] I (31108) og_obd: 1/perc 2379.5 | km/h 55.0 | fojtó % 49.8 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:09.526] I (31109) og_obd: Kérések: RPM 306 (hiba 0), összes TX 612, RX 613, újraindítás 0
+[2026-10-29 20:48:09.527] I (31109) og_obd: ESP-NOW: seq 305, elküldve 305, sikertelen 0
+[2026-10-29 20:48:10.573] I (32151) og_obd: 1/perc 1989.5 | km/h 41.0 | fojtó % 40.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:10.573] I (32151) og_obd: Kérések: RPM 316 (hiba 0), összes TX 631, RX 632, újraindítás 0
+[2026-10-29 20:48:10.573] I (32152) og_obd: ESP-NOW: seq 316, elküldve 316, sikertelen 0
+[2026-10-29 20:48:11.543] I (33151) og_obd: 1/perc 1610.0 | km/h 27.0 | fojtó % 31.0 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:11.543] I (33151) og_obd: Kérések: RPM 326 (hiba 0), összes TX 651, RX 652, újraindítás 0
+[2026-10-29 20:48:11.543] I (33152) og_obd: ESP-NOW: seq 326, elküldve 326, sikertelen 0
+[2026-10-29 20:48:12.563] I (34151) og_obd: 1/perc 1278.8 | km/h 15.0 | fojtó % 23.1 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:12.563] I (34151) og_obd: Kérések: RPM 336 (hiba 0), összes TX 670, RX 671, újraindítás 0
+[2026-10-29 20:48:12.563] I (34152) og_obd: ESP-NOW: seq 336, elküldve 336, sikertelen 0
+[2026-10-29 20:48:13.556] I (35151) og_obd: 1/perc 1027.8 | km/h 6.0 | fojtó % 16.9 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:13.556] I (35151) og_obd: Kérések: RPM 346 (hiba 0), összes TX 690, RX 691, újraindítás 0
+[2026-10-29 20:48:13.556] I (35152) og_obd: ESP-NOW: seq 346, elküldve 346, sikertelen 0
+[2026-10-29 20:48:14.570] I (36151) og_obd: 1/perc 881.8 | km/h 1.0 | fojtó % 12.9 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:14.570] I (36151) og_obd: Kérések: RPM 356 (hiba 0), összes TX 710, RX 711, újraindítás 0
+[2026-10-29 20:48:14.570] I (36152) og_obd: ESP-NOW: seq 356, elküldve 356, sikertelen 0
+[2026-10-29 20:48:15.535] I (37151) og_obd: 1/perc 855.0 | km/h 0.0 | fojtó % 12.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:15.536] I (37151) og_obd: Kérések: RPM 366 (hiba 0), összes TX 730, RX 731, újraindítás 0
+[2026-10-29 20:48:15.536] I (37151) og_obd: ESP-NOW: seq 366, elküldve 366, sikertelen 0
+[2026-10-29 20:48:16.546] I (38151) og_obd: 1/perc 950.0 | km/h 4.0 | fojtó % 13.7 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:16.546] I (38151) og_obd: Kérések: RPM 376 (hiba 0), összes TX 749, RX 750, újraindítás 0
+[2026-10-29 20:48:16.546] I (38151) og_obd: ESP-NOW: seq 376, elküldve 376, sikertelen 0
+[2026-10-29 20:48:17.546] I (39151) og_obd: 1/perc 1157.8 | km/h 11.0 | fojtó % 18.0 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:17.546] I (39151) og_obd: Kérések: RPM 386 (hiba 0), összes TX 769, RX 770, újraindítás 0
+[2026-10-29 20:48:17.546] I (39152) og_obd: ESP-NOW: seq 386, elküldve 386, sikertelen 0
+[2026-10-29 20:48:18.535] I (40151) og_obd: 1/perc 1457.8 | km/h 22.0 | fojtó % 25.1 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:18.535] I (40151) og_obd: Kérések: RPM 396 (hiba 0), összes TX 788, RX 789, újraindítás 0
+[2026-10-29 20:48:18.535] I (40152) og_obd: ESP-NOW: seq 396, elküldve 396, sikertelen 0
+[2026-10-29 20:48:19.545] I (41151) og_obd: 1/perc 1820.5 | km/h 35.0 | fojtó % 34.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:19.545] I (41151) og_obd: Kérések: RPM 406 (hiba 0), összes TX 809, RX 810, újraindítás 0
+[2026-10-29 20:48:19.545] I (41152) og_obd: ESP-NOW: seq 406, elküldve 406, sikertelen 0
+[2026-10-29 20:48:20.556] I (42151) og_obd: 1/perc 2210.5 | km/h 49.0 | fojtó % 42.7 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:20.557] I (42151) og_obd: Kérések: RPM 416 (hiba 0), összes TX 828, RX 829, újraindítás 0
+[2026-10-29 20:48:20.557] I (42152) og_obd: ESP-NOW: seq 416, elküldve 416, sikertelen 0
+[2026-10-29 20:48:21.571] I (43151) og_obd: 1/perc 2590.0 | km/h 63.0 | fojtó % 52.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:21.571] I (43151) og_obd: Kérések: RPM 426 (hiba 0), összes TX 848, RX 849, újraindítás 0
+[2026-10-29 20:48:21.571] I (43152) og_obd: ESP-NOW: seq 426, elküldve 426, sikertelen 0
+[2026-10-29 20:48:22.536] I (44151) og_obd: 1/perc 2921.2 | km/h 75.0 | fojtó % 60.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:22.537] I (44151) og_obd: Kérések: RPM 436 (hiba 0), összes TX 867, RX 868, újraindítás 0
+[2026-10-29 20:48:22.537] I (44152) og_obd: ESP-NOW: seq 436, elküldve 436, sikertelen 0
+[2026-10-29 20:48:23.578] I (45151) og_obd: 1/perc 3172.2 | km/h 84.0 | fojtó % 66.7 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:23.578] I (45151) og_obd: Kérések: RPM 446 (hiba 0), összes TX 887, RX 888, újraindítás 0
+[2026-10-29 20:48:23.578] I (45152) og_obd: ESP-NOW: seq 446, elküldve 446, sikertelen 0
+[2026-10-29 20:48:24.592] I (46151) og_obd: 1/perc 3318.2 | km/h 89.0 | fojtó % 70.6 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:24.593] I (46151) og_obd: Kérések: RPM 456 (hiba 0), összes TX 907, RX 908, újraindítás 0
+[2026-10-29 20:48:24.593] I (46152) og_obd: ESP-NOW: seq 456, elküldve 456, sikertelen 0
+[2026-10-29 20:48:25.582] I (47151) og_obd: 1/perc 3345.0 | km/h 90.0 | fojtó % 72.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:25.582] I (47151) og_obd: Kérések: RPM 466 (hiba 0), összes TX 927, RX 928, újraindítás 0
+[2026-10-29 20:48:25.582] I (47152) og_obd: ESP-NOW: seq 466, elküldve 466, sikertelen 0
+[2026-10-29 20:48:26.534] I (48151) og_obd: 1/perc 3250.0 | km/h 86.0 | fojtó % 70.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:26.535] I (48151) og_obd: Kérések: RPM 476 (hiba 0), összes TX 946, RX 947, újraindítás 0
+[2026-10-29 20:48:26.535] I (48151) og_obd: ESP-NOW: seq 476, elküldve 476, sikertelen 0
+[2026-10-29 20:48:27.546] I (49151) og_obd: 1/perc 3042.2 | km/h 79.0 | fojtó % 65.9 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:27.546] I (49151) og_obd: Kérések: RPM 486 (hiba 0), összes TX 966, RX 967, újraindítás 0
+[2026-10-29 20:48:27.547] I (49152) og_obd: ESP-NOW: seq 486, elküldve 486, sikertelen 0
+[2026-10-29 20:48:28.544] I (50151) og_obd: 1/perc 2742.2 | km/h 68.0 | fojtó % 58.8 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:28.544] I (50151) og_obd: Kérések: RPM 496 (hiba 0), összes TX 985, RX 986, újraindítás 0
+[2026-10-29 20:48:28.545] I (50152) og_obd: ESP-NOW: seq 496, elküldve 496, sikertelen 0
+[2026-10-29 20:48:29.533] I (51151) og_obd: 1/perc 2379.5 | km/h 55.0 | fojtó % 49.8 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:29.534] I (51151) og_obd: Kérések: RPM 506 (hiba 0), összes TX 1006, RX 1007, újraindítás 0
+[2026-10-29 20:48:29.534] I (51152) og_obd: ESP-NOW: seq 506, elküldve 506, sikertelen 0
+[2026-10-29 20:48:30.555] I (52151) og_obd: 1/perc 1989.5 | km/h 41.0 | fojtó % 41.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:30.555] I (52151) og_obd: Kérések: RPM 516 (hiba 0), összes TX 1025, RX 1026, újraindítás 0
+[2026-10-29 20:48:30.555] I (52152) og_obd: ESP-NOW: seq 516, elküldve 516, sikertelen 0
+[2026-10-29 20:48:31.608] I (53151) og_obd: 1/perc 1610.0 | km/h 27.0 | fojtó % 32.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:31.608] I (53151) og_obd: Kérések: RPM 526 (hiba 0), összes TX 1045, RX 1046, újraindítás 0
+[2026-10-29 20:48:31.608] I (53152) og_obd: ESP-NOW: seq 526, elküldve 526, sikertelen 0
+[2026-10-29 20:48:32.610] I (54151) og_obd: 1/perc 1278.8 | km/h 15.0 | fojtó % 23.9 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:32.610] I (54151) og_obd: Kérések: RPM 536 (hiba 0), összes TX 1064, RX 1065, újraindítás 0
+[2026-10-29 20:48:32.610] I (54152) og_obd: ESP-NOW: seq 536, elküldve 536, sikertelen 0
+[2026-10-29 20:48:33.562] I (55151) og_obd: 1/perc 1027.8 | km/h 6.0 | fojtó % 17.3 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:33.562] I (55151) og_obd: Kérések: RPM 546 (hiba 0), összes TX 1084, RX 1085, újraindítás 0
+[2026-10-29 20:48:33.562] I (55152) og_obd: ESP-NOW: seq 546, elküldve 546, sikertelen 0
+[2026-10-29 20:48:34.564] I (56151) og_obd: 1/perc 881.8 | km/h 1.0 | fojtó % 13.3 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:34.566] I (56151) og_obd: Kérések: RPM 556 (hiba 0), összes TX 1104, RX 1105, újraindítás 0
+[2026-10-29 20:48:34.566] I (56152) og_obd: ESP-NOW: seq 556, elküldve 556, sikertelen 0
+[2026-10-29 20:48:35.561] I (57151) og_obd: 1/perc 855.0 | km/h 0.0 | fojtó % 12.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:35.561] I (57151) og_obd: Kérések: RPM 566 (hiba 0), összes TX 1124, RX 1125, újraindítás 0
+[2026-10-29 20:48:35.561] I (57151) og_obd: ESP-NOW: seq 566, elküldve 566, sikertelen 0
+[2026-10-29 20:48:36.577] I (58151) og_obd: 1/perc 950.0 | km/h 4.0 | fojtó % 13.7 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:36.577] I (58151) og_obd: Kérések: RPM 576 (hiba 0), összes TX 1143, RX 1144, újraindítás 0
+[2026-10-29 20:48:36.577] I (58151) og_obd: ESP-NOW: seq 576, elküldve 576, sikertelen 0
+[2026-10-29 20:48:37.546] I (59151) og_obd: 1/perc 1157.8 | km/h 11.0 | fojtó % 18.0 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:37.546] I (59151) og_obd: Kérések: RPM 586 (hiba 0), összes TX 1163, RX 1164, újraindítás 0
+[2026-10-29 20:48:37.546] I (59152) og_obd: ESP-NOW: seq 586, elküldve 586, sikertelen 0
+[2026-10-29 20:48:38.533] I (60151) og_obd: 1/perc 1457.8 | km/h 22.0 | fojtó % 25.1 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:38.534] I (60151) og_obd: Kérések: RPM 596 (hiba 0), összes TX 1182, RX 1183, újraindítás 0
+[2026-10-29 20:48:38.535] I (60152) og_obd: ESP-NOW: seq 596, elküldve 596, sikertelen 0
+[2026-10-29 20:48:39.532] I (61151) og_obd: 1/perc 1820.5 | km/h 35.0 | fojtó % 33.3 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:39.533] I (61151) og_obd: Kérések: RPM 606 (hiba 0), összes TX 1203, RX 1204, újraindítás 0
+[2026-10-29 20:48:39.533] I (61152) og_obd: ESP-NOW: seq 606, elküldve 606, sikertelen 0
+[2026-10-29 20:48:40.578] I (62151) og_obd: 1/perc 2210.5 | km/h 49.0 | fojtó % 42.7 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:40.578] I (62151) og_obd: Kérések: RPM 616 (hiba 0), összes TX 1222, RX 1223, újraindítás 0
+[2026-10-29 20:48:40.578] I (62152) og_obd: ESP-NOW: seq 616, elküldve 616, sikertelen 0
+[2026-10-29 20:48:41.534] I (63151) og_obd: 1/perc 2590.0 | km/h 63.0 | fojtó % 52.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:41.534] I (63151) og_obd: Kérések: RPM 626 (hiba 0), összes TX 1242, RX 1243, újraindítás 0
+[2026-10-29 20:48:41.534] I (63152) og_obd: ESP-NOW: seq 626, elküldve 626, sikertelen 0
+[2026-10-29 20:48:42.545] I (64151) og_obd: 1/perc 2921.2 | km/h 75.0 | fojtó % 60.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:42.545] I (64151) og_obd: Kérések: RPM 636 (hiba 0), összes TX 1261, RX 1262, újraindítás 0
+[2026-10-29 20:48:42.545] I (64152) og_obd: ESP-NOW: seq 636, elküldve 636, sikertelen 0
+[2026-10-29 20:48:43.589] I (65151) og_obd: 1/perc 3172.2 | km/h 84.0 | fojtó % 66.7 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:43.589] I (65151) og_obd: Kérések: RPM 646 (hiba 0), összes TX 1281, RX 1282, újraindítás 0
+[2026-10-29 20:48:43.589] I (65152) og_obd: ESP-NOW: seq 646, elküldve 646, sikertelen 0
+[2026-10-29 20:48:44.541] I (66151) og_obd: 1/perc 3318.2 | km/h 89.0 | fojtó % 70.6 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:44.541] I (66151) og_obd: Kérések: RPM 656 (hiba 0), összes TX 1301, RX 1302, újraindítás 0
+[2026-10-29 20:48:44.541] I (66152) og_obd: ESP-NOW: seq 656, elküldve 656, sikertelen 0
+[2026-10-29 20:48:45.557] I (67151) og_obd: 1/perc 3345.0 | km/h 90.0 | fojtó % 72.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:45.557] I (67151) og_obd: Kérések: RPM 666 (hiba 0), összes TX 1321, RX 1322, újraindítás 0
+[2026-10-29 20:48:45.557] I (67152) og_obd: ESP-NOW: seq 666, elküldve 666, sikertelen 0
+[2026-10-29 20:48:46.610] I (68192) og_obd: 1/perc 3250.0 | km/h 86.0 | fojtó % 69.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:46.610] I (68192) og_obd: Kérések: RPM 676 (hiba 0), összes TX 1341, RX 1342, újraindítás 0
+[2026-10-29 20:48:46.610] I (68193) og_obd: ESP-NOW: seq 676, elküldve 676, sikertelen 0
+[2026-10-29 20:48:47.642] I (69233) og_obd: 1/perc 2988.8 | km/h 79.0 | fojtó % 63.9 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:47.642] I (69234) og_obd: Kérések: RPM 687 (hiba 0), összes TX 1362, RX 1363, újraindítás 0
+[2026-10-29 20:48:47.642] I (69234) og_obd: ESP-NOW: seq 686, elküldve 686, sikertelen 0
+[2026-10-29 20:48:48.681] I (70275) og_obd: 1/perc 2673.8 | km/h 66.0 | fojtó % 56.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:48.681] I (70275) og_obd: Kérések: RPM 697 (hiba 0), összes TX 1382, RX 1383, újraindítás 0
+[2026-10-29 20:48:48.681] I (70276) og_obd: ESP-NOW: seq 697, elküldve 697, sikertelen 0
+[2026-10-29 20:48:49.710] I (71316) og_obd: 1/perc 2302.5 | km/h 52.0 | fojtó % 47.8 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:49.710] I (71317) og_obd: Kérések: RPM 708 (hiba 0), összes TX 1404, RX 1405, újraindítás 0
+[2026-10-29 20:48:49.711] I (71317) og_obd: ESP-NOW: seq 707, elküldve 707, sikertelen 0
+[2026-10-29 20:48:50.778] I (72351) og_obd: 1/perc 1911.0 | km/h 38.0 | fojtó % 38.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:50.778] I (72351) og_obd: Kérések: RPM 718 (hiba 0), összes TX 1423, RX 1424, újraindítás 0
+[2026-10-29 20:48:50.778] I (72352) og_obd: ESP-NOW: seq 718, elküldve 718, sikertelen 0
+[2026-10-29 20:48:51.780] I (73351) og_obd: 1/perc 1538.5 | km/h 25.0 | fojtó % 29.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:51.780] I (73351) og_obd: Kérések: RPM 728 (hiba 0), összes TX 1443, RX 1444, újraindítás 0
+[2026-10-29 20:48:51.780] I (73351) og_obd: ESP-NOW: seq 728, elküldve 727, sikertelen 0
+[2026-10-29 20:48:52.743] I (74351) og_obd: 1/perc 1220.8 | km/h 13.0 | fojtó % 21.6 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:52.744] I (74351) og_obd: Kérések: RPM 738 (hiba 0), összes TX 1462, RX 1463, újraindítás 0
+[2026-10-29 20:48:52.744] I (74352) og_obd: ESP-NOW: seq 738, elküldve 738, sikertelen 0
+[2026-10-29 20:48:53.786] I (75351) og_obd: 1/perc 989.2 | km/h 5.0 | fojtó % 15.7 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:53.786] I (75351) og_obd: Kérések: RPM 748 (hiba 0), összes TX 1482, RX 1483, újraindítás 0
+[2026-10-29 20:48:53.786] I (75352) og_obd: ESP-NOW: seq 748, elküldve 748, sikertelen 0
+[2026-10-29 20:48:54.731] I (76351) og_obd: 1/perc 866.5 | km/h 1.0 | fojtó % 12.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:54.731] I (76351) og_obd: Kérések: RPM 758 (hiba 0), összes TX 1502, RX 1503, újraindítás 0
+[2026-10-29 20:48:54.731] I (76352) og_obd: ESP-NOW: seq 758, elküldve 758, sikertelen 0
+[2026-10-29 20:48:55.748] I (77351) og_obd: 1/perc 864.2 | km/h 1.0 | fojtó % 12.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:55.748] I (77351) og_obd: Kérések: RPM 768 (hiba 0), összes TX 1522, RX 1523, újraindítás 0
+[2026-10-29 20:48:55.749] I (77352) og_obd: ESP-NOW: seq 768, elküldve 768, sikertelen 0
+[2026-10-29 20:48:56.736] I (78351) og_obd: 1/perc 983.2 | km/h 5.0 | fojtó % 14.9 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:56.736] I (78351) og_obd: Kérések: RPM 778 (hiba 0), összes TX 1541, RX 1542, újraindítás 0
+[2026-10-29 20:48:56.736] I (78352) og_obd: ESP-NOW: seq 778, elküldve 778, sikertelen 0
+[2026-10-29 20:48:57.731] I (79351) og_obd: 1/perc 1211.5 | km/h 13.0 | fojtó % 20.0 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:57.731] I (79351) og_obd: Kérések: RPM 788 (hiba 0), összes TX 1561, RX 1562, újraindítás 0
+[2026-10-29 20:48:57.786] I (79352) og_obd: ESP-NOW: seq 788, elküldve 788, sikertelen 0
+[2026-10-29 20:48:58.765] I (80351) og_obd: 1/perc 1526.5 | km/h 24.0 | fojtó % 27.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:58.766] I (80351) og_obd: Kérések: RPM 798 (hiba 0), összes TX 1580, RX 1581, újraindítás 0
+[2026-10-29 20:48:58.767] I (80352) og_obd: ESP-NOW: seq 798, elküldve 798, sikertelen 0
+[2026-10-29 20:48:59.794] I (81351) og_obd: 1/perc 1897.8 | km/h 38.0 | fojtó % 36.1 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:48:59.794] I (81351) og_obd: Kérések: RPM 808 (hiba 0), összes TX 1601, RX 1602, újraindítás 0
+[2026-10-29 20:48:59.794] I (81352) og_obd: ESP-NOW: seq 808, elküldve 808, sikertelen 0
+[2026-10-29 20:49:00.733] I (82351) og_obd: 1/perc 2289.0 | km/h 52.0 | fojtó % 45.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:00.734] I (82351) og_obd: Kérések: RPM 818 (hiba 0), összes TX 1620, RX 1621, újraindítás 0
+[2026-10-29 20:49:00.797] I (82352) og_obd: ESP-NOW: seq 818, elküldve 818, sikertelen 0
+[2026-10-29 20:49:01.748] I (83351) og_obd: 1/perc 2661.5 | km/h 65.0 | fojtó % 54.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:01.749] I (83351) og_obd: Kérések: RPM 828 (hiba 0), összes TX 1640, RX 1641, újraindítás 0
+[2026-10-29 20:49:01.749] I (83352) og_obd: ESP-NOW: seq 828, elküldve 828, sikertelen 0
+[2026-10-29 20:49:02.793] I (84351) og_obd: 1/perc 2979.2 | km/h 77.0 | fojtó % 62.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:02.793] I (84351) og_obd: Kérések: RPM 838 (hiba 0), összes TX 1659, RX 1660, újraindítás 0
+[2026-10-29 20:49:02.794] I (84352) og_obd: ESP-NOW: seq 838, elküldve 838, sikertelen 0
+[2026-10-29 20:49:03.738] I (85351) og_obd: 1/perc 3210.8 | km/h 85.0 | fojtó % 68.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:03.738] I (85351) og_obd: Kérések: RPM 848 (hiba 0), összes TX 1679, RX 1680, újraindítás 0
+[2026-10-29 20:49:03.738] I (85352) og_obd: ESP-NOW: seq 848, elküldve 848, sikertelen 0
+[2026-10-29 20:49:04.752] I (86351) og_obd: 1/perc 3333.5 | km/h 89.0 | fojtó % 71.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:04.752] I (86351) og_obd: Kérések: RPM 858 (hiba 0), összes TX 1699, RX 1700, újraindítás 0
+[2026-10-29 20:49:04.752] I (86352) og_obd: ESP-NOW: seq 858, elküldve 858, sikertelen 0
+[2026-10-29 20:49:05.743] I (87351) og_obd: 1/perc 3335.8 | km/h 89.0 | fojtó % 71.8 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:05.743] I (87351) og_obd: Kérések: RPM 868 (hiba 0), összes TX 1719, RX 1720, újraindítás 0
+[2026-10-29 20:49:05.743] I (87352) og_obd: ESP-NOW: seq 868, elküldve 868, sikertelen 0
+[2026-10-29 20:49:06.764] I (88351) og_obd: 1/perc 3216.8 | km/h 85.0 | fojtó % 69.0 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:06.764] I (88351) og_obd: Kérések: RPM 878 (hiba 0), összes TX 1738, RX 1739, újraindítás 0
+[2026-10-29 20:49:06.765] I (88352) og_obd: ESP-NOW: seq 878, elküldve 878, sikertelen 0
+[2026-10-29 20:49:07.795] I (89351) og_obd: 1/perc 2988.5 | km/h 77.0 | fojtó % 63.9 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:07.797] I (89351) og_obd: Kérések: RPM 888 (hiba 0), összes TX 1758, RX 1759, újraindítás 0
+[2026-10-29 20:49:07.797] I (89352) og_obd: ESP-NOW: seq 888, elküldve 888, sikertelen 0
+[2026-10-29 20:49:08.759] I (90351) og_obd: 1/perc 2673.5 | km/h 66.0 | fojtó % 56.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:08.759] I (90351) og_obd: Kérések: RPM 898 (hiba 0), összes TX 1777, RX 1778, újraindítás 0
+[2026-10-29 20:49:08.759] I (90352) og_obd: ESP-NOW: seq 898, elküldve 898, sikertelen 0
+[2026-10-29 20:49:09.743] I (91351) og_obd: 1/perc 2302.0 | km/h 52.0 | fojtó % 47.8 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:09.743] I (91351) og_obd: Kérések: RPM 908 (hiba 0), összes TX 1798, RX 1799, újraindítás 0
+[2026-10-29 20:49:09.743] I (91352) og_obd: ESP-NOW: seq 908, elküldve 908, sikertelen 0
+[2026-10-29 20:49:10.750] I (92351) og_obd: 1/perc 1911.0 | km/h 38.0 | fojtó % 38.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:10.750] I (92351) og_obd: Kérések: RPM 918 (hiba 0), összes TX 1817, RX 1818, újraindítás 0
+[2026-10-29 20:49:10.750] I (92352) og_obd: ESP-NOW: seq 918, elküldve 918, sikertelen 0
+[2026-10-29 20:49:11.750] I (93351) og_obd: 1/perc 1538.5 | km/h 25.0 | fojtó % 29.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:11.750] I (93351) og_obd: Kérések: RPM 928 (hiba 0), összes TX 1837, RX 1838, újraindítás 0
+[2026-10-29 20:49:11.750] I (93352) og_obd: ESP-NOW: seq 928, elküldve 928, sikertelen 0
+[2026-10-29 20:49:12.787] I (94351) og_obd: 1/perc 1220.8 | km/h 13.0 | fojtó % 21.6 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:12.788] I (94351) og_obd: Kérések: RPM 938 (hiba 0), összes TX 1856, RX 1857, újraindítás 0
+[2026-10-29 20:49:12.788] I (94352) og_obd: ESP-NOW: seq 938, elküldve 938, sikertelen 0
+[2026-10-29 20:49:13.748] I (95351) og_obd: 1/perc 989.2 | km/h 5.0 | fojtó % 15.7 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:13.748] I (95351) og_obd: Kérések: RPM 948 (hiba 0), összes TX 1876, RX 1877, újraindítás 0
+[2026-10-29 20:49:13.748] I (95352) og_obd: ESP-NOW: seq 948, elküldve 948, sikertelen 0
+[2026-10-29 20:49:14.793] I (96351) og_obd: 1/perc 866.5 | km/h 1.0 | fojtó % 12.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:14.793] I (96351) og_obd: Kérések: RPM 958 (hiba 0), összes TX 1896, RX 1897, újraindítás 0
+[2026-10-29 20:49:14.793] I (96352) og_obd: ESP-NOW: seq 958, elküldve 958, sikertelen 0
+[2026-10-29 20:49:15.783] I (97351) og_obd: 1/perc 864.2 | km/h 1.0 | fojtó % 12.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:15.783] I (97351) og_obd: Kérések: RPM 968 (hiba 0), összes TX 1916, RX 1917, újraindítás 0
+[2026-10-29 20:49:15.784] I (97352) og_obd: ESP-NOW: seq 968, elküldve 968, sikertelen 0
+[2026-10-29 20:49:16.743] I (98351) og_obd: 1/perc 983.2 | km/h 5.0 | fojtó % 14.9 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:16.743] I (98351) og_obd: Kérések: RPM 978 (hiba 0), összes TX 1935, RX 1936, újraindítás 0
+[2026-10-29 20:49:16.743] I (98352) og_obd: ESP-NOW: seq 978, elküldve 978, sikertelen 0
+[2026-10-29 20:49:17.749] I (99351) og_obd: 1/perc 1211.5 | km/h 13.0 | fojtó % 20.0 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:17.749] I (99351) og_obd: Kérések: RPM 988 (hiba 0), összes TX 1955, RX 1956, újraindítás 0
+[2026-10-29 20:49:17.749] I (99352) og_obd: ESP-NOW: seq 988, elküldve 988, sikertelen 0
+[2026-10-29 20:49:18.780] I (100351) og_obd: 1/perc 1526.5 | km/h 24.0 | fojtó % 27.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:18.781] I (100351) og_obd: Kérések: RPM 998 (hiba 0), összes TX 1974, RX 1975, újraindítás 0
+[2026-10-29 20:49:18.781] I (100352) og_obd: ESP-NOW: seq 998, elküldve 998, sikertelen 0
+[2026-10-29 20:49:19.745] I (101351) og_obd: 1/perc 1898.0 | km/h 38.0 | fojtó % 36.1 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:19.745] I (101351) og_obd: Kérések: RPM 1008 (hiba 0), összes TX 1995, RX 1996, újraindítás 0
+[2026-10-29 20:49:19.745] I (101352) og_obd: ESP-NOW: seq 1008, elküldve 1008, sikertelen 0
+[2026-10-29 20:49:20.749] I (102351) og_obd: 1/perc 2289.0 | km/h 52.0 | fojtó % 45.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:20.749] I (102351) og_obd: Kérések: RPM 1018 (hiba 0), összes TX 2014, RX 2015, újraindítás 0
+[2026-10-29 20:49:20.749] I (102352) og_obd: ESP-NOW: seq 1018, elküldve 1018, sikertelen 0
+[2026-10-29 20:49:21.753] I (103351) og_obd: 1/perc 2661.5 | km/h 65.0 | fojtó % 54.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:21.753] I (103351) og_obd: Kérések: RPM 1028 (hiba 0), összes TX 2034, RX 2035, újraindítás 0
+[2026-10-29 20:49:21.753] I (103352) og_obd: ESP-NOW: seq 1028, elküldve 1028, sikertelen 0
+[2026-10-29 20:49:22.764] I (104351) og_obd: 1/perc 2979.2 | km/h 77.0 | fojtó % 62.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:22.765] I (104351) og_obd: Kérések: RPM 1038 (hiba 0), összes TX 2053, RX 2054, újraindítás 0
+[2026-10-29 20:49:22.765] I (104352) og_obd: ESP-NOW: seq 1038, elküldve 1038, sikertelen 0
+[2026-10-29 20:49:23.775] I (105351) og_obd: 1/perc 3210.8 | km/h 85.0 | fojtó % 68.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:23.775] I (105351) og_obd: Kérések: RPM 1048 (hiba 0), összes TX 2073, RX 2074, újraindítás 0
+[2026-10-29 20:49:23.776] I (105352) og_obd: ESP-NOW: seq 1048, elküldve 1048, sikertelen 0
+[2026-10-29 20:49:24.766] I (106351) og_obd: 1/perc 3333.5 | km/h 89.0 | fojtó % 71.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:24.768] I (106351) og_obd: Kérések: RPM 1058 (hiba 0), összes TX 2093, RX 2094, újraindítás 0
+[2026-10-29 20:49:24.768] I (106352) og_obd: ESP-NOW: seq 1058, elküldve 1058, sikertelen 0
+[2026-10-29 20:49:25.785] I (107351) og_obd: 1/perc 3335.8 | km/h 89.0 | fojtó % 71.8 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:25.786] I (107351) og_obd: Kérések: RPM 1068 (hiba 0), összes TX 2113, RX 2114, újraindítás 0
+[2026-10-29 20:49:25.787] I (107352) og_obd: ESP-NOW: seq 1068, elküldve 1068, sikertelen 0
+[2026-10-29 20:49:26.751] I (108351) og_obd: 1/perc 3216.8 | km/h 85.0 | fojtó % 69.0 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:26.752] I (108351) og_obd: Kérések: RPM 1078 (hiba 0), összes TX 2132, RX 2133, újraindítás 0
+[2026-10-29 20:49:26.753] I (108352) og_obd: ESP-NOW: seq 1078, elküldve 1078, sikertelen 0
+[2026-10-29 20:49:27.773] I (109351) og_obd: 1/perc 2988.5 | km/h 77.0 | fojtó % 63.9 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:27.773] I (109351) og_obd: Kérések: RPM 1088 (hiba 0), összes TX 2152, RX 2153, újraindítás 0
+[2026-10-29 20:49:27.774] I (109352) og_obd: ESP-NOW: seq 1088, elküldve 1088, sikertelen 0
+[2026-10-29 20:49:28.788] I (110351) og_obd: 1/perc 2673.5 | km/h 66.0 | fojtó % 56.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:28.788] I (110351) og_obd: Kérések: RPM 1098 (hiba 0), összes TX 2171, RX 2172, újraindítás 0
+[2026-10-29 20:49:28.788] I (110352) og_obd: ESP-NOW: seq 1098, elküldve 1098, sikertelen 0
+[2026-10-29 20:49:29.786] I (111351) og_obd: 1/perc 2302.2 | km/h 52.0 | fojtó % 47.8 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:29.787] I (111351) og_obd: Kérések: RPM 1108 (hiba 0), összes TX 2192, RX 2193, újraindítás 0
+[2026-10-29 20:49:29.787] I (111352) og_obd: ESP-NOW: seq 1108, elküldve 1108, sikertelen 0
+[2026-10-29 20:49:30.750] I (112351) og_obd: 1/perc 1911.0 | km/h 38.0 | fojtó % 38.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:30.751] I (112351) og_obd: Kérések: RPM 1118 (hiba 0), összes TX 2211, RX 2212, újraindítás 0
+[2026-10-29 20:49:30.751] I (112352) og_obd: ESP-NOW: seq 1118, elküldve 1118, sikertelen 0
+[2026-10-29 20:49:31.785] I (113351) og_obd: 1/perc 1538.5 | km/h 25.0 | fojtó % 29.4 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:31.785] I (113351) og_obd: Kérések: RPM 1128 (hiba 0), összes TX 2231, RX 2232, újraindítás 0
+[2026-10-29 20:49:31.785] I (113352) og_obd: ESP-NOW: seq 1128, elküldve 1128, sikertelen 0
+[2026-10-29 20:49:32.791] I (114351) og_obd: 1/perc 1220.8 | km/h 13.0 | fojtó % 21.6 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:32.791] I (114351) og_obd: Kérések: RPM 1138 (hiba 0), összes TX 2250, RX 2251, újraindítás 0
+[2026-10-29 20:49:32.792] I (114352) og_obd: ESP-NOW: seq 1138, elküldve 1138, sikertelen 0
+[2026-10-29 20:49:33.735] I (115351) og_obd: 1/perc 989.2 | km/h 5.0 | fojtó % 15.7 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:33.735] I (115351) og_obd: Kérések: RPM 1148 (hiba 0), összes TX 2270, RX 2271, újraindítás 0
+[2026-10-29 20:49:33.736] I (115352) og_obd: ESP-NOW: seq 1148, elküldve 1148, sikertelen 0
+[2026-10-29 20:49:34.749] I (116351) og_obd: 1/perc 866.5 | km/h 1.0 | fojtó % 12.5 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:34.749] I (116351) og_obd: Kérések: RPM 1158 (hiba 0), összes TX 2290, RX 2291, újraindítás 0
+[2026-10-29 20:49:34.749] I (116352) og_obd: ESP-NOW: seq 1158, elküldve 1158, sikertelen 0
+[2026-10-29 20:49:35.789] I (117351) og_obd: 1/perc 864.2 | km/h 1.0 | fojtó % 12.2 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:35.789] I (117351) og_obd: Kérések: RPM 1168 (hiba 0), összes TX 2310, RX 2311, újraindítás 0
+[2026-10-29 20:49:35.790] I (117352) og_obd: ESP-NOW: seq 1168, elküldve 1168, sikertelen 0
+[2026-10-29 20:49:36.787] I (118351) og_obd: 1/perc 983.2 | km/h 5.0 | fojtó % 14.9 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:36.787] I (118351) og_obd: Kérések: RPM 1178 (hiba 0), összes TX 2329, RX 2330, újraindítás 0
+[2026-10-29 20:49:36.787] I (118352) og_obd: ESP-NOW: seq 1178, elküldve 1178, sikertelen 0
+[2026-10-29 20:49:37.794] I (119351) og_obd: 1/perc 1211.5 | km/h 13.0 | fojtó % 20.0 | víz °C 90.0 | U V 14.1 | MIL BE, DTC 2
+[2026-10-29 20:49:37.794] I (119351) og_obd: Kérések: RPM 1188 (hiba 0), összes TX 2349, RX 2350, újraindítás 0
+[2026-10-29 20:49:37.794] I (119352) og_obd: ESP-NOW: seq 1188, elküldve 1188, sikertelen 0
+[2026-10-29 20:49:38.391] === Naplózás vége ===

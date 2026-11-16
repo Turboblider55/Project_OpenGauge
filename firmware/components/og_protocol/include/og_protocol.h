@@ -9,6 +9,12 @@ namespace og {
 constexpr uint8_t kProtoVersion = 1;
 constexpr size_t kEspNowMaxPayload = 250;
 
+// Életjel (HeartbeatMsg): mindkét egység ilyen időközönként küldi, a CAN-kapcsolattól függetlenül.
+// A másik egység akkor számít elérhetőnek, ha kPeerTimeoutMs-on belül jött tőle csomag (két
+// életjel elveszhet egymás után, mert a szórásnak nincs nyugtája és ismétlése).
+constexpr uint32_t kHeartbeatPeriodMs = 1000;
+constexpr uint32_t kPeerTimeoutMs = 2500;
+
 enum class MsgType : uint8_t {
     Telemetry = 0x01,
     Vin = 0x02,
@@ -32,6 +38,12 @@ enum TelemetryFlag : uint16_t {
 enum class RequestCode : uint8_t {
     Vin = 0,
     ReadDtc = 1,  // csak olvasás; a hibakódok törlése nem része a projektnek
+};
+
+// SleepMsg::reason értékei (OBD-egység -> kijelző).
+enum class SleepReason : uint8_t {
+    Sleep = 0,          // az OBD-egység most elalszik
+    EngineStopped = 1,  // a motor leállt (az ECU-munkamenet véget ért): a kijelző visszaszámlálhat az alvásig
 };
 
 #pragma pack(push, 1)

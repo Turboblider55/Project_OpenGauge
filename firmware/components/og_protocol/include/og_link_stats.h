@@ -4,11 +4,14 @@
 // Mit csinál: számolja a vett, elveszett és elavult (duplikált vagy késve érkezett) csomagokat,
 //             és felismeri, ha az adó újraindult (a sorszáma visszaugrott).
 // Hogyan:     az og_seq.h félkörös összehasonlítására épül. Ha egymás után legalább kResyncAfter
-//             csomag "régebbi" a legutóbbinál, az adó újraindult: a számláló az új sorszámhoz
-//             igazodik, az addigi statisztika megmarad.
+//             csomag "régebbi" a legutóbbinál, vagy a sorszám kMaxGap-nél nagyobbat ugrik előre, az adó
+//             újraindult: a számláló az új sorszámhoz igazodik, és a vett/elveszett/elavult számláló
+//             nullázódik (az újraindulások száma megmarad).
 // Miért:      a csomagvesztés mérése (M4) és a kijelzőn az "elavult" adat felismerése ezen
 //             múlik; az újraindulás felismerése nélkül egy újraindított OBD-egység összes
-//             csomagját elavultnak látnánk. Hardverfüggetlen, PC-n tesztelhető.
+//             csomagját elavultnak látnánk, vagy a sorszám visszaugrása akár 32 000 "elveszett"
+//             csomagnak tűnne (a félkörös összehasonlítás a nagy sorszámról 0-ra ugrást előreugrásnak
+//             látja). Hardverfüggetlen, PC-n tesztelhető.
 #include <cstdint>
 
 #include "og_seq.h"
@@ -18,6 +21,8 @@ namespace og {
 class LinkStats {
 public:
     static constexpr uint8_t kResyncAfter = 3;
+    // Ennél nagyobb előreugrás nem csomagvesztés, hanem az adó újraindulása (100 csomag 10 Hz-en kb. 10 s kiesés).
+    static constexpr uint16_t kMaxGap = 100;
 
     // Mit csinál: egy vett csomag sorszámát dolgozza fel. Igaz, ha a csomag új (felhasználható).
     bool on_seq(uint16_t seq) {
@@ -28,11 +33,15 @@ public:
         if (!seq_is_newer(last_, seq)) {
             ++stale_;
             if (++stale_streak_ < kResyncAfter) return false;
-            ++resyncs_;  // az adó újraindult: az új sorszámsorozathoz igazodunk
-            accept(seq);
+            resync(seq);  // az adó újraindult: az új sorszámsorozathoz igazodunk
             return true;
         }
-        lost_ += seq_gap(last_, seq);
+        const uint16_t gap = seq_gap(last_, seq);
+        if (gap > kMaxGap) {  // nagy ugrás: az adó újraindult (pl. alvás után), nem csomagvesztés
+            resync(seq);
+            return true;
+        }
+        lost_ += gap;
         accept(seq);
         return true;
     }
@@ -50,6 +59,13 @@ public:
     }
 
 private:
+    // Mit csinál: új munkamenetet kezd az adott sorszámmal: a számlálók nullázódnak, az újraindulások száma nő.
+    void resync(uint16_t seq) {
+        received_ = lost_ = stale_ = 0;
+        ++resyncs_;
+        accept(seq);
+    }
+
     void accept(uint16_t seq) {
         last_ = seq;
         has_last_ = true;

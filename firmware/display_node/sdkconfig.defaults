@@ -1,13 +1,18 @@
 # ESP32-S3 (célhardver: idf.py set-target esp32s3)
 CONFIG_FREERTOS_HZ=1000
 
-# Fejlesztőpanel: ESP32-S3-WROOM-1-N16R8 (16 MB flash, 8 MB Octal PSRAM).
-# A saját NYÁK modulja N8R8: ott CONFIG_ESPTOOLPY_FLASHSIZE_8MB kell (a PSRAM ugyanaz).
+# Flash: 8 MB. A saját NYÁK modulja N8R8 (8 MB flash); a fejlesztőpanel N16R8 (16 MB), azon a 8 MB-os
+# beállítás is fut (csak a flash fele van kihasználva). 16 MB-tal a NYÁK-on a rendszer nem indul el:
+# 'Detected size(8192k) smaller than the size in the binary image header(16384k)'.
 # Az Octal PSRAM meglétét az első indításkor a rendszerindítási napló igazolja (Q-15).
-CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_OCT=y
 CONFIG_SPIRAM_SPEED_80M=y
+
+# Flash: négyvezetékes (QIO) olvasás. A kódot és a betűkészletet a cache a flashből tölti; a mérés szerint (meresek/
+# kijelzo_rajzolas_20261108) ez a rajzolási időt kb. 25 %-kal csökkenti. Mindkét modul (N8R8, N16R8) négyvezetékes flasht használ.
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
 
 # Teljesítmény: 240 MHz-es CPU, sebességre optimalizált fordítás (az LVGL rajzolása CPU-igényes).
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
@@ -19,6 +24,8 @@ CONFIG_LV_FONT_MONTSERRAT_20=y
 CONFIG_LV_FONT_MONTSERRAT_28=y
 CONFIG_LV_FONT_MONTSERRAT_48=y
 CONFIG_LV_DEF_REFR_PERIOD=16
+# A mutatós képernyők állandó részét (skála, osztások) egyszer képbe rajzoljuk (lv_snapshot), így a tű mozgatásakor nem kell újraszámolni.
+CONFIG_LV_USE_SNAPSHOT=y
 CONFIG_LV_USE_SYSMON=y
 CONFIG_LV_USE_PERF_MONITOR=y
 CONFIG_LV_PERF_MONITOR_ALIGN_BOTTOM_MID=y
@@ -26,3 +33,25 @@ CONFIG_LV_PERF_MONITOR_ALIGN_BOTTOM_MID=y
 # Saját partíciótábla: 3 MB-os alkalmazáspartíció (partitions.csv).
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# BLE (NimBLE): az ébresztő hirdetés/szkennelés (S-13) miatt; a tesztmódokon kívül nem indul el.
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+
+# A NimBLE host a PSRAM-ba kerül: műszerfal módban az LVGL és a Wi-Fi után alig marad belső RAM (H-34).
+CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL=y
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
+CONFIG_BT_NIMBLE_MAX_BONDS=1
+# A párosítási kulcsok NVS-ben maradnak (az iOS AMS kötött kapcsolatot kér).
+CONFIG_BT_NIMBLE_NVS_PERSIST=y
+# LVGL memória: a beépített kupac fix méretű tömb a belső RAM-ban; a csúcshasználat (beállítások megnyitása, skálaképek
+# rajzolása) 72 kB-ot kívánt, ami a BLE (42 kB) mellett a belső RAM nagy részét elvitte (9 kB maradt, 60 kB-nál pedig a forgatott
+# mutató rajzpufferénél összeomlott a rajzolás). Ezért az LVGL a PSRAM-ból foglal (main/lv_mem_psram.c); az LV_MEM_SIZE
+# ilyenkor nem számít, a belső RAM szabad része ~80 kB lett, az FPS nem változott.
+CONFIG_LV_MEM_SIZE=73728
+# Az LVGL memóriakezelője a PSRAM-ban fut (main/lv_mem_psram.c): a beépített 72 kB-os kupac a belső RAM-ot vitte el.
+CONFIG_LV_USE_CUSTOM_MALLOC=y
+# Alvás a műszerfalban: tétlenség (nincs érintés és adat) után light sleep, ébredés érintésre vagy az OBD-egység BLE-hirdetésére.
+# Fejlesztéskor az indulás utáni türelmi idő (OG_DISP_SLEEP_GRACE_S, 60 s) alatt a lapka még programozható; alvás után az USB-soros
+# kapcsolat nem tér vissza (H-33). Az elalvási idő a beállításokban is állítható.
+CONFIG_OG_DISP_SLEEP=y

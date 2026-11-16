@@ -1,13 +1,15 @@
 #pragma once
 // A kijelzőegység lábkiosztása, hardverváltozatonként.
 //
-// Mit csinál: megadja a kijelző (QSPI), a háttérvilágítás és az érintővezérlő (I2C) bekötését.
+// Mit csinál: megadja a kijelző (QSPI), a háttérvilágítás, az érintővezérlő (I2C), a LED-ek és
+//             az akkumulátormérés bekötését.
 // Hogyan:     a változatot a menuconfig választja (OpenGauge: kijelzőegység -> Hardverváltozat).
 // Miért:      a lábak csak itt szerepelnek; az asztali teszt és a saját NYÁK között csak ez a
 //             fájl tér el, a meghajtó (disp_lcd) és a felület kódja változatlan.
 #include "lcd_panel.h"
 #include "touch_panel.h"
 #include "sdkconfig.h"
+#include "status_led.h"
 
 namespace og::board {
 
@@ -19,6 +21,8 @@ namespace og::board {
 constexpr LcdPins kLcd = {
     .sclk = 4, .d0 = 9, .d1 = 8, .d2 = 7, .d3 = 6, .cs = 3, .rst = 40, .te = 18, .bl = 5};
 constexpr TouchPins kTouch = {.sda = 10, .scl = 11, .rst = 39, .intr = 41};
+constexpr LedPins kLeds = {-1, -1, -1, 0, 0, 0};
+constexpr int kPinBattery = -1;  // nincs akkumulátor
 #elif defined(CONFIG_OG_BOARD_DISP_REV_A)
 // Saját NYÁK, Rev. A (hardver_architektura 3.3., J2 FPC).
 constexpr LcdPins kLcd = {
@@ -26,6 +30,10 @@ constexpr LcdPins kLcd = {
 // Ellenőrizendő az első élesztéskor: ha a J2 csatlakozón is fel van cserélve a két reset (mint a
 // devkiten a modul 15 pólusú csatlakozóján), akkor a kLcd.rst és a kTouch.rst értéke cserélendő.
 constexpr TouchPins kTouch = {.sda = 12, .scl = 13, .rst = 14, .intr = 11};
+// Piros IO15, zöld IO16, kék IO17, 330 Ω-on át a földre (aktív magas). A százalék a színek eltérő
+// fényerejét egyenlíti ki.
+constexpr LedPins kLeds = {.red = 15, .green = 16, .blue = 17, .red_pct = 25, .green_pct = 40, .blue_pct = 40};
+constexpr int kPinBattery = 7;  // BTR+ 100 kΩ / 100 kΩ-os osztón át (ADC1)
 #else
 #error "Nincs kiválasztva hardverváltozat (menuconfig: OpenGauge: kijelzőegység)"
 #endif

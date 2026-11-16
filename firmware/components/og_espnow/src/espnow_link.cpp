@@ -92,15 +92,29 @@ bool EspNowLink::init(uint8_t channel, const uint8_t* peer) {
     OG_CHECK(esp_wifi_init(&wcfg));
     OG_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
     OG_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    OG_CHECK(esp_wifi_start());
-    OG_CHECK(esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE));
-    OG_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
 
     g_rx_queue = xQueueCreate(kQueueDepth, sizeof(Packet));
     if (!g_rx_queue) {
         ESP_LOGE(TAG, "Nincs memória a vételi sorhoz");
         return false;
     }
+    channel_ = channel;
+    if (!bring_up(channel)) return false;
+
+    uint8_t mac[6];
+    own_mac(mac);
+    ESP_LOGI(TAG, "ESP-NOW kész: csatorna %u, saját MAC " MACSTR ", társ " MACSTR "%s", channel, MAC2STR(mac),
+             MAC2STR(peer_), (peer_[0] & 0x01) ? " (szórás: nincs nyugta)" : "");
+    ready_ = true;
+    return true;
+}
+
+// Mit csinál: elindítja a Wi-Fi-t a rögzített csatornán, és az ESP-NOW-t a társ felvételével.
+// Miért:      külön függvény, hogy alvás után ugyanígy lehessen újraindítani.
+bool EspNowLink::bring_up(uint8_t channel) {
+    OG_CHECK(esp_wifi_start());
+    OG_CHECK(esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE));
+    OG_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
     OG_CHECK(esp_now_init());
     OG_CHECK(esp_now_register_send_cb(on_sent));
     OG_CHECK(esp_now_register_recv_cb(on_recv));
@@ -111,13 +125,20 @@ bool EspNowLink::init(uint8_t channel, const uint8_t* peer) {
     pi.ifidx = WIFI_IF_STA;
     pi.encrypt = false;
     OG_CHECK(esp_now_add_peer(&pi));
-
-    uint8_t mac[6];
-    own_mac(mac);
-    ESP_LOGI(TAG, "ESP-NOW kész: csatorna %u, saját MAC " MACSTR ", társ " MACSTR "%s", channel, MAC2STR(mac),
-             MAC2STR(peer_), (peer_[0] & 0x01) ? " (szórás: nincs nyugta)" : "");
-    ready_ = true;
     return true;
+}
+
+void EspNowLink::suspend() {
+    if (!ready_) return;
+    ready_ = false;
+    esp_now_deinit();
+    esp_wifi_stop();
+}
+
+bool EspNowLink::resume() {
+    if (ready_) return true;
+    ready_ = bring_up(channel_);
+    return ready_;
 }
 
 bool EspNowLink::send(const void* data, size_t len) {
@@ -131,7 +152,10 @@ bool EspNowLink::send(const void* data, size_t len) {
 }
 
 bool EspNowLink::recv(Packet& p, uint32_t timeout_ms) {
-    if (!ready_) return false;
+    if (!ready_) {
+        vTaskDelay(pdMS_TO_TICKS(timeout_ms));  // leállított rádiónál ne pörögjön a hívó
+        return false;
+    }
     return xQueueReceive(g_rx_queue, &p, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
 }
 
