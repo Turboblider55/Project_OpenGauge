@@ -52,6 +52,32 @@ static void rejects_bad_input() {
     CHECK(!decode_header(nullptr, 4, h) && !decode_header(buf, 3, h));
 }
 
+static void heartbeat_battery() {
+    HeartbeatMsg h{};
+    h.h = make_header(MsgType::Heartbeat, 5);
+    h.uptime_s = 3600;
+    h.vbat_mv = 3874;
+    uint8_t buf[32];
+    size_t n = encode(h, buf, sizeof buf);
+    CHECK(n == 10);
+    HeartbeatMsg o{};
+    CHECK(decode(buf, n, o));
+    CHECK(o.uptime_s == 3600 && o.vbat_mv == 3874);
+    CHECK(!decode(buf, 8, o));  // a régi, 8 bájtos életjelet elutasítja
+}
+
+static void info_text() {
+    InfoMsg m{};
+    m.h = make_header(MsgType::Info, 9);
+    std::snprintf(m.text, sizeof m.text, "fenyero 80%%, BLE be");
+    uint8_t buf[kEspNowMaxPayload];
+    size_t n = encode(m, buf, sizeof buf);
+    CHECK(n == sizeof(InfoMsg));
+    InfoMsg o{};
+    CHECK(decode(buf, n, o));
+    CHECK(std::string(o.text) == "fenyero 80%, BLE be");
+}
+
 static void other_messages() {
     VinMsg v{};
     v.h = make_header(MsgType::Vin, 7);
@@ -122,6 +148,8 @@ int main() {
     RUN(roundtrip_telemetry);
     RUN(little_endian_layout);
     RUN(rejects_bad_input);
+    RUN(heartbeat_battery);
+    RUN(info_text);
     RUN(other_messages);
     RUN(sequence);
     RUN(link_stats);
