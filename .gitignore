@@ -51,3 +51,7 @@ managed_components/
 
 # Blender biztonsági másolatok
 *.blend1
+
+# Szakdolgozat: csak a mellékletek Word fájljai kerülnek a repóba, a munkafájlok és útmutatók helyiek maradnak
+docs/szakdolgozat/*
+!docs/szakdolgozat/melleklet_*.docx
