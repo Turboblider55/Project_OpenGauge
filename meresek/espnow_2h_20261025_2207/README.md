@@ -9,6 +9,7 @@
 |---|---|
 | `s3_dash.txt` | a kijelző naplója: másodpercenként csomag/s, RSSI, halmozott vétel- és veszteségszám, sorszám, FPS, szabad RAM |
 | `c3_obd_osszesito.txt` | az OBD-egység naplója a CAN-keretsorok nélkül (másodpercenkénti összesítők) |
+| `espnow_gorbe.png` | az RSSI (percenkénti átlag és tartomány) és az elveszett csomagok halmozott száma az idő függvényében |
 | `c3_obd_teljes.zip` | az OBD-egység teljes naplója minden CAN-kerettel (kitömörítve kb. 27 MB) |
 
 Minden sor elején a PC időbélyege áll (`firmware/tools/serial_logger.ps1`), utána az eszköz saját naplósora.
@@ -16,7 +17,7 @@ Minden sor elején a PC időbélyege áll (`firmware/tools/serial_logger.ps1`), 
 ## Eredmények
 | Mennyiség | Érték |
 |---|---|
-| Vett csomag (S3) | 73 053 |
+| Vett csomag (S3) a naplózás alatt | 73 063 (10 Hz mellett kb. 73 150 az elvárt érték) |
 | Elveszett csomag | 82 (0,11 %) – mind az első 20 percben (22:08–22:27), a lapok mozgatása közben |
 | Veszteség 22:27 után | 0 (1 óra 42 perc) |
 | „Nincs adat” (500 ms-nál régebbi adat) | összesen 4 másodperc, mind a mozgatás alatt |
@@ -24,7 +25,10 @@ Minden sor elején a PC időbélyege áll (`firmware/tools/serial_logger.ps1`), 
 | Sorszám-átfordulás (65535 → 0) | 23:16:21-kor, veszteség és hibás észlelés nélkül |
 | RSSI | −24 … −66 dBm, átlag −45 dBm; akadállyal (22:37–23:00) átlag kb. −54 dBm, 0 veszteség |
 | Kijelző | 3–51 FPS (a képernyőtől függően), szabad belső RAM végig 87–88 kB (nincs szivárgás) |
-| OBD-egység (C3) | 97 186 fordulatszám-kérés, 0 hiba; 191 494 CAN-adás, 0 újraindítás; ESP-NOW-küldés 0 hiba |
+| OBD-egység (C3) | 73 148 fordulatszám-kérés, 0 hiba; 144 124 CAN-adás, 0 újraindítás; 73 149 ESP-NOW-küldés, 0 sikertelen |
+
+## A számlálók értelmezése (helyesbítés)
+A naplóbeli számlálók a modulok indulása óta halmozódnak, és a naplózás kezdetekor nem voltak nullán: az S3 11 350 vett csomagnál (uptime kb. 19 perc), a C3 24 038 fordulatszám-kérésnél és 47 370 CAN-adásnál (uptime kb. 40 perc) állt. A mérés értékei ezért a napló első és utolsó állása közötti különbségek. A mérés első értékelése a végállást közölte (84 413 vett csomag, 97 186 kérés, 191 494 CAN-adás), ez hibás volt (H-54). A 82 elveszett csomag mind a naplózás alatt keletkezett (a kezdő veszteségszámláló 0), a 0,11 % ezért nem változott (82 / (73 063 + 82) = 0,112 %).
 
 ## Korlátok
 - Asztali mérés: a jármű utastere (fémkarosszéria, a telefon Bluetooth-a, egyéb 2,4 GHz-es forgalom) eltérő környezet, azt külön kell mérni (M7).

@@ -5,11 +5,14 @@
 # Miért:      egy megszakadt mérés adatai így sem vesznek el; az eszközök halmozott számlálói
 #             (vett / elveszett csomag) miatt a félbemaradt napló is kiértékelhető.
 # Használat:  powershell -ExecutionPolicy Bypass -File serial_logger.ps1 -OutDir meresek/nev -Minutes 120 COM5=c3_obd COM6=s3_dash
+#             Szűrés: -Include 'regex' esetén csak a mintára illeszkedő sorok kerülnek a fájlba (pl. lemerülési
+#             teszthez: -Include 'akkumulátor|beállításai|ESP-NOW:'); a jelölősorok (===) mindig bekerülnek.
 # Megjegyzés: a fájl UTF-8 BOM-mal mentendő, különben a Windows PowerShell 5.1 a magyar szövegeket
 #             ANSI-ként olvassa, és a jelölősorok hibás kódolással kerülnek a naplóba.
 param(
     [Parameter(Mandatory)] [string] $OutDir,
     [Parameter(Mandatory)] [int] $Minutes,
+    [string] $Include = '',
     [Parameter(Mandatory, ValueFromRemainingArguments)] [string[]] $Ports
 )
 
@@ -59,7 +62,7 @@ while ((Get-Date) -lt $end) {
         $s.buf = $lines[-1]
         for ($i = 0; $i -lt $lines.Count - 1; $i++) {
             $t = $ansi.Replace($lines[$i], '').TrimEnd("`r")
-            if ($t.Length) { $s.writer.WriteLine("[$(Stamp)] $t") }
+            if ($t.Length -and (-not $Include -or $t -match $Include)) { $s.writer.WriteLine("[$(Stamp)] $t") }
         }
     }
     Start-Sleep -Milliseconds 50

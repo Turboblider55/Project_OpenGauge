@@ -1539,6 +1539,28 @@ void on_gesture(lv_event_t*) {
 
 // ---------------------------------------------------------------------- kapcsolatfeladat
 
+constexpr uint32_t kInfoPeriodS = 30;  // az állapotjelentés (InfoMsg) küldési periódusa
+
+// Mit csinál: a fogyasztást befolyásoló beállításokat egy szöveges üzenetben elküldi az OBD-egységnek.
+// Hogyan:     egy sorba írja a fordításkori és a beállított értékeket; az OBD-egység naplózza (állapotváltozáskor
+//             és ritkán ismételve), így a mérési napló első soraiból kiolvasható a teszt körülménye.
+// Miért:      a lemerülési tesztnél a fényerő, a BLE, a lapozás és az alvás mind számít; ne kézzel kelljen följegyezni.
+void send_info() {
+    static uint16_t info_seq = 0;
+    InfoMsg m = {};
+    m.h = make_header(MsgType::Info, info_seq++);
+    const char* ver = __DATE__ " " __TIME__;  // a fordítás időpontja azonosítja a változatot
+    std::snprintf(m.text, sizeof m.text,
+                  "fw %s | CPU %d MHz | LCD pclk %d MHz | fenyero %d%% (beallitott %u%%) | zene/BLE %s | "
+                  "alvas %us%s | lapozas %s %us | debug %s",
+                  ver, CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ, CONFIG_OG_LCD_PCLK_MHZ, g_backlight_pct,
+                  (unsigned)g_cfg.brightness_pct, g_cfg.music_enabled ? "be" : "ki",
+                  (unsigned)(g_cfg.sleep_s ? g_cfg.sleep_s : CONFIG_OG_DISP_SLEEP_AFTER_S), g_cfg.sleep_s ? "" : " (gyari)",
+                  g_cfg.auto_switch ? "auto" : "kezi", (unsigned)g_cfg.switch_period_s,
+                  g_cfg.debug_mode ? "be" : "ki");
+    g_link.send(&m, sizeof m);
+}
+
 // Mit csinál: megméri az akkumulátort, alacsony szintnél csökkenti a háttérvilágítást, és
 //             a tartósan alacsony feszültséget hibaként jelzi.
 // Miért:      a kijelzőegység leírása szerint 3,5 V alatt USB kihúzásakor már újraindulás várható,
@@ -1715,7 +1737,13 @@ void link_task(void*) {
         HeartbeatMsg hb = {};
         hb.h = make_header(MsgType::Heartbeat, hb_seq++);
         hb.uptime_s = now / 1000;
+        {
+            // Az akkumulátor feszültsége az életjelben: az OBD-egység naplózza (lemerülési teszt).
+            std::lock_guard<std::mutex> lock(g_mx);
+            hb.vbat_mv = g_battery.mv;
+        }
         g_link.send(&hb, sizeof hb);
+        if (second % kInfoPeriodS == 1) send_info();
         bool alive;
         {
             std::lock_guard<std::mutex> lock(g_mx);

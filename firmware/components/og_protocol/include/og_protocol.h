@@ -1,12 +1,12 @@
 #pragma once
-// OpenGauge ESP-NOW üzenetformátum (little-endian, packed). Verzió: 1.
+// OpenGauge ESP-NOW üzenetformátum (little-endian, packed). Verzió: 2.
 // Az ESP32-C3 és az ESP32-S3 is little-endian, ezért a szerializálás memcpy.
 #include <cstddef>
 #include <cstdint>
 
 namespace og {
 
-constexpr uint8_t kProtoVersion = 1;
+constexpr uint8_t kProtoVersion = 2;
 constexpr size_t kEspNowMaxPayload = 250;
 
 // Életjel (HeartbeatMsg): mindkét egység ilyen időközönként küldi, a CAN-kapcsolattól függetlenül.
@@ -22,6 +22,7 @@ enum class MsgType : uint8_t {
     Heartbeat = 0x11,
     Request = 0x12,
     Sleep = 0x13,
+    Info = 0x14,
 };
 
 // TelemetryMsg::flags bitjei: mely mezők érvényesek (frissek és támogatottak).
@@ -83,6 +84,7 @@ struct HeartbeatMsg {
     static constexpr MsgType kType = MsgType::Heartbeat;
     Header h;
     uint32_t uptime_s;
+    uint16_t vbat_mv;  // a küldő akkumulátorának szűrt feszültsége (mV); 0 = nincs mérés (az OBD-egység mindig 0)
 };
 
 struct RequestMsg {
@@ -98,15 +100,25 @@ struct SleepMsg {
     uint8_t reason;
 };
 
+// Szöveges állapotjelentés (kijelző -> OBD-egység): a kijelző fogyasztását befolyásoló beállítások, amelyeket
+// az OBD-egység a naplóba ír, hogy a mérések (pl. lemerülési teszt) körülményei ne kézzel legyenek feljegyezve.
+constexpr size_t kInfoTextLen = 200;
+struct InfoMsg {
+    static constexpr MsgType kType = MsgType::Info;
+    Header h;
+    char text[kInfoTextLen];  // nullával lezárt UTF-8 szöveg
+};
+
 #pragma pack(pop)
 
 static_assert(sizeof(Header) == 4, "Header");
 static_assert(sizeof(TelemetryMsg) == 15, "TelemetryMsg");
 static_assert(sizeof(VinMsg) == 22, "VinMsg");
 static_assert(sizeof(ReadyMsg) == 6, "ReadyMsg");
-static_assert(sizeof(HeartbeatMsg) == 8, "HeartbeatMsg");
+static_assert(sizeof(HeartbeatMsg) == 10, "HeartbeatMsg");
 static_assert(sizeof(RequestMsg) == 6, "RequestMsg");
 static_assert(sizeof(SleepMsg) == 5, "SleepMsg");
+static_assert(sizeof(InfoMsg) == 204 && sizeof(InfoMsg) <= kEspNowMaxPayload, "InfoMsg");
 static_assert(sizeof(TelemetryMsg) <= kEspNowMaxPayload, "ESP-NOW méretkorlát");
 
 }  // namespace og

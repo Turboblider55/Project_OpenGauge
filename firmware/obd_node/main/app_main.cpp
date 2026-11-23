@@ -12,6 +12,7 @@
 // Miért:      az asztali teszt (S2 ECU-szimulátor <-> C3 -> S3 kijelző) azt igazolja, hogy a PC-n
 //             tesztelt logika a valódi buszon és rádión is működik.
 #include <atomic>
+#include <cstring>
 
 #include "ble_radio.h"
 #include "board_pins.h"
@@ -66,6 +67,8 @@ constexpr uint32_t kTelemetryPeriodMs = 100;
 // Hibák tartóssági feltételei (a LED-táblázat szerint): ennél rövidebb kimaradás nem hiba.
 // Az ECU hallgatása lehet leállított jármű is, ezért jóval hosszabb a határ, mint a rádióé.
 constexpr uint32_t kEcuFaultMs = 30000;
+constexpr uint32_t kPeerInfoLogMs = 300000;  // a kijelző beállításainak ismételt naplózása
+constexpr uint32_t kPeerBatLogMs = 30000;  // a kijelző akkumulátorfeszültségének naplózási periódusa
 constexpr uint32_t kRadioFaultMs = 3000;
 constexpr uint32_t kFaultClearMs = 1000;
 constexpr uint32_t kCanFaultHoldMs = 10000;  // bus-off után a jelzés legalább ennyi ideig marad
@@ -224,7 +227,8 @@ void status_task(void* arg) {
     og::PersistFilter ecu_fault(kEcuFaultMs, kFaultClearMs);
     og::PersistFilter radio_fault(kRadioFaultMs, kFaultClearMs);
     bool heard = false;
-    uint32_t last_heard = 0, can_hold_until = 0, last_bus_off = 0;
+    uint32_t last_heard = 0, can_hold_until = 0, last_bus_off = 0, last_bat_log = 0, last_info_log = 0;
+    char last_info[og::kInfoTextLen] = {};
     uint16_t hb_seq = 0;
     uint32_t next = static_cast<uint32_t>(esp_timer_get_time() / 1000);
     for (;;) {
@@ -235,12 +239,29 @@ void status_task(void* arg) {
             if (!g_link_ok) {
                 vTaskDelay(pdMS_TO_TICKS(rem));
             } else if (g_link.recv(p, static_cast<uint32_t>(rem))) {
+                og::InfoMsg info;
+                if (og::decode(p.data, p.len, info)) {
+                    // A kijelző beállításai: változáskor és ritkán ismételve kerülnek a naplóba (mérések körülménye).
+                    info.text[sizeof info.text - 1] = 0;
+                    if (std::strcmp(info.text, last_info) != 0 || last_info_log == 0 || p.rx_ms - last_info_log >= kPeerInfoLogMs) {
+                        std::strncpy(last_info, info.text, sizeof last_info - 1);
+                        last_info_log = p.rx_ms;
+                        ESP_LOGI(TAG, "Kijelző beállításai: %s", info.text);
+                    }
+                    continue;
+                }
                 og::HeartbeatMsg hb;
                 if (og::decode(p.data, p.len, hb)) {
                     heard = true;
                     last_heard = p.rx_ms;
                     g_peer_rx.fetch_add(1, std::memory_order_relaxed);
                     g_peer_rssi.store(p.rssi, std::memory_order_relaxed);
+                    // A kijelző akkumulátorfeszültsége (lemerülési teszt): félpercenként kerül a naplóba.
+                    if (hb.vbat_mv && (last_bat_log == 0 || p.rx_ms - last_bat_log >= kPeerBatLogMs)) {
+                        last_bat_log = p.rx_ms;
+                        ESP_LOGI(TAG, "Kijelző akkumulátor: %u mV (kijelző üzemideje %lu s, RSSI %d)", hb.vbat_mv,
+                                 (unsigned long)hb.uptime_s, p.rssi);
+                    }
                 }
             }
             continue;
